@@ -1,0 +1,91 @@
+﻿<!DOCTYPE html>
+<html lang="de-de">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
+    <title></title>
+
+    <!-- Bootstrap -->
+    <!--<link href="css/bootstrap.min.css" rel="stylesheet">-->
+    <link href="css/bootstrap.css" rel="stylesheet">
+
+    <link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/themes/smoothness/jquery-ui.css">
+
+    <link rel="stylesheet" href="css/ui.jqgrid-bootstrap.css" />
+    <link rel="stylesheet" href="css/ui.jqgrid-bootstrap-ui.css" />
+
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/kt-gray.css">
+	
+	<link rel="shortcut icon" type="image/x-icon" href="/favicon.ico">
+	
+    <!-- HTML5 shim and Respond.js for IE8 support of HTML5 elements and media queries -->
+    <!-- WARNING: Respond.js doesn't work if you view the page via file:// -->
+    <!--[if lt IE 9]>
+      <script src="https://oss.maxcdn.com/html5shiv/3.7.3/html5shiv.min.js"></script>
+      <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
+    <![endif]-->
+</head>
+<body>
+    <!-- Fixed navbar -->
+    <nav class="navbar navbar-default navbar-static-top">
+        <div class="container">
+            <div class="navbar-header">
+                <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar">
+                    <span class="sr-only">Toggle navigation</span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                </button>
+                <div>
+                    <a href="#" class="navbar-brand">Die Online-Tippgemeinschaft</a>
+                    <div class="navtr">
+                        <select name="cbtrid" id="cbtrid" class="rounded gradient shadow fill"></select>
+                        <!--    -->
+                        <select name="cbmd" id="cbmd" class="rounded gradient shadow fill"></select>
+                        <button name="bprev" id="bprev" class="button">-</button>
+                        <button name="bnext" id="bnext" class="button">+</button>
+                        <button name="bcur" id="bcur" class="button">Akt.</button>
+                    </div>
+                    <div class="clr"></div>
+                </div>
+                <div id="dbg"></div>
+            </div>
+            <div id="navbar" class="navbar-collapse collapse">
+                <ul id="mainmenu" class="nav navbar-nav"></ul>
+                <!--
+                    <ul class="nav navbar-nav navbar-right navtr">
+                        <!- -<li id ="pagetitle"></li>- ->
+                        <li><select name="cbtrid" id="cbtrid" class="rounded gradient shadow fill"></select></li>
+                    </ul>-->
+            </div><!--/.nav-collapse -->
+
+        </div>
+    </nav>
+    <div id="msg" class="ktcontent container"></div>
+
+    <div id="content" class="ktcontent container"></div>
+
+    <footer><div id="login"></div></footer>
+
+
+    <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>
+    <!-- Include all compiled plugins (below), or include individual files as needed -->
+    <script src="js/bootstrap.min.js"></script>
+    <script src="js/verge.min.js"></script>
+
+    <script src="js/jquery.jqGrid.min.js"></script>
+    <script src="js/i18n/grid.locale-de.js"></script>
+
+    <script src="js/kt.grids.js"></script>
+    <script src="js/kt.js"></script>
+    <script src="js/kt.funcs.js"></script>
+
+    <script type="text/javascript">jQuery(document).ready(function () { kt.init(); });</script>
+
+</body>
+</html>

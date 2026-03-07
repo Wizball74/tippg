@@ -1,0 +1,12 @@
+﻿td {
+    /*border-top: 1px solid;*/
+}    
+
+.ui-jqgrid th,
+.ui-th-ltr, .ui-jqgrid .ui-jqgrid-htable th.ui-th-ltr 
+{
+    border-color: inherit;
+    border: 1px solid;
+}    
+
+tr:nth-child(even) { background-color: #E9E9E9; }

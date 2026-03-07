@@ -1,0 +1,22 @@
+# Environment files (contain credentials)
+.env
+*.env
+!.env.example
+
+# IDE
+.idea/
+
+# Dependencies
+/ktsvc/vendor/
+
+# IoT project (separate)
+/autosplash/
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# Node / Angular build
+node_modules/
+dist/
+.angular/

@@ -1,0 +1,408 @@
+body {
+    background:#888;
+    padding:0px;
+    margin:0px;
+    font-size : 12px;
+    FONT-FAMILY: Verdana,Tahoma;
+    color:#FFFF99;
+    margin:15px 15px 0px 15px;
+    }
+
+a {
+    text-decoration:none;
+    color:#FF9;
+    font-weight:bold;
+  }
+a.active {
+    text-decoration:none;
+    color:#F99;
+    font-weight:bold;
+  }
+
+
+a.sub {
+  font-size:10px;
+  line-height:12pt;
+      }
+
+a.subactive {
+    font-size:10px;
+    line-height:12pt;
+    text-decoration:none;
+    color:#F99;
+    font-weight:bold;
+      }
+
+
+A:hover      {
+                 color: #FF9900;
+             }
+pre {
+    font-size:11px;
+    color:blue;
+    }
+
+.greek {
+    color:#999;
+    }
+
+ol {
+    margin-right:40px;
+    }
+li {
+    margin-bottom:10px;
+    }
+
+    #main {
+        margin-right:2;
+        margin-left:2;
+        margin-top:2;
+        margin-bottom:2;
+        text-align:left;
+        min-width:500px;
+        }
+    #border {
+        margin-right:2%;
+        margin-left:2%;
+        margin-top:2%;
+        padding-bottom:60%;
+        background:#BBB;
+        border:1px solid #000;
+        text-align:left;
+        }
+
+    #menufooter  {
+        margin-bottom:20px;
+        }
+
+    #menusitelinks {
+        font-size:12px;
+        line-height:14pt;
+        }
+
+
+    .menus {
+        border-left:10px solid #000;
+        border-bottom:1px solid #000;
+        border-top:1px solid #000;
+        border-right:1px solid #000;
+        background:#555;
+        color:#000;
+        padding:10px;
+        margin-bottom:10px;
+        text-align:left;
+        line-height:11pt;
+        font-size:10px;
+        }
+
+    #menu {
+        width:120px;
+        padding:0px;
+        margin-left:-3px;
+        margin-right:5px;
+        float:left;
+        /*
+        IE5x PC mis-implements the box model. Because of that we sometimes have
+        to perform a little CSS trickery to get pixel-perfect display across browsers.
+        The following bit of code was proposed by Tantek Celik, and it preys upon a CSS
+        parsing bug in IE5x PC that will prematurly close a style rule when it runs
+        into the string "\"}\"". After that string appears in a rule, then, we can override
+        previously set attribute values and only browsers without the parse bug will
+        recognize the new values. So any of the name-value pairs above this comment
+        that we need to override for browsers with correct box-model implementations
+        will be listed below.
+
+        We use the voice-family property because it is likely to be used very infrequently,
+        and where it is used it will be set on the body tag. So the second voice-family value
+        of "inherit" will override out bogus "\"}\"" value and allow the proper value to
+        cascade down from the body tag.
+
+        The style rule immediately following this rule offers another chance for CSS2
+        aware browsers to pick up the values meant for correct box-model implementations.
+        It uses a CSS2 selector that will be ignored by IE5x PC.
+
+        Read more at http://www.glish.com/css/hacks.asp
+        */
+        voice-family: "\"}\"";
+        voice-family: inherit;
+        }
+    html>body #menu {
+        margin-left:-6px;
+        }
+
+    p,h1,h2 {
+        margin-top:0px;
+        margin-bottom:10px;padding:0px 20px 0px 20px;
+        }
+
+    h2 {
+        font-size:16px;
+        padding-top:0px;
+        margin-bottom:0px;
+        }
+
+    h3 {
+        font-size:12px;
+        padding-top:0px;
+        padding-bottom:10px;
+        margin-bottom:0px;
+        color:red;
+        }
+
+    #title h1 {
+        font-size:18px;
+        border-top:1px solid #000;
+        border-bottom:1px solid #000;
+        border-right:10px solid #000;
+        border-left:10px solid #000;
+        margin-top:10px;
+        padding-left:10px;
+        padding-right:10px;
+        padding-top:5px;
+        padding-bottom:5px;
+        background:#555;
+        text-align:center;
+        }
+
+    #title h2 {
+        font-size:12px;
+        border-top:1px solid #000;
+        border-bottom:1px solid #000;
+        border-right:10px solid #000;
+        border-left:10px solid #000;
+        margin-top:10px;
+        margin-bottom:10px;
+        padding-left:10px;
+        padding-right:10px;
+        background:#555;
+        text-align:center;
+        }
+
+    #title {
+        padding:0px;
+        margin-right:-6px;
+        margin-left:-6px;
+        width:100%; /* I have to specify a width for IE5 PC, or else it ignores the top-margin of the H1 element therein. But 100% is different in browsers without IE5x PC's broken box model, so I have to use the CSS2 selector trick to set the width to auto for those browsers*/
+        voice-family: "\"}\"";
+        voice-family: inherit;
+        width:auto;
+        }
+    html>body #title {
+        width:auto;
+        }
+
+
+
+    a.sitelinksred { color:#c00; }
+    a.sitelinksredorange { color:#f60; }
+    a.sitelinksorange { color:#f90; }
+    a.sitelinksyellow { color:#fc0; }
+
+    a.anchor {
+        font-size:10px;
+        font-weight:normal;
+        }
+
+    p.anchor {
+        text-align:right;
+        }
+
+    .links {
+        margin-left:50px;
+        margin-right:30px;
+        }
+
+    #layouts {
+        font-size:10px;
+        margin-left:10px;
+        }
+
+    #content {
+        padding:0px;
+        margin-left:150px;
+        margin-right:-6px;
+        voice-family: "\"}\"";
+        voice-family: inherit;
+        }
+    html>body #content {
+        margin-right:-6px;
+        }
+    .content {
+        border-left:1px solid #000;
+        border-bottom:1px solid #000;
+        border-top:1px solid #000;
+        border-right:10px solid #000;
+        background:#555;
+        color:#000;
+        padding:10px;
+        margin-bottom:10px;
+        text-align:left;
+        }
+td
+{
+    font-size : 14px;
+    FONT-FAMILY: Verdana,Tahoma;
+}
+td.chdr
+{
+    font-size : 16px;
+    FONT-weight : bold;
+
+}
+td.chdr2
+{
+    font-size : 14px;
+    FONT-weight : bold;
+
+}
+td.chdr3
+{
+    font-size : 12px;
+    FONT-weight : bold;
+}
+
+td.chdr4
+{
+    font-size : 10px;
+    FONT-weight : bold;
+}
+
+a.clink
+{
+    font-weight:normal;
+}
+
+tr.row1           {
+                    background:#666666;
+                    color:#C0C080;
+                  }
+
+tr.row2           {
+                    background:#444444;
+                    color:#C0C080;
+                  }
+
+tr.row3           {
+                    background:#999944;
+                    color:#F0F080;
+                  }
+
+tr.row4           {
+                    background:#994444;
+                    color:#F0F080;
+                  }
+INPUT
+{
+    FONT-SIZE: 12px;
+    FONT-FAMILY: Tahoma;
+    BACKGROUND-COLOR: #555555;
+    border-color : #777777 ;
+    color : #FFFFAA;
+}
+
+INPUT.row1
+{
+    background:#666666;
+}
+
+INPUT.row2
+{
+    background:#444444;
+}
+
+INPUT.disabledrow1
+{
+    background:#666666;
+    border:0px;
+}
+
+INPUT.disabledrow2
+{
+    background:#444444;
+    border:0px;
+}
+
+TEXTAREA
+{
+    FONT-SIZE: 12px;
+    BORDER-COLOR: #777777;
+    color : #FFFFAA;
+    FONT-FAMILY: Tahoma;
+    BACKGROUND-COLOR: #555555;
+}
+
+SELECT
+{
+    FONT-SIZE: 12px;
+    BORDER-COLOR: #777777;
+    color : #FFFFAA;
+    FONT-FAMILY: Tahoma;
+    BACKGROUND-COLOR: #555555;
+}
+
+hr
+{
+    color : #888888;
+}
+
+.sum
+{
+    color : #FFFF40;
+}
+
+/*********/
+/* Forum */
+/*********/
+td.fhdr
+{
+    font-size : 14px;
+    FONT-weight : bold;
+
+}
+
+td.fcol
+{
+    font-size : 12px;
+}
+
+td.subject
+{
+    font-size : 10px;
+    color:#F4F4F4;
+}
+
+td.poster
+{
+    font-size : 14px;
+    color:#F4F4C4;
+    FONT-weight : bold;
+}
+
+td.text
+{
+    font-size : 12px;
+    color:#F0F080;
+}
+
+td.quote
+{
+    font-size : 12px;
+    background:#222222;
+}
+
+tr.fhdr          {
+                    background:#222222;
+                    color:#C0C080;
+                  }
+
+tr.frow1          {
+                    background:#666666;
+                    color:#C0C080;
+                  }
+
+tr.frow2          {
+                    background:#444444;
+                    color:#C0C080;
+                  }
+
+

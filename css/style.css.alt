@@ -1,0 +1,202 @@
+﻿#bLogin { width: 120px; height: 30px; }
+#login_loading { display: none; }
+#login_response { display: none; color: red;text-align: center;margin-top: 10px; }
+
+.navtr select { margin-right:0.5em; border-radius:4px; margin:1px;}
+.navtr button:first-of-type { margin-left:0.5em;}
+.navtr { display:none; }
+
+.content { margin-right:0.5em; margin-bottom:0.5em;}
+
+#msg { margin-bottom: 1em;}
+
+.error {
+	border:solid 2px red;  
+    padding: 5px 5px 5px 25px;
+    border-radius:5px;
+	color: red;
+	background: url(images/error.png) no-repeat 5px 5px;
+	margin: 5px 0 5px 20px;
+}
+
+.status {
+	border:solid 2px green; 
+    padding: 5px 5px 5px 25px;
+    border-radius:5px;
+	color: #333333;
+	background: url(images/ok.png) no-repeat 5px 5px;
+	margin: 5px 0 5px 20px;
+}
+
+
+.kttable,
+.kttable .rounded { border: 0 none; } 
+.kttable th { font-weight: normal; padding:4px 2px; }
+.kttable td { font-weight: normal; padding:2px; }
+
+.kttable td.Date { width:60px;}
+.kttable td.Team { width:250px;}
+.kttable td.Result { width:60px;}
+.kttable .bold  { font-weight: bold; }
+
+.ui-state-default .ui-icon.icon-print { background-image: url(images/print.png); }
+.ui-state-default .ui-icon.icon-disk { background-image: url(images/save.png); }
+.ui-state-default .ui-icon.icon-start { background-image: url(images/action_go.png); }
+
+/**** Grids **************************************************************************/
+.ui-jqgrid th { font-size: 0.9em; }
+.ui-jqgrid td { font-size: 0.95em; }
+
+.ui-jqgrid p { margin:0;}
+.ui-jqgrid .ui-jqgrid-htable .ui-th-div { height: auto; }
+.ui-th-column, .ui-jqgrid .ui-jqgrid-htable th.ui-th-column { text-align: center; }
+ 
+.ui-jqgrid [role=gridcell] { padding:2px; }
+.ui-jqgrid span.deadline { font-weight: bold;color: red;float: none;display: inline; margin-right:1em;}
+
+.ui-jqgrid .ui-jqgrid-title { font-weight:bold;}
+
+/*
+div.ui-jqgrid.ui-widget-content,
+tr.ui-widget-content { background: none; }
+*/
+/* div.ui-jqgrid tr.ui-state-hover td { background: none; /* IE * //*	font-weight: bold;* / } */
+/*
+.ui-jqgrid tr.jqgrow.bldit td,
+tbody tr.bldit td { font-style: italic; font-weight: bold; }
+div.ui-jqgrid tr.ui-state-hover { background: 0 none; }
+.ui-jqgrid-sdiv tr:last-child td:last-child { border-radius: 0 0 10px 0; }
+
+.ui-jqgrid .ui-jqgrid-pager.ui-jqgrid-toolbar { height: 28px;}
+.ui-jqgrid .ui-jqgrid-toolbar td { margin-right: 5px; }
+.ui-jqgrid .ui-jqgrid-toolbar .ui-pg-selbox { height: 24px;padding: 2px; }
+.ui-jqgrid .ui-jqgrid-toolbar .ui-pg-input  {height: 18px;font-size: 0.9em;padding: 1px 2px; }
+*/
+
+.ui-jqgrid tr.ui-row-ltr td { border-right: 1px dotted; }
+
+.ui-jqgrid td input, 
+.ui-jqgrid td select,
+.ui-jqgrid td textarea 
+{
+	margin: 2%;
+	padding: 1px 3px;
+	width: 95%;
+	border-radius: 4px;
+	font-size: 0.95em;
+}
+
+.ui-jqgrid td.Date { font-size: 0.9em;}
+.ui-jqgrid td.Time { font-size: 0.9em;}
+
+.ui-jqgrid td.Pos { font-weight: bold;}
+.ui-jqgrid td.Pts { font-weight: bold;}
+.ui-jqgrid td.Pts1 { font-weight: bold; font-size: 0.9em;}
+.ui-jqgrid td.Bonus { font-weight: bold;}
+.ui-jqgrid td.Result { font-weight: bold;}
+.ui-jqgrid p.hdrRes{ font-weight: bold;}
+
+.btnGrid {
+	font-weight: bold;
+	border: 1px solid #111111;    
+	-moz-box-shadow:1px 1px 2px #999999;
+	-webkit-box-shadow:1px 2px 1px #999999;
+	box-shadow:1px 1px 2px #999999;	
+	-moz-border-radius:6px;
+	-webkit-border-radius:6px;
+	border-radius:6px;
+	cursor: pointer;   
+	padding: 1px 2px;
+	font-size: 0.9em !important;
+	margin: 2px 2px !important;
+}
+	
+.btnGrid img { height: 12px; }
+.ui-jqgrid .btnGrid span { display: block; margin: 1px 6px 1px 2px; float:left;}
+.ui-jqgrid-toolbar .btnGrid  { padding: 1px 4px; }
+
+.btnGridImg {
+	color: #FFFFFF;
+	font-weight: bold;
+	background: transparent;
+	border: 0 none;    
+	cursor: pointer;
+	padding: 0;
+	font-size: 0.9em !important;
+	margin: 2px 4px 1px 2px !important;
+}
+.btnGridImg img { height: 16px; }
+
+/* Logos */
+.logo {
+    background-image: url("images/logos.png");
+    background-repeat: no-repeat;
+    top: 0;
+    left: 0;
+    height: 18px;
+    width: 18px;
+    overflow: hidden;
+    position: relative;
+    float: left;   
+}
+
+.ui-jqgrid .logo { margin: 2px 0 0 1px; }
+
+.l1 { background-position: -36px -468px; }
+.l2 { background-position: -36px -936px; }
+.l3 { background-position: 0px -378px; }
+.l4 { background-position: -18px -1134px; }
+.l5 { background-position: -36px -828px; }
+.l6 { background-position: 0px -432px; }
+.l7 { background-position: -18px -972px; }
+.l8 { background-position: -18px -1116px; }
+.l9 { background-position: 0px -630px; }
+.l10 { background-position: -18px -1458px; }
+.l11 { background-position: -36px -306px; }
+.l12 { background-position: -36px -360px; }
+.l13, .l21 { background-position: -36px -594px; }
+.l14 { background-position: -36px -990px; }
+.l15 { background-position: -36px -1008px; }
+.l16 { background-position: -36px -1026px; }
+.l17 { background-position: -36px -1062px; }  
+.l18 { background-position: 0px -234px; }  
+.l19 { background-position: 0px -684px; }  
+.l20 { background-position: 0px -1962px; }
+.l22 { background-position: -18px -738px; }
+.l23 { background-position: -18px -1008px; }
+.l24 { background-position: -18px -1044px; }
+.l25 { background-position: -18px -1080px; }
+.l26 { background-position: -18px -1224px; }
+.l27 { background-position: -18px -1350px; }
+.l28 { background-position: -36px -612px; }
+.l29 { background-position: -36px -414px; }
+.l30 { background-position: -18px -360px; }
+.l31 { background-position: -36px -756px; }
+.l33 { background-position: 0px -1998px; }
+.l34 { background-position: -36px -522px; }
+.l35 { background-position: -36px -1458px; }
+.l36 { background-position: -36px -1602px; }
+
+
+@media (min-width: 1600px) {
+  .container {
+    width: 1570px;
+  }
+}
+
+@media (max-width: 767px) {
+    .ktcontent { padding:0 1px; }
+
+    .navbar-brand { display:none; }
+
+    .ktgrid { padding:0 1px; }
+
+
+    .ui-jqgrid td.Team { font-size: 0.85em;}
+    .ui-jqgrid td.Name { font-size: 0.85em;}
+    .ui-jqgrid td.Date { font-size: 0.8em;}
+    .ui-jqgrid td.Time { font-size: 0.8em;}
+
+    .ui-userdata-top { display: none; }
+    .ui-userdata-top.btn { display: block; }
+}
