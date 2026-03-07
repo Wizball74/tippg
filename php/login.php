@@ -29,21 +29,20 @@
 		}
 		else
 		{
-			/* Username and password correct, register session variables */
+			/* Username correct, register session */
 			$_SESSION['username'] = $user;
-			$_SESSION['password'] = $md5pass;
-			$kt->setUser($_SESSION['username']);
+			$kt->setUser($user);
 
 			if(isset($_POST['remember']))
 			{
+				$token = $kt->generateRememberToken($kt->user['tnid']);
 				$cookieOptions = [
 					'expires'  => time() + 60 * 60 * 24 * 30,
 					'path'     => '/',
 					'httponly'  => true,
 					'samesite' => 'Strict',
 				];
-				setcookie("cookname", $_SESSION['username'], $cookieOptions);
-				setcookie("cookpass", $_SESSION['password'], $cookieOptions);
+				setcookie("remember_token", $token, $cookieOptions);
 			}
 
 			$kt->jsonout(array('ok' => true, 'username' => utf8_encode($kt->user['name'])));

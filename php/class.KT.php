@@ -281,85 +281,105 @@ class KT
 	 *****************************************************************************************************************************/
 	function checkLogin()
 	{
-		/* Check if user has been remembered */
-		if (isset($_COOKIE['cookname']) && isset($_COOKIE['cookpass'])) {
-			$_SESSION['username'] = $_COOKIE['cookname'];
-			$_SESSION['password'] = $_COOKIE['cookpass'];
+		/* Check if user has been remembered via token */
+		if (isset($_COOKIE['remember_token']) && !isset($_SESSION['username'])) {
+			$token = $_COOKIE['remember_token'];
+			$sql = sprintf("SELECT user FROM %s WHERE remember_token = ?", $this->TABLE[teilnehmer]);
+			$result = $this->db->prepare($sql, 's', [$token]);
+			if ($result && $result->num_rows > 0) {
+				$row = $result->fetch_assoc();
+				$_SESSION['username'] = $row['user'];
+			}
 		}
 
-		/* Username and password have been set */
-		if (isset($_SESSION['username']) && isset($_SESSION['password'])) {
-			/* Confirm that username and password are valid */
-			if ($this->confirmUser($_SESSION['username'], $_SESSION['password']) != 0) {
-				/* Variables are incorrect, user not logged in */
+		/* Username has been set in session */
+		if (isset($_SESSION['username'])) {
+			$this->setUser($_SESSION['username']);
+			if (!$this->user) {
 				unset($_SESSION['username']);
-				unset($_SESSION['password']);
-				$this->user = null;
 				return false;
 			}
 
-			$this->db->Query(sprintf(
-				"update %s set lastLogin='%s' where user='%s'",
-				$this->TABLE[teilnehmer],
-				date("YmdHis"),
-				$_SESSION['username']
-			));
+			$sql = sprintf("UPDATE %s SET lastLogin = ? WHERE tnid = ?", $this->TABLE[teilnehmer]);
+			$this->db->prepareExecute($sql, 'si', [date("YmdHis"), $this->user['tnid']]);
 
-			$this->setUser($_SESSION['username']);
 			return true;
 		}
-		/* User not logged in */ else {
-			return false;
-		}
+
+		return false;
 	}
 
 	function confirmUser($username, $password)
 	{
-		/* Add slashes if necessary (for query) */
-		// if(!get_magic_quotes_gpc()) { $username = addslashes($username); }
-
 		/* Verify that user is in database */
-		$result = $this->db->Query(sprintf("select password from %s where user='%s'", $this->TABLE[teilnehmer], $username));
+		$sql = sprintf("SELECT tnid, password FROM %s WHERE user = ?", $this->TABLE[teilnehmer]);
+		$result = $this->db->prepare($sql, 's', [$username]);
 		if (!$result || ($result->num_rows < 1)) {
-			return 1;
-		} //Indicates username failure
+			return 1; // Username not found
+		}
 
-		/* Retrieve password from result, strip slashes */
 		$dbarray = $result->fetch_array();
-		$dbarray['password']  = stripslashes($dbarray['password']);
-		$password = stripslashes($password);
+		$dbPassword = $dbarray['password'];
 
-		/* Validate that password is correct */
-		if ($password == $dbarray['password']) {
-			return 0;
-		} //Success! Username and password confirmed
-		else {
+		/* Support both bcrypt (new) and MD5 (legacy) */
+		if (password_get_info($dbPassword)['algo'] !== null && password_get_info($dbPassword)['algoName'] !== 'unknown') {
+			// bcrypt hash
+			if (password_verify($password, $dbPassword)) {
+				return 0;
+			}
 			return 2;
-		} //Indicates password failure
+		} else {
+			// Legacy MD5 hash
+			if ($password === $dbPassword) {
+				// Migrate to bcrypt
+				$newHash = password_hash($password, PASSWORD_DEFAULT);
+				$sql = sprintf("UPDATE %s SET password = ? WHERE tnid = ?", $this->TABLE[teilnehmer]);
+				$this->db->prepareExecute($sql, 'si', [$newHash, $dbarray['tnid']]);
+				return 0;
+			}
+			return 2;
+		}
 	}
 
 	function setUser($username)
 	{
-		// Userdaten laden
-		$this->user = $this->db->Query(sprintf("select tnid, name, userlevel from %s where user ='%s'", $this->TABLE[teilnehmer], $username))->fetch_assoc();
-		$this->db->Query(sprintf("update %s set lastLogin2=CURRENT_TIMESTAMP where tnid=%d", $this->TABLE[teilnehmer], $this->user['tnid']));
+		$sql = sprintf("SELECT tnid, name, userlevel FROM %s WHERE user = ?", $this->TABLE[teilnehmer]);
+		$result = $this->db->prepare($sql, 's', [$username]);
+		if ($result && $result->num_rows > 0) {
+			$this->user = $result->fetch_assoc();
+			$sql = sprintf("UPDATE %s SET lastLogin2 = CURRENT_TIMESTAMP WHERE tnid = ?", $this->TABLE[teilnehmer]);
+			$this->db->prepareExecute($sql, 'i', [$this->user['tnid']]);
+		} else {
+			$this->user = null;
+		}
+	}
+
+	function generateRememberToken($tnid)
+	{
+		$token = bin2hex(random_bytes(32));
+		$sql = sprintf("UPDATE %s SET remember_token = ? WHERE tnid = ?", $this->TABLE[teilnehmer]);
+		$this->db->prepareExecute($sql, 'si', [$token, $tnid]);
+		return $token;
 	}
 
 	function logout()
 	{
-		if (isset($_COOKIE['cookname']) && isset($_COOKIE['cookpass'])) {
-			$cookieOptions = ['expires' => time() - 3600, 'path' => '/', 'httponly' => true, 'samesite' => 'Strict'];
-			setcookie("cookname", "", $cookieOptions);
-			setcookie("cookpass", "", $cookieOptions);
-		} // if
+		// Remember-Token loeschen
+		if ($this->user) {
+			$sql = sprintf("UPDATE %s SET remember_token = NULL WHERE tnid = ?", $this->TABLE[teilnehmer]);
+			$this->db->prepareExecute($sql, 'i', [$this->user['tnid']]);
+		}
 
-		/* Kill session variables */
+		if (isset($_COOKIE['remember_token'])) {
+			$cookieOptions = ['expires' => time() - 3600, 'path' => '/', 'httponly' => true, 'samesite' => 'Strict'];
+			setcookie("remember_token", "", $cookieOptions);
+		}
+
 		unset($_SESSION['username']);
-		unset($_SESSION['password']);
 		$this->user = null;
 
-		$_SESSION = array(); // reset session array
-		session_destroy();   // destroy session.
+		$_SESSION = array();
+		session_destroy();
 		return false;
 	}
 
@@ -899,8 +919,8 @@ class KT
 
 					if ($valid) {
 						if ($tip != '') $savecnt++;
-						$sql = sprintf("REPLACE INTO %s (sid,tnid,Tipp) values (%d,%d,'%s')", $this->TABLE[tipps], $d['sid'], $d['tnid'], $d['Tip']);
-						$this->db->Query($sql);
+						$sql = sprintf("REPLACE INTO %s (sid,tnid,Tipp) VALUES (?, ?, ?)", $this->TABLE[tipps]);
+						$this->db->prepareExecute($sql, 'iis', [(int)$d['sid'], (int)$d['tnid'], $d['Tip']]);
 					}
 				}
 

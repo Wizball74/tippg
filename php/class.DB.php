@@ -44,6 +44,56 @@
 			return $data;
 		}
 
+		function prepare($sql, $types, $params)
+		{
+			$db = new mysqli($this->host, $this->userid, $this->pw, $this->database);
+
+			$stmt = $db->prepare($sql);
+			if (!$stmt) {
+				error_log("DB Prepare Error: " . $db->error . " | SQL: " . $sql);
+				$GLOBALS['kt']->jsonout(array('message' => 'Ein Datenbankfehler ist aufgetreten.'));
+				return false;
+			}
+
+			$stmt->bind_param($types, ...$params);
+
+			if (!$stmt->execute()) {
+				error_log("DB Execute Error: " . $stmt->error . " | SQL: " . $sql);
+				$GLOBALS['kt']->jsonout(array('message' => 'Ein Datenbankfehler ist aufgetreten.'));
+				return false;
+			}
+
+			$result = $stmt->get_result();
+			return $result;
+		}
+
+		function prepareGetData($sql, $types, $params)
+		{
+			$result = $this->prepare($sql, $types, $params);
+			if (!$result) return array();
+
+			$data = array();
+			while ($row = $result->fetch_assoc()) {
+				$data[] = $row;
+			}
+
+			return $data;
+		}
+
+		function prepareExecute($sql, $types, $params)
+		{
+			$db = new mysqli($this->host, $this->userid, $this->pw, $this->database);
+
+			$stmt = $db->prepare($sql);
+			if (!$stmt) {
+				error_log("DB Prepare Error: " . $db->error . " | SQL: " . $sql);
+				return false;
+			}
+
+			$stmt->bind_param($types, ...$params);
+			return $stmt->execute();
+		}
+
 	}
 
 ?>
