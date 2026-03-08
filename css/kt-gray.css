@@ -1,157 +1,115 @@
-﻿/**** Ajax-Load-Info ****************************************************************/
+/**** Ajax-Load-Info ****************************************************************/
 
 #loading {
-	background-color: #B0B0B0;
-	background-image: -moz-radial-gradient(center, #F0F0F0 0%, #B0B0B0 100%);
-	background-image: -webkit-radial-gradient(center,  #F0F0F0 0%, #B0B0B0 100%);
+	background-color: #f8f9fa;
 }
 
-#loading h1 { color: #000000; }
+#loading h1 { color: #1a2332; }
 
 /**** Basis-Container ****************************************************************/
 
-div#username { color: #222222;}
+div#username { color: #1a2332; font-weight: 500; }
 
 .shadow{
-	-moz-box-shadow: 1px 1px 1px #777777;
-	-webkit-box-shadow: 1px 1px 1px #777777;
-	box-shadow: 1px 1px 1px #777777;
+	box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
 }
 
 /**** Trennlinien ****************************************************************/
 
-.line{ background-color:#A0A0A0; border-bottom:1px solid #B0B0B0; }
-
+.line{ background-color: #dee2e6; border-bottom: 1px solid #e9ecef; }
 
 /* Buttons */
 
 .button {
-	color: #FFFFFF;
-	background-color: #47577F;
-	background-image: -webkit-linear-gradient(center top , #A2ABC3, #7A7A7A 50%, #666666 50%, #BBBBBB);
-	background-image: -moz-linear-gradient(center top , #A2ABC3, #7A7A7A 50%, #666666 50%, #BBBBBB);
+	color: #fff;
+	background-color: #2c5f2d;
+	border: none;
+	border-radius: 6px;
+	padding: 4px 12px;
+	font-weight: 500;
+	transition: background-color 0.15s ease;
 }
+
 .btnGrid {
-	color: #FFFFFF;
-	background-color: #47577F;
-	background-image: -webkit-linear-gradient(center top , #A2ABC3, #7A7A7A 50%, #666666 50%, #BBBBBB);
-	background-image: -moz-linear-gradient(center top , #A2ABC3, #7A7A7A 50%, #666666 50%, #BBBBBB);
+	color: #fff;
+	background-color: #2c5f2d;
+	border: none;
+	transition: background-color 0.15s ease;
 }
 
 .btnGrid:hover,
-.button:hover 
+.button:hover
 {
-	background-color: #27375F;
-	background-image: -webkit-linear-gradient(top, #B2BBd3, #8A8A8A 50%, #767676 50%, #CBCBCB);
-	background-image: -moz-linear-gradient(top, #B2BBd3, #8A8A8A 50%, #767676 50%, #CBCBCB);
+	background-color: #1e4620;
 }
 
-.button[disabled], .button[disabled]:hover 
+.button[disabled], .button[disabled]:hover
 {
-	color: #BBBBBB;
-	border: 1px solid #444444;    
-	background-color: #777777;
-	background-image: -webkit-linear-gradient(top, #999999, #888888 50%, #777777 50%, #666666);
-	background-image: -moz-linear-gradient(top, #999999, #888888 50%, #777777 50%, #666666);
+	color: #adb5bd;
+	border: 1px solid #dee2e6;
+	background-color: #e9ecef;
 }
 
 /**** Tabellen ***********************************************************************/
 
-.rounded { border: 1px solid #B0B0B0; }
+.rounded { border: 1px solid #dee2e6; }
 
-.rounded td, .rounded th { border-left: 1px solid #B0B0B0; border-top: 1px solid #B0B0B0; }
+.rounded td, .rounded th { border-left: 1px solid #e9ecef; border-top: 1px solid #e9ecef; }
 
 .rounded th, td.hdr  {
-	background-color: #E2E2E2; 
-	background-image: -moz-linear-gradient(center top , #E2E2E2, #CCCCCC);
-	color: #222222;
+	background-color: #1a2332;
+	color: #fff;
+	font-weight: 500;
 }
 
 .kttable,
 .kttable .rounded,
-.kttable th { border: 0 none; } 
+.kttable th { border: 0 none; }
 
-.kttable tbody tr:nth-child(odd) { background-color: #E1DBBA; }
-.kttable tbody tr:nth-child(even) { background-color: #D1CBAA; }
+.kttable tbody tr:nth-child(odd) { background-color: #ffffff; }
+.kttable tbody tr:nth-child(even) { background-color: #f4f6f8; }
 
-.kttable tbody tr:nth-child(odd) td { color: #3C3C3C;}
-.kttable tbody tr:nth-child(even) td { color: #3C3C3C;}
-.kttable tbody tr td.hdr { color: white;} 
+.kttable tbody tr:nth-child(odd) td { color: #2c3e50;}
+.kttable tbody tr:nth-child(even) td { color: #2c3e50;}
+.kttable tbody tr td.hdr { color: white;}
 
-/* Hervorhebung geänderter Zeilen */
-.kttable tbody tr.changed:nth-child(odd) { background-color: rgba(255, 0, 0, 0.2); }
-.kttable tbody tr.changed:nth-child(even) { background-color: rgba(255, 0, 0, 0.4); }
+/* Hervorhebung geaenderter Zeilen */
+.kttable tbody tr.changed:nth-child(odd) { background-color: rgba(231, 76, 60, 0.1); }
+.kttable tbody tr.changed:nth-child(even) { background-color: rgba(231, 76, 60, 0.15); }
 
 
 /**** Formulare **********************************************************************/
-/*
-input.highlight, select.highlight, textarea.highlight {
-	background-color: #FFFF00;
-}
 
-input.gradient.highlight, select.gradient.highlight, textarea.gradient.highlight {
-	background-color: #FFFF00;
-	background-image: -moz-linear-gradient(center bottom, #E0E000 0%, #D7D700 54%, #ADAD00 100%);
-	background-image: -webkit-linear-gradient(left bottom,left top, #E0E000 0%, #D7D700 54%, #ADAD00 100%);
-}
-*/
 /**** Login ****************************************************************/
 
 #login
 {
-	color: black;
-	background-color: #B0B0B0;
-	background-image: -moz-linear-gradient(center bottom, rgba(176,176,176,0.8) 0%, rgba(192,192,192, 0.5) 74%, rgba(176,176,176,0.8) 100%);
-	background-image: -webkit-linear-gradient(center bottom, rgba(176,176,176,0.8) 0%, rgba(192,192,192, 0.5) 74%, rgba(176,176,176,0.8) 100%);
+	color: #1a2332;
+	background-color: #fff;
+	border-radius: 8px;
+	box-shadow: 0 4px 24px rgba(0,0,0,0.12);
 }
 
-#login a { color: black; }
-#login h2 { color: black; }
+#login a { color: #2c5f2d; }
+#login h2 { color: #1a2332; }
 
-#login input::-webkit-input-placeholder { color: #555555; }
-#login input:-moz-placeholder { color: #555555; }
+#login input::placeholder { color: #adb5bd; }
 
 /**** Grids **************************************************************************/
 
-.ui-jqgrid tr.jqgrow.gridRowEven td { background-color: #D1CBAA; color: #3C3C3C; 
-                                         border-bottom-color: #EFEFEF; border-right-color: #000000;}
-.ui-jqgrid tr.jqgrow  td { background-color: #E1DBBA; color: #3C3C3C; 
-                              border-bottom-color: #EFEFEF; border-right-color: #000000;}
-
-/*
-
-div.ui-jqgrid tr.jqgroup td,
-div.ui-jqgrid tr.jqfoot td,
-div.ui-jqgrid tr.footrow td { background-color: #B1A670; }
-
-div.ui-jqgrid tr.ui-state-hover td
-{
-	color: black;
-	background: none; /* IE * /
-	background-color: #EFEFEF !important;
-	/*background: none; /* IE * /
-	background-color: #FFFF00;
-	background-image: -moz-linear-gradient(center top , #FFFFC0, #FFFF00, #808000);
-	background-image: -webkit-linear-gradient(center top , #FFFFC0, #FFFF00, #808000);* /
-}
-
-div.ui-jqgrid tr.ui-state-highlight td,
-div.ui-jqgrid tr.ui-state-highlight.gridRowEven td  { background-color: #FFFF80; }
-
-div.ui-jqgrid div.red  { color: red;font-weight: bold;}
-tbody tr.red:nth-child(odd) td { background-color: rgba(255, 0, 0, 0.2); }
-tbody tr.red:nth-child(even) td { background-color: rgba(255, 0, 0, 0.4); }
-
-    */
+.ui-jqgrid tr.jqgrow.gridRowEven td { background-color: #f4f6f8; color: #2c3e50;
+                                         border-bottom-color: #e9ecef; border-right-color: #e9ecef;}
+.ui-jqgrid tr.jqgrow td { background-color: #ffffff; color: #2c3e50;
+                              border-bottom-color: #e9ecef; border-right-color: #e9ecef;}
 
 .ui-jqgrid tr.jqgrow.rowOpponent td,
-.ui-jqgrid tr.jqgrow.gridRowEven.rowOpponent td  { font-weight: bold;background-color: #C4B983;}
+.ui-jqgrid tr.jqgrow.gridRowEven.rowOpponent td  { font-weight: 600; background-color: #fff3e0;}
 .ui-jqgrid tr.jqgrow.rowUser td,
-.ui-jqgrid tr.jqgrow.gridRowEven.rowUser td { font-weight: bold;background-color: #B1A670; }
+.ui-jqgrid tr.jqgrow.gridRowEven.rowUser td { font-weight: 600; background-color: #e8f5e9; }
 
-.ui-jqgrid tr td.Pos { color: #6C6F8F !important;}
-.ui-jqgrid tr td.Pts { color: #6C6F8F !important;}
-.ui-jqgrid tr td.Pts1 { color: #626262 !important;}
-.ui-jqgrid tr td.Bonus { color: #6C6F8F !important;}
+.ui-jqgrid tr td.Pos { color: #2c5f2d !important;}
+.ui-jqgrid tr td.Pts { color: #2c5f2d !important;}
+.ui-jqgrid tr td.Pts1 { color: #5a6c7d !important;}
+.ui-jqgrid tr td.Bonus { color: #2c5f2d !important;}
 .ui-jqgrid tr td.Result { }
-.ui-jqgrid p.hdrRes { color: #626262; }
+.ui-jqgrid p.hdrRes { color: #5a6c7d; }
