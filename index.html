@@ -62,12 +62,6 @@
                     </ul>-->
             </div><!--/.nav-collapse -->
 
-            <div class="theme-toggle" id="themeToggle" title="Design umschalten" style="position:absolute;right:10px;top:8px;cursor:pointer;display:flex;align-items:center;font-size:12px;color:#777;user-select:none;">
-                <span id="themeLabel" style="margin-right:6px;">Klassisch</span>
-                <span id="themeSwitchTrack" style="display:inline-block;width:36px;height:20px;border-radius:10px;background:#ccc;position:relative;transition:background 0.2s;">
-                    <span id="themeSwitchKnob" style="display:block;width:16px;height:16px;border-radius:50%;background:#fff;position:absolute;top:2px;left:2px;transition:left 0.2s;box-shadow:0 1px 2px rgba(0,0,0,0.2);"></span>
-                </span>
-            </div>
         </div>
     </nav>
     <div id="msg" class="ktcontent container"></div>
@@ -97,41 +91,33 @@
         var cssBase = document.getElementById('cssBase');
         var cssTheme = document.getElementById('cssTheme');
 
-        function applyTheme(modern) {
-            if (modern) {
-                cssBase.href = 'css/style-modern.css';
-                cssTheme.href = 'css/kt-modern.css';
-            } else {
-                cssBase.href = 'css/style-classic.css';
-                cssTheme.href = 'css/kt-classic.css';
-            }
+        var themes = {
+            classic: { base: 'css/style-classic.css', theme: 'css/kt-classic.css' },
+            modern:  { base: 'css/style-modern.css',  theme: 'css/kt-modern.css' },
+            premium: { base: 'css/style-premium.css', theme: 'css/style-premium.css' }
+        };
+
+        function applyTheme(name) {
+            var t = themes[name] || themes.classic;
+            cssBase.href = t.base;
+            cssTheme.href = t.theme;
         }
 
         // Gespeicherte Einstellung laden (Standard: klassisch)
-        var saved = localStorage.getItem('kt_theme');
-        var isModern = (saved === 'modern');
-        applyTheme(isModern);
+        var currentTheme = localStorage.getItem('kt_theme') || 'classic';
+        if (!themes[currentTheme]) currentTheme = 'classic';
+        applyTheme(currentTheme);
+
+        // Theme-Wechsel als globale Funktion
+        window.ktSetTheme = function(name) {
+            if (themes[name]) {
+                currentTheme = name;
+                localStorage.setItem('kt_theme', name);
+                applyTheme(name);
+            }
+        };
 
         jQuery(document).ready(function () {
-            var toggle = document.getElementById('themeToggle');
-            var track = document.getElementById('themeSwitchTrack');
-            var knob = document.getElementById('themeSwitchKnob');
-            var label = document.getElementById('themeLabel');
-
-            function updateToggle(modern) {
-                track.style.background = modern ? '#2c5f2d' : '#ccc';
-                knob.style.left = modern ? '18px' : '2px';
-                label.textContent = modern ? 'Modern' : 'Klassisch';
-            }
-
-            updateToggle(isModern);
-
-            toggle.addEventListener('click', function() {
-                isModern = !isModern;
-                localStorage.setItem('kt_theme', isModern ? 'modern' : 'classic');
-                applyTheme(isModern);
-                updateToggle(isModern);
-            });
 
             kt.init();
         });

@@ -57,6 +57,19 @@ a.navbar-brand { float:none; /*font-size: 18px;*/ }
 .ui-state-default .ui-icon.icon-disk { background-image: url(images/save.png); }
 .ui-state-default .ui-icon.icon-start { background-image: url(images/action_go.png); }
 
+/**** Settings Page **************************************************************************/
+.settings-page { padding: 10px; }
+.settings-page h3 { margin-top: 0; }
+.settings-section { margin-bottom: 20px; }
+.theme-btn { margin: 4px; min-width: 100px; }
+.theme-btn.active { font-weight: bold; box-shadow: inset 0 2px 4px rgba(0,0,0,0.2); }
+
+/* Grid horizontal scroll wrapper */
+.ktgrid {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
 /**** Grids **************************************************************************/
 .ui-jqgrid th { font-size: 0.9em; }
 .ui-jqgrid td { font-size: 0.95em; }
@@ -196,6 +209,11 @@ div.ui-jqgrid tr.ui-state-hover { background: 0 none; }
 .l35 { background-position: -36px -1458px; }
 .l36 { background-position: -36px -1602px; }
 
+body { overflow-x: hidden; }
+#content { overflow: hidden; }
+
+.ui-jqgrid .ui-jqgrid-bdiv { overflow-x: hidden; }
+
 /* Media Queries */
 @media (max-width: 1024px) {
     .kttable { font-size:12px;}
@@ -206,17 +224,21 @@ div.ui-jqgrid tr.ui-state-hover { background: 0 none; }
 }
 
 @media (max-width: 767px) {
-    .ktcontent { padding:0 1px; }
+    .ktcontent { padding:0 2px; }
 
     .navbar-brand { display:none; }
 
-    .ktgrid { padding:0 1px; }
-
+    .ktgrid { padding:0; }
 
     .ui-jqgrid td.Team { font-size: 0.85em;}
     .ui-jqgrid td.Name { font-size: 0.85em;}
     .ui-jqgrid td.Date { font-size: 0.8em;}
     .ui-jqgrid td.Time { font-size: 0.8em;}
+
+    .ui-jqgrid td input,
+    .ui-jqgrid td select {
+        font-size: 16px; /* prevents iOS zoom */
+    }
 
     .ui-userdata-top { display: none; }
     .ui-userdata-top.btn { display: block; }

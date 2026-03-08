@@ -261,6 +261,7 @@ class KT
 			$menu['Stat'][] =   array('title' => 'Ewiger Gesamtstand',  'smenu' => 'Stat',        'action' => 'TippEwig');
 			$menu['Stat'][] =   array('title' => 'Tipp-Tabelle',        'smenu' => 'Stat',        'action' => 'TippTabelle');
 
+			$menu['Admin'][] =   array('title' => 'Einstellungen',          'smenu' => 'Admin',       'action' => 'Einstellungen');
 			$menu['Admin'][] =   array('title' => 'Profil', 	   	        'smenu' => 'Admin',       'action' => 'Profil');
 			if ($this->user['userlevel'] == 100) {
 				$menu['Admin'][] = array('title' => 'Spielplan/Ergebnisse',  'smenu' => 'Admin', 'action' => 'Spielplan',    'level' => 100);
@@ -804,6 +805,30 @@ class KT
 						$data[$idx]["p$sid"] = $t['Points'];
 					}
 				$idx++;
+			}
+		}
+
+		// Spieltag komplett? Sieger mit Krone markieren
+		if (is_array($data) && count($data) > 0) {
+			// Pruefen ob alle Ergebnisse vorliegen
+			$sql = sprintf("SELECT COUNT(*) as cnt FROM %s WHERE trid=%d AND sptag=%d AND (Ergebnis='' OR Ergebnis='-:-' OR Ergebnis IS NULL)", $this->TABLE[spielplan], $trid, $md);
+			$check = $this->db->getData($sql);
+			$allComplete = (isset($check[0]) && $check[0]['cnt'] == 0);
+
+			if ($allComplete) {
+				// Hoechste Punktzahl ermitteln
+				$maxPts = 0;
+				foreach ($data as $row) {
+					if (isset($row['Pts']) && $row['Pts'] > $maxPts) $maxPts = $row['Pts'];
+				}
+				if ($maxPts > 0) {
+					foreach ($data as &$row) {
+						if (isset($row['Pts']) && $row['Pts'] == $maxPts) {
+							$row['Name'] = "\xF0\x9F\x91\x91 " . $row['Name'];
+						}
+					}
+					unset($row);
+				}
 			}
 		}
 

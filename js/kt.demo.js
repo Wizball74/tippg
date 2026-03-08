@@ -19,6 +19,7 @@
                     { title: 'Ligasystem', smenu: 'Liga', action: 'Spielplan' },
                     { title: 'Spielplan / Tabelle', smenu: 'Spielplan', action: 'Spielplan' },
                     { title: 'Statistiken', smenu: 'Stat', action: 'TippAnzahl' },
+                    { title: 'Admin', smenu: 'Admin', action: 'Einstellungen' },
                     { title: 'Abmelden', smenu: 'login', action: 'logout' }
                 ],
                 Tipps: [
@@ -36,6 +37,10 @@
                 ],
                 Stat: [
                     { title: 'Tipphaeufigkeit', smenu: 'Stat', action: 'TippAnzahl' }
+                ],
+                Admin: [
+                    { title: 'Einstellungen', smenu: 'Admin', action: 'Einstellungen' },
+                    { title: 'Profil', smenu: 'Admin', action: 'Profil' }
                 ]
             }
         },
@@ -87,7 +92,7 @@
         { sid: 3, tid1: 5, tid2: 6, erg: '2:2', k1: 'M05', k2: 'Stgt', n1: 'FSV Mainz 05', n2: 'VfB Stuttgart' },
         { sid: 4, tid1: 8, tid2: 9, erg: '2:1', k1: 'Leipzig', k2: 'FCA', n1: 'RB Leipzig', n2: 'FC Augsburg' },
         { sid: 5, tid1: 10, tid2: 11, erg: '1:2', k1: 'HSV', k2: 'Breme', n1: 'Hamburger SV', n2: 'Werder Bremen' },
-        { sid: 6, tid1: 12, tid2: 13, erg: '-:-', k1: 'Pauli', k2: 'EinF', n1: 'FC St. Pauli', n2: 'Eintracht Frankfurt' },
+        { sid: 6, tid1: 12, tid2: 13, erg: '0:2', k1: 'Pauli', k2: 'EinF', n1: 'FC St. Pauli', n2: 'Eintracht Frankfurt' },
         { sid: 7, tid1: 14, tid2: 15, erg: '2:4', k1: '1. FC K', k2: 'Hoff', n1: '1. FC Koeln', n2: 'TSG Hoffenheim' },
         { sid: 8, tid1: 16, tid2: 2, erg: '1:2', k1: 'Koeln', k2: 'BVB', n1: '1. FC Koeln', n2: 'Borussia Dortmund' }
     ];
@@ -138,6 +143,24 @@
         }
 
         rows.sort(function(a, b) { return b.Pts - a.Pts; });
+
+        // Spieltag komplett? (kein -:- Ergebnis)
+        var complete = true;
+        for (var c = 0; c < demoMatches.length; c++) {
+            if (demoMatches[c].erg === '-:-') { complete = false; break; }
+        }
+
+        // Sieger mit Krone markieren
+        if (complete && rows.length > 0) {
+            var maxPts = rows[0].Pts;
+            for (var w = 0; w < rows.length; w++) {
+                if (rows[w].Pts === maxPts) {
+                    rows[w].Name = '\uD83D\uDC51 ' + rows[w].Name;
+                } else {
+                    break;
+                }
+            }
+        }
 
         return {
             colModel: colModel,
@@ -240,11 +263,18 @@
             if (mockData) {
                 // Simulierten erfolgreichen AJAX-Call zurueckgeben
                 var deferred = $.Deferred();
-                setTimeout(function() {
+                if (opts.async === false) {
+                    // Synchrone Calls sofort ausfuehren
                     if (opts.success) opts.success(mockData);
                     if (opts.complete) opts.complete();
                     deferred.resolve(mockData);
-                }, 10);
+                } else {
+                    setTimeout(function() {
+                        if (opts.success) opts.success(mockData);
+                        if (opts.complete) opts.complete();
+                        deferred.resolve(mockData);
+                    }, 10);
+                }
                 return deferred.promise();
             }
         }

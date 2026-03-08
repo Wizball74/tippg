@@ -543,4 +543,14 @@
 	}
 
 
+	// Grid-Groessenanpassung (Stub - Original fehlt)
+	function jgqResize(id, opts) {
+		var gridid = "#grid" + id,
+			gw = opts.size || 0,
+			pw = $j("#d" + id).parent().width();
+		if (pw > 0 && pw !== gw) {
+			$j(gridid).jqGrid('setGridWidth', Math.max(pw, opts.minwidth || 0), true);
+		}
+	}
+
 }(window.kt = window.kt || {}, jQuery));

@@ -896,6 +896,31 @@
 
             kt.autoGrid(id, 'Benutzerprofil', opt);
         },
+        Einstellungen: function () {
+            var themes = [
+                    { id: 'classic', label: 'Klassisch' },
+                    { id: 'modern',  label: 'Modern' },
+                    { id: 'premium', label: 'Dark' }
+                ],
+                current = localStorage.getItem('kt_theme') || 'classic',
+                html = '<div class="settings-page"><h3>Einstellungen</h3>'
+                     + '<div class="settings-section"><h4>Design</h4><div class="theme-list">';
+
+            $j.each(themes, function (i, t) {
+                var cls = (t.id === current) ? ' active' : '';
+                html += '<button class="btn btn-default theme-btn' + cls + '" data-theme="' + t.id + '">' + t.label + '</button> ';
+            });
+
+            html += '</div></div></div>';
+            setContent(html);
+
+            $j('.theme-btn').click(function () {
+                var name = $j(this).data('theme');
+                window.ktSetTheme(name);
+                $j('.theme-btn').removeClass('active');
+                $j(this).addClass('active');
+            });
+        },
         Liga: function () {
             var id = 'LigaTeilnehmer',
                 table = [],
