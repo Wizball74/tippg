@@ -5,6 +5,7 @@
 		public $userid;
 		public $pw;
 		public $database;
+		private $db = null;
 
 		function __construct($host, $userid, $pw, $database) {
 			$this->host = $host;
@@ -13,10 +14,18 @@
 			$this->database = $database;
 		}
 
+		private function getConnection()
+		{
+			if (!$this->db || !$this->db->ping()) {
+				$this->db = new mysqli($this->host, $this->userid, $this->pw, $this->database);
+				$this->db->set_charset('utf8');
+			}
+			return $this->db;
+		}
+
 		function Query($sql)
 		{
-			$db = new mysqli($this->host, $this->userid, $this->pw, $this->database);
-			$db->select_db($this->database);
+			$db = $this->getConnection();
 
 			if ($erg = $db->query($sql))
 			{
@@ -46,7 +55,7 @@
 
 		function prepare($sql, $types, $params)
 		{
-			$db = new mysqli($this->host, $this->userid, $this->pw, $this->database);
+			$db = $this->getConnection();
 
 			$stmt = $db->prepare($sql);
 			if (!$stmt) {
@@ -82,7 +91,7 @@
 
 		function prepareExecute($sql, $types, $params)
 		{
-			$db = new mysqli($this->host, $this->userid, $this->pw, $this->database);
+			$db = $this->getConnection();
 
 			$stmt = $db->prepare($sql);
 			if (!$stmt) {

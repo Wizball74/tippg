@@ -15,6 +15,9 @@
         return result.prop('outerHTML');
     };
 
+    // Fuer kt.charts.js verfuegbar machen
+    kt.makeTable = makeTable;
+
     function getGridData(gridid, idcol) {
         var grid = $j(gridid),
             gdata = grid.jqGrid('getRowData');
@@ -95,13 +98,12 @@
                         url: "php/SaveTipps.php",
                         data: { data: gdata, trid: kt.trid, md: kt.md },
                         contentType: "application/x-www-form-urlencoded",
-                        async: false,
                         success: function (data) {
                             var res = data.d || data;
                             showMessage(res, 5);
                             if (res.ok) {
                                 $j(gridid).trigger('refresh');
-                            }                            
+                            }
                             return false;
                         } // end success
                     }); // -- End AJAX Call --
@@ -456,234 +458,8 @@
     /**********************************************************************************************
     * Stat
     */
-    kt.Stat = kt.Stat || {};
-    $j.extend(kt.Stat, {
-        TippAnzahl: function () {
-            var id = 'StatTippanzahl',
-                gridid = "#grid" + id,
-                idc = 'ChartTippanzahl',
-                table, //chart,
-                btn, opt;
+    // Stat-Funktionen sind in kt.charts.js definiert (Dashboard, Punkteverlauf, Trefferquote, Tabellen)
 
-            table = makeTable(id, { fl: 'left', cls: 'col-lg-4 col-md-4 col-xs-4' });
-            table += $j('<div/>').attr('id', idc).addClass('col-lg-8 col-md-8 col-xs-8').prop('outerHTML');
-            setContent(table);
-
-            btn = [
-                {
-                    caption: ' ',
-                    select: true,
-                    url: 'php/GetTrList.php',
-                    selkey: 'trid',
-                    seldisp: 'Name',
-                    tbar: 't_',
-                    id: 'seltr',
-                    onChange: function (e) {
-                        if (e.target) {
-                            var tr = $j(e.target).val();
-                            opt.btn[0].selval = tr;
-                            $j(gridid).trigger('refresh', { trid_s: tr }, opt);
-                            $j('#' + idc).html('');
-                        }
-                    }
-                },
-                {
-                    caption: "Diagramm",
-                    title: "",
-                    buttonicon: "ui-icon-image",
-                    onClickButton: function () {
-                        var gdata = getGridData(gridid),
-                            s = { width: 600, height: 450 };
-                        //fitPage(s);
-                        //console.log(s);
-                        createPieChart(
-                            { /*size: s,*/ height: 550, xcol: 'Tipp', ycol: 'Anzahl', data: gdata, renderto: idc },
-                            { caption: 'Tipphäufigkeit', xAxisName: 'Tipp', yAxisName: 'Anzahl', showNames: '1', decimalPrecision: '0' }
-                        );
-
-                        //                        console.log($j('#'+idc).offset().top);
-
-                        // $j('html,body').animate({ scrollTop: $j('#' + idc).offset().top }, 1000);
-                    },
-                    //position: "last",
-                    tbar: "t_"
-                }];
-
-            opt = {
-                btn: btn
-            };
-
-            kt.autoGrid(id, 'Tipphäufigkeit', opt);
-        },
-        TabPlatz: function () {
-            var idc1 = 'ChartGesamt',
-                idc2 = 'ChartLiga',
-                table,
-                s = { width: 800, height: 400 };
-
-            table = $j('<div/>').attr('id', idc1).addClass('col-lg-12 col-md-12 col-xs-12').prop('outerHTML');
-            table += $j('<div/>').attr('id', idc2).addClass('col-lg-12 col-md-12 col-xs-12').prop('outerHTML');
-            setContent(table);
-
-            //fitPage(s);
-
-            createCombiChart({ height: 300, /*size: s,*/ renderto: idc1, url: "php/GetStatPlace.php", param: { trid: kt.trid, md: kt.md} });
-            createCombiChart({ height: 300, /*size: s,*/ renderto: idc2, url: "php/GetStatPlaceLeague.php", param: { trid: kt.trid, md: kt.md } });
-        },
-        LigaEwig: function () {
-            var id = 'LigaTabelleGesamt',
-                table = [],
-            //rnd = trdata()[kt.trid].Ligen, TODO
-                rnd = 1,
-                i, opt;
-
-            for (i = 1; i <= rnd; i++) { table.push(makeTable(id + i, { fl: 'left' })); }
-            setContent(table.join('')); // + _cf); //'<br/>'));
-
-            for (i = 1; i <= rnd; i++) {
-                opt = {
-                    //url: 'php/Get' + id + 'Data.php',
-                    addparam: { lnr: i, fn: id }
-                };
-                kt.autoGrid(id + i, 'ewige Tabelle Liga ' + i, opt);
-            }
-        },
-        TippEwig: function () {
-            var id = 'StatGesamtstand',
-                table;
-
-            table = makeTable(id);
-            setContent(table);
-            kt.autoGrid(id, 'Gesamtstand');
-        },
-        TippTabelle: function () {
-            var id = ['TippTabelle', 'Tabelle'],
-                lbl = ['Tipp-Tabelle', 'reale Tabelle'],
-                table = '',
-                btn;
-
-            $j.each(id, function (idx, val) { table += makeTable(val, { fl: 'left', cls: 'col-lg-6 col-md-6 col-xs-12' }); });
-            setContent(table);
-
-            $j.each(id, function (idx, val) {
-                var gridid = "#grid" + val;
-                btn = [
-                    {
-                        caption: "Gesamt",
-                        title: "",
-                        buttonicon: "none",
-                        onClickButton: function () { $j(gridid).trigger('refresh', { mode: 't' }); },
-                        position: "last",
-                        tbar: "tb_"
-                    },
-                    {
-                        caption: "Heim",
-                        title: "",
-                        buttonicon: "none",
-                        onClickButton: function () { $j(gridid).trigger('refresh', { mode: 'h' }); },
-                        position: "last",
-                        tbar: "tb_"
-                    },
-                    {
-                        caption: "Auswärts",
-                        title: "",
-                        buttonicon: "none",
-                        onClickButton: function () { $j(gridid).trigger('refresh', { mode: 'a' }); },
-                        position: "last",
-                        tbar: "tb_"
-                    }];
-
-                kt.autoGrid(val, lbl[idx], { toolbar: [true, 'both'], btn: btn });
-            }); // each
-        }
-    });
-
-    function createPieChart(chartopt, dataopt) {
-
-        $j.getScript('chart/FusionCharts.js', function () {
-            var chart, dataxml;
-
-            dataopt = $j.extend({
-                formatNumberScale: '0',
-                decimalSeparator: ',',
-                thousandSeparator: '.'
-            }, dataopt);
-
-            var width = chartopt.width || '100%';
-            var height = chartopt.height || '100%';
-
-            //chart = new FusionCharts("chart/FCF_Pie2D.swf", chartopt.id || {}, chartopt.width, chartopt.height);
-            chart = new FusionCharts("chart/Pie2D.swf", chartopt.id || "Chart", width, height);
-
-            // Chart-Optionen
-            dataxml = $j('<chart/>'); // graph
-            $j.each(dataopt, function (key, val) { dataxml.attr(key, val); });
-
-            // Daten
-            var d = '';
-            $j.each(chartopt.data, function (key, val) {
-                /*var d = $j('<set/>')
-                .attr('name', val[chartopt.xcol])
-                .attr('value', val[chartopt.ycol]);
-                dataxml.append(d);*/
-                d += "<set label='" + val[chartopt.xcol] + "' value='" + val[chartopt.ycol] + "'/>";
-            });
-            //console.log(dataxml.prop('outerHTML'));
-            //chart.setDataXML(dataxml.prop('outerHTML'));
-            //dataxml = "<chart caption='xxx' xAxisName='Tipp' yAxisName='Anzahl' formatNumberScale='0' decimalSeparator=',' thousandSeparator='.'><set label='123' value='22'><set/></chart>";
-            dataxml.text('DATA');
-            dataxml = dataxml.prop('outerHTML');
-            dataxml = dataxml.replace(/\"/g, '\'');
-            dataxml = dataxml.replace(/DATA/, d);
-            //console.log(dataxml);
-            chart.setDataXML(dataxml);
-
-            // Anzeige
-            chart.render(chartopt.renderto);
-            //console.log(dataxml);
-        });
-    }
-
-    function createCombiChart(chartopt) {
-
-        $j.getScript('chart/FusionCharts.js', function () {
-            var chart;
-
-            var width = chartopt.width || '100%';
-            var height = chartopt.height || '100%';
-
-            chart = new FusionCharts("chart/MSCombiDY2D.swf", chartopt.id || "Chart", width, height); //, chartopt.size.width, chartopt.size.height);
-            // Daten
-            $j.ajax({
-                url: chartopt.url,
-                data: chartopt.param,
-                contentType: "application/x-www-form-urlencoded",
-                success: function (data) {
-                    var res = data.d || data;
-                    showMessage(res, 5);
-                    if (res.ok) {
-                        chart.setDataXML(res.chart);
-                        // Anzeige
-                        chart.render(chartopt.renderto);
-                    }
-                    return false;
-                } // end success
-            }); // -- End AJAX Call --
-        });
-    }
-
-/*
-    function fitPage(s) {
-        //console.log(screen.availWidth);
-        //console.log($j('#nav').width());
-        var maxw = $j('#nav').width(),
-            f;
-        if (s.width < maxw) return;
-        f = s.width / s.height;
-
-        s.width = maxw;
-        s.height = s.width / f;
-    }*/
 
     /**********************************************************************************************
     * Admin
@@ -715,7 +491,6 @@
                             url: "php/SaveSpielplan.php",
                             data: { data: gdata, trid: kt.trid, md: kt.md },
                             contentType: "application/x-www-form-urlencoded",
-                            async: false,
                             success: function (data) {
                                 var res = data.d || data;
                                 showMessage(res, 5);
@@ -809,7 +584,6 @@
                             url: "php/SaveTippsAdmin.php",
                             data: { data: gdata, trid: kt.trid, md: kt.md, comment: $j('#tbcomment').val() },
                             contentType: "application/x-www-form-urlencoded",
-                            async: false,
                             success: function (data) {
                                 var res = data.d || data;
                                 showMessage(res, 5);
@@ -1003,7 +777,6 @@
                             url: "php/SaveLigaTeilnehmer.php",
                             data: { data: gdata, trid: kt.trid },
                             contentType: "application/x-www-form-urlencoded",
-                            async: false,
                             success: function (data) {
                                 var res = data.d || data;
                                 showMessage(res, 5);
@@ -1099,7 +872,6 @@
                             url: "php/SavePraemien.php",
                             data: { data: gdata, trid: kt.trid, rnd: rnd },
                             contentType: "application/x-www-form-urlencoded",
-                            async: false,
                             success: function (data) {
                                 var res = data.d || data;
                                 showMessage(res, 5);
@@ -1268,7 +1040,6 @@
             url: "php/createLigaSpielplan.php",
             data: { data: gdata, trid: kt.trid, rnd: gdata[0].rnd, lnr: lnr },
             contentType: "application/x-www-form-urlencoded",
-            async: false,
             success: function (data) {
                 var res = data.d || data;
                 showMessage(res, 5);

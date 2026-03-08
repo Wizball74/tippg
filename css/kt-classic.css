@@ -113,10 +113,13 @@ input.gradient.highlight, select.gradient.highlight, textarea.gradient.highlight
 
 /**** Grids **************************************************************************/
 
-.ui-jqgrid tr.jqgrow.gridRowEven td { background-color: #D1CBAA; color: #3C3C3C; 
+.ui-jqgrid tr.jqgrow.gridRowEven td { background-color: #D1CBAA; color: #3C3C3C;
                                          border-bottom-color: #EFEFEF; border-right-color: #000000;}
-.ui-jqgrid tr.jqgrow  td { background-color: #E1DBBA; color: #3C3C3C; 
+.ui-jqgrid tr.jqgrow  td { background-color: #E1DBBA; color: #3C3C3C;
                               border-bottom-color: #EFEFEF; border-right-color: #000000;}
+
+/* Frozen column header background (solid for sticky) */
+.ui-jqgrid th.frozen-col { background: #d6d5d0 !important; }
 
 /*
 

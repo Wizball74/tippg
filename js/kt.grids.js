@@ -146,7 +146,16 @@
 						if (col.key) keycol = col.name;
 					});
 					if (w) {
-						cfg.width = w;
+						var vw = verge.viewportW();
+						var containerW = $j('#d' + id).parent().width() || $j('#content').width() || vw;
+						if (vw < 768 && w > vw) {
+							// Mobile: Grid behält natürliche Breite, Container scrollt
+							cfg.width = w;
+							cfg.shrinkToFit = false;
+						} else {
+							// Desktop: mindestens Containerbreite nutzen
+							cfg.width = Math.max(w, containerW);
+						}
 						cfg.autowidth = false;
 					}
 				}
@@ -257,6 +266,48 @@
 								//$j(gridid).jqGrid('setGridParam', 'sortname', res.sortname);
 							}
 
+							// Mindestbreite: Spalten duerfen Text nicht abschneiden
+							(function() {
+								var $g = $j(gridid);
+								var cm = $g.jqGrid('getGridParam', 'colModel') || [];
+								var $jqg = $g.closest('.ui-jqgrid');
+								var htable = $jqg.find('.ui-jqgrid-htable');
+								var btable = $g;
+								var canvas = document.createElement('canvas');
+								var ctx = canvas.getContext('2d');
+								var totalDelta = 0;
+
+								$j.each(cm, function(ci, col) {
+									if (col.hidden) return;
+									var maxW = 0;
+									// Textbreite in Body-Zellen messen
+									btable.find('td[aria-describedby="' + $g.attr('id') + '_' + col.name + '"]').each(function() {
+										var el = $j(this);
+										ctx.font = el.css('font-weight') + ' ' + el.css('font-size') + ' ' + el.css('font-family');
+										var tw = Math.ceil(ctx.measureText(el.text()).width) + 12;
+										if (tw > maxW) maxW = tw;
+									});
+									var curW = col.width || 0;
+									if (maxW > curW) {
+										var delta = maxW - curW;
+										totalDelta += delta;
+										// Header und Body Spaltenbreite anpassen
+										htable.find('th').eq(ci).css('width', maxW + 'px');
+										btable.find('tr:first td').eq(ci).css('width', maxW + 'px');
+										col.width = maxW;
+									}
+								});
+								// Gesamtbreite des Grids anpassen
+								if (totalDelta > 0) {
+									var gw = $g.jqGrid('getGridParam', 'width') || $g.width();
+									var newW = gw + totalDelta;
+									htable.css('width', newW + 'px');
+									btable.css('width', newW + 'px');
+									$jqg.css('width', newW + 'px');
+									$jqg.find('.ui-jqgrid-hdiv, .ui-jqgrid-bdiv').css('width', newW + 'px');
+								}
+							})();
+
 							if (init) {
 
 							    jqgAddPrintButton(id);
@@ -333,6 +384,37 @@
 
 				// Grid erstellen
 				$j(gridid).jqGrid(cfg);
+				// Mobile: Inline overflow-Styles entfernen, damit CSS-Scroll greift
+				if (verge.viewportW() < 768) {
+					$j(gridid).closest('.ui-jqgrid').find('.ui-jqgrid-bdiv, .ui-jqgrid-hdiv').css({
+						'overflow-x': 'visible',
+						'overflow-y': 'visible'
+					});
+				// Frozen columns: Header-Zelle der Name-Spalte fuer sticky markieren
+				$j.each(res.colModel, function(idx, col) {
+					if (col.classes && col.classes.indexOf('Name') >= 0) {
+						$j(gridid).closest('.ui-jqgrid').find('.ui-jqgrid-hdiv th').eq(idx).addClass('frozen-col');
+					}
+				});
+				// Sticky header: Kopfzeile bleibt oben kleben beim vertikalen Scrollen
+				(function() {
+					var $jqgrid = $j(gridid).closest('.ui-jqgrid');
+					var $hdiv = $jqgrid.find('.ui-jqgrid-hdiv');
+					var $ktgrid = $jqgrid.closest('.ktgrid');
+					if (!$hdiv.length || !$ktgrid.length) return;
+					$j(window).on('scroll.stickyHdr' + id, function() {
+						var rect = $ktgrid[0].getBoundingClientRect();
+						var hh = $hdiv.outerHeight();
+						if (rect.top < 0 && rect.bottom > hh * 2) {
+							$hdiv.css('transform', 'translateY(' + (-rect.top) + 'px)');
+							$hdiv.addClass('stuck');
+						} else {
+							$hdiv.css('transform', '');
+							$hdiv.removeClass('stuck');
+						}
+					});
+				})();
+				}
 				// Refresh-Event erstellen
 				$j(gridid).on('refresh', function (event, rparam, ropt) {
 					if (rparam) {
@@ -543,14 +625,28 @@
 	}
 
 
-	// Grid-Groessenanpassung (Stub - Original fehlt)
+	// Grid-Groessenanpassung
 	function jgqResize(id, opts) {
 		var gridid = "#grid" + id,
 			gw = opts.size || 0,
 			pw = $j("#d" + id).parent().width();
 		if (pw > 0 && pw !== gw) {
-			$j(gridid).jqGrid('setGridWidth', Math.max(pw, opts.minwidth || 0), true);
+			$j(gridid).jqGrid('setGridWidth', Math.max(pw, opts.minwidth || 320), true);
 		}
 	}
+
+	// Orientation change: resize all visible grids
+	$j(window).on('orientationchange resize', function () {
+		clearTimeout(window._ktResizeTimer);
+		window._ktResizeTimer = setTimeout(function () {
+			$j('table[id^="grid"]').each(function () {
+				var id = this.id.replace('grid', ''),
+					pw = $j("#d" + id).parent().width();
+				if (pw > 0) {
+					$j(this).jqGrid('setGridWidth', Math.max(pw, 320), true);
+				}
+			});
+		}, 250);
+	});
 
 }(window.kt = window.kt || {}, jQuery));

@@ -235,7 +235,7 @@ class KT
 			$menu['main'][] =   array('title' => 'Ligasystem',          'smenu' => 'Liga',  	    'action' => 'Spielplan',  'cls' => 'right');
 			$menu['main'][] =   array('title' => 'Spielplan / Tabelle', 'smenu' => 'Spielplan',   'action' => 'Spielplan',  'cls' => 'right');
 			$menu['main'][] =   array('title' => 'Prämien',	            'smenu' => 'Praemien',    'action' => 'Uebersicht', 'cls' => 'left');
-			$menu['main'][] =   array('title' => 'Statistiken',         'smenu' => 'Stat',        'action' => 'TippAnzahl', 'cls' => 'left');
+			$menu['main'][] =   array('title' => 'Statistiken',         'smenu' => 'Stat',        'action' => 'Dashboard', 'cls' => 'left');
 			$menu['main'][] =   array('title' => 'Admin',	            'smenu' => 'Admin',       'action' => 'Profil',     'cls' => 'right');
 			//$menu['main'][] = array('title' => 'Forum'; $link['main'][] = "http://www.foren.de/system/index.php?id=thomash";  $target['main'][]="_new";
 			$menu['main'][] =   array('title' => 'Abmelden',            'smenu' => 'login',       'action' => 'logout',    'cls' => 'full');
@@ -254,12 +254,10 @@ class KT
 			$menu['Spielplan'][] = array('title' => 'Spielplan',        'smenu' => 'Spielplan',   'action' => 'Spielplan');
 			$menu['Spielplan'][] = array('title' => 'Tabelle',          'smenu' => 'Spielplan',   'action' => 'Tabelle');
 
-			// MA 24.09.2009
-			$menu['Stat'][] =   array('title' => 'Tipphäufigkeit',      'smenu' => 'Stat',        'action' => 'TippAnzahl');
-			// MA 16.03.2021 $menu['Stat'][] =   array('title' => 'Tabellenplatz-Entwicklung', 'smenu' => 'Stat',  'action' => 'TabPlatz');
-			$menu['Stat'][] =   array('title' => 'Ewige Ligatabelle',   'smenu' => 'Stat',        'action' => 'LigaEwig');
-			$menu['Stat'][] =   array('title' => 'Ewiger Gesamtstand',  'smenu' => 'Stat',        'action' => 'TippEwig');
-			$menu['Stat'][] =   array('title' => 'Tipp-Tabelle',        'smenu' => 'Stat',        'action' => 'TippTabelle');
+			$menu['Stat'][] =   array('title' => 'Dashboard',           'smenu' => 'Stat',        'action' => 'Dashboard');
+			$menu['Stat'][] =   array('title' => 'Punkteverlauf',       'smenu' => 'Stat',        'action' => 'Punkteverlauf');
+			$menu['Stat'][] =   array('title' => 'Trefferquote',        'smenu' => 'Stat',        'action' => 'Trefferquote');
+			$menu['Stat'][] =   array('title' => 'Tabellen',            'smenu' => 'Stat',        'action' => 'Tabellen');
 
 			$menu['Admin'][] =   array('title' => 'Einstellungen',          'smenu' => 'Admin',       'action' => 'Einstellungen');
 			$menu['Admin'][] =   array('title' => 'Profil', 	   	        'smenu' => 'Admin',       'action' => 'Profil');
@@ -372,7 +370,7 @@ class KT
 		}
 
 		if (isset($_COOKIE['remember_token'])) {
-			$cookieOptions = ['expires' => time() - 3600, 'path' => '/', 'httponly' => true, 'samesite' => 'Strict'];
+			$cookieOptions = ['expires' => time() - 3600, 'path' => '/', 'secure' => true, 'httponly' => true, 'samesite' => 'Strict'];
 			setcookie("remember_token", "", $cookieOptions);
 		}
 
@@ -400,7 +398,7 @@ class KT
 				$this->TABLE[tipprunde],
 				$this->TABLE[spielplan]
 			);
-			if ($kt->user['userlevel'] < 100) $sql = $sql . " WHERE t.aktiv ='J'"; // TODO: nur wenn eingeloggter Benutzer Teilnehmer ist
+			if ($this->user['userlevel'] < 100) $sql = $sql . " WHERE t.aktiv ='J'"; // TODO: nur wenn eingeloggter Benutzer Teilnehmer ist
 			$sql = $sql . " ORDER BY t.trid DESC";
 
 			$rows = $this->db->getData($sql);
@@ -497,12 +495,21 @@ class KT
 		if (!isset($rows)) $rows = array();
 
 		// MA 10.01.2017 Grid verkleinern bei Bedarf
+		$vw = isset($_POST['_w']) ? intval($_POST['_w']) : 1024;
 		$w = 0;
 		foreach ($colModel as $c) {
 			if (!$c['hidden']) $w += $c['width'];
 		}
 
-		if ($w > $_POST['_w']) {
+		// Auf Mobile: Name-Spalte verkleinern
+		if ($vw < 768) {
+			foreach ($colModel as $i => $c) {
+				if (isset($c['classes']) && $c['classes'] == 'Name' && $c['width'] > 170)
+					$colModel[$i]['width'] = 170;
+			}
+		}
+		// Auf Tablet/Desktop verkleinern wenn noetig
+		if ($w > $vw && $vw >= 768) {
 			foreach ($colModel as $i => $c) {
 				if ($c['classes'] == 'Team') $colModel[$i]['width'] -= 20;
 				if ($c['classes'] == 'Name') $colModel[$i]['width'] -= 50;
@@ -842,14 +849,10 @@ class KT
 		if (isset($_POST['trid']) && isset($_POST['md'])) {
 			// Datenmodell
 			$colModel[] = array('label' => " ", 'width' => 20, 'name' => "HLogo", 'formatter' => 'logo');
-			$colModel[] = array('label' => "Heimteam", 'width' => 200, 'name' => "HTeam", 'formatter' => 'html', 'classes' => 'Team');
+			$colModel[] = array('label' => "Heim", 'width' => 130, 'name' => "HTeam", 'formatter' => 'html', 'classes' => 'Team');
 			$colModel[] = array('label' => " ", 'width' => 20, 'name' => "ALogo", 'formatter' => 'logo');
-			$colModel[] = array('label' => "Auswärtsteam", 'width' => 200, 'index' => "ATeam", 'name' => "ATeam", 'formatter' => 'html', 'classes' => 'Team');
-			$colModel[] = array('label' => "Datum", 'width' => 90, 'name' => "Date", 'align' => 'right', 'formatter' => 'date', 'classes' => 'Date');
-			$colModel[] = array(
-				'label' => "Zeit", 'width' => 60, 'name' => "Time", 'align' => 'center', 'formatter' => 'date', 'classes' => 'Time',
-				formatoptions => array('srcformat' => 'H:i:s', 'newformat' => 'H:i')
-			);
+			$colModel[] = array('label' => "Ausw.", 'width' => 130, 'index' => "ATeam", 'name' => "ATeam", 'formatter' => 'html', 'classes' => 'Team');
+			$colModel[] = array('label' => "Datum", 'width' => 70, 'name' => "DateTime", 'align' => 'center', 'formatter' => 'html', 'classes' => 'DateTime');
 			$colModel[] = array(
 				'label' => "Tipp", 'width' => 70, 'name' => "Tip", 'align' => 'center', 'classes' => "Result",
 				'editable' => true, 'editoptions' => array('size' => 5, 'maxlength' => 5, 'class' => 'gradient')
@@ -893,8 +896,7 @@ class KT
 					'ATeam' => $teams[$row['tid2']]['Name'],
 					'HLogo' => $row['tid1'],
 					'ALogo' => $row['tid2'],
-					'Date' => $row['Datum'],
-					'Time' => $row['Uhrzeit'],
+					'DateTime' => date('d.m.', strtotime($row['Datum'])) . '<br>' . substr($row['Uhrzeit'], 0, 5),
 					'Tip' => $row['Tipp'],
 					'editable' => $ed,
 					'deadline' => $dl,
@@ -1013,7 +1015,7 @@ class KT
 			$html .= '<td class="Team' . $styleH . '">' . $teams[$row['tid1']]['Name'] . '</td>';
 			$html .= '<td class="Team' . $styleA . '">' . $teams[$row['tid2']]['Name'] . '</td>';
 			$html .= '<td class="Result">' . $row['Ergebnis'] . '</td>';
-			$html .= '</tr></div>';
+			$html .= '</tr>';
 		}
 		$html .= '</table>';
 		return $html;

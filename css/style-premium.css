@@ -8,7 +8,7 @@ body {
     overflow-x: hidden;
 }
 
-#content { overflow: hidden; }
+#content { overflow-x: hidden; }
 
 .ui-jqgrid .ui-jqgrid-bdiv { overflow-x: hidden; }
 
@@ -107,6 +107,29 @@ a.navbar-brand {
 .caret {
     border-top-color: #999 !important;
 }
+
+/* Subnav */
+#subnav {
+    display: flex;
+    gap: 2px;
+    padding: 4px 8px;
+    background: #232323;
+    border-bottom: 1px solid #3a3a3a;
+}
+#subnav:empty { display: none; }
+.subnav-item {
+    padding: 5px 14px;
+    font-size: 13px;
+    color: #999;
+    text-decoration: none;
+    border-radius: 4px;
+    transition: background 0.15s, color 0.15s;
+}
+.subnav-item:hover { background: #383838; color: #e0e0e0; text-decoration: none; }
+.subnav-item.active { background: #c0a050; color: #1a1a1a; }
+.subnav-item.active:hover { background: #d4b060; color: #1a1a1a; text-decoration: none; }
+.navbar-default .navbar-nav > li.active > a,
+.navbar-default .navbar-nav > li.active > a:hover { color: #c0a050 !important; font-weight: 700; }
 
 /* ===== NAV CONTROLS ===== */
 .navtr select {
@@ -334,6 +357,7 @@ a.navbar-brand {
 .ui-jqgrid p.hdrRes { color: #999; font-weight: 600; }
 .ui-jqgrid td.Date { font-size: 0.85em; }
 .ui-jqgrid td.Time { font-size: 0.85em; }
+.ui-jqgrid td.DateTime { font-size: 0.85em; line-height: 1.3; }
 
 .ui-jqgrid [role=gridcell] { padding: 4px 4px; }
 .ui-jqgrid span.deadline { font-weight: 600; color: #e08080; float: none; display: inline; margin-right: 1em; }
@@ -532,20 +556,69 @@ a.navbar-brand {
 }
 
 @media (max-width: 767px) {
-    .ktcontent { padding: 8px 4px; }
+    .ktcontent { padding: 4px 4px; }
     .navbar-brand { display: none; }
+    .navbar { margin-bottom: 0; min-height: 0; }
+    .navbar-header { padding: 4px 0; }
 
-    .navtr { flex-wrap: wrap; gap: 4px; }
-    .navtr select { font-size: 12px; padding: 6px 8px; min-height: 36px; }
-    .navtr button, .navtr .button { min-width: 36px; min-height: 36px; }
+    #subnav { overflow-x: auto; white-space: nowrap; padding: 4px 4px; }
+    .subnav-item { flex-shrink: 0; }
+
+    /* Nav controls */
+    .navtr {
+        display: flex !important;
+        flex-wrap: nowrap;
+        gap: 3px;
+        padding: 4px 0;
+        align-items: center;
+    }
+    .navtr select {
+        font-size: 12px;
+        padding: 6px 4px;
+        min-height: 36px;
+        flex: 1 1 0;
+        min-width: 0;
+    }
+    .navtr button, .navtr .button {
+        min-width: 32px;
+        min-height: 36px;
+        font-size: 13px;
+        padding: 6px 8px;
+        flex: 0 0 auto;
+    }
 
     .ktgrid { padding: 0; }
-    .ui-jqgrid { border-radius: 4px !important; }
+    .ui-jqgrid { border-radius: 4px !important; overflow: visible !important; }
+    .ktgrid { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+    .ui-jqgrid .ui-jqgrid-bdiv { overflow: visible !important; }
+    .ui-jqgrid .ui-jqgrid-hdiv { overflow: visible !important; }
+
+    /* Frozen Name column (horizontal sticky) */
+    .ui-jqgrid td.Name {
+        position: sticky;
+        left: 0;
+        z-index: 2;
+        box-shadow: 2px 0 4px rgba(0,0,0,0.4);
+    }
+    .ui-jqgrid th.frozen-col {
+        position: sticky;
+        left: 0;
+        z-index: 5;
+        box-shadow: 2px 0 4px rgba(0,0,0,0.4);
+    }
+
+    /* Sticky header (JS-gesteuert via transform) */
+    .ui-jqgrid .ui-jqgrid-hdiv.stuck {
+        z-index: 10;
+    }
     .ui-jqgrid td.Team { font-size: 0.8em; }
     .ui-jqgrid td.Name { font-size: 0.8em; }
     .ui-jqgrid td.Date { font-size: 0.75em; }
     .ui-jqgrid td.Time { font-size: 0.75em; }
-    .ui-jqgrid td input, .ui-jqgrid td select { font-size: 16px; }
+    .ui-jqgrid td input, .ui-jqgrid td select {
+        padding: 8px 4px;
+        font-size: 16px;
+    }
 
     .ui-userdata-top { display: none; }
     .ui-userdata-top.btn { display: block; }
@@ -556,22 +629,32 @@ a.navbar-brand {
     }
     .navbar-default .navbar-nav .open .dropdown-menu > li > a {
         color: #999;
-        padding: 10px 20px;
+        padding: 12px 20px;
+        font-size: 15px;
     }
     .navbar-default .navbar-nav .open .dropdown-menu > li > a:hover {
         color: #e0e0e0;
         background: #383838;
     }
 
-    .ui-dialog { width: 92vw !important; max-width: 360px; }
+    .ui-dialog { width: 92vw !important; max-width: 360px; left: 4vw !important; }
     .ui-dialog .ui-dialog-content { padding: 16px !important; }
     #login input.text { font-size: 16px; padding: 10px 12px; }
-    #bLogin { width: 100%; height: 44px; font-size: 16px; }
+    #bLogin { width: 100%; height: 48px; font-size: 16px; }
+
+    /* Tables responsive */
+    .kttable td.Team { width: auto; max-width: 120px; }
+    .kttable { font-size: 12px; width: 100%; }
 }
 
 @media (max-width: 480px) {
     .ui-jqgrid th { font-size: 0.75em; }
     .ui-jqgrid td { font-size: 0.8em; }
+    .ui-jqgrid td.Bonus, .ui-jqgrid th.Bonus { display: none; }
+}
+
+@media (max-width: 1023px) {
+    .container { width: 100%; padding: 0 4px; }
 }
 
 @media (min-width: 1024px) {

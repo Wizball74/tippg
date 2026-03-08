@@ -6,14 +6,13 @@
     kt.init = function () {
 
         initAjax();
-        checkLogin();
-        makeMenu();
-        initNav();
-        kt.initJqGrid();
-        setTitle();
+        checkLogin(function () {
+            makeMenu();
+            initNav();
+            kt.initJqGrid();
+            setTitle();
 
-        // letzten Menüpunkt aufrufen
-        $j(document).ready(function () {
+            // letzten Menüpunkt aufrufen
             if (kt.lastmenu) exec(kt.lastmenu.smenu, kt.lastmenu.action);
         });
 
@@ -41,12 +40,11 @@
     * Login-Funktionen
     */
 
-    function checkLogin() {
+    function checkLogin(callback) {
         $j.ajax({
             url: "php/CheckLogin.php",
             data: "",
             contentType: "application/x-www-form-urlencoded",
-            async: false,
             success: function (data) {
                 var res = data.d || data;
                 //console.log(data);
@@ -57,8 +55,8 @@
                     if (res.username) $j("#username").html(res.username);
                     if (res.menu && res.action) kt.lastmenu = { smenu: res.menu, action: res.action };
                     //console.log(res.menu, res.action);
-                    initNav(true);
                 }
+                if (callback) callback();
                 return false;
             } // end success
         }); // -- End AJAX Call --
@@ -174,22 +172,33 @@
                 var menu = $j('#mainmenu');
                 menu.html('');
 
+                // Menüstruktur fuer Subnav speichern
+                kt._menuGroups = {};
+
                 // Menü zusammenbauen
                 $j.each(mi.menu.main, function (key, val) {
                     //if (val.cls) menuitem.addClass(val.cls);
 
                     submenu = $j('<ul/>').addClass('dropdown-menu');
+                    var groupItems = [];
                     $j.each(mi.menu[val.smenu], function (subkey, subval)
                     {
                         if (kt[subval.smenu] && kt[subval.smenu][subval.action]) // nur implementierte Funktionen anzeigen
                         {
                             action[idx] = subval;
+                            groupItems.push(subval);
                             subitem = $j('<li/>');
                             link = $j('<a/>').addClass('mi').attr('href', '#').attr('id', pre + (idx++)).html(subval.title);
                             subitem.append(link);
                             submenu.append(subitem);
                         }
                     });
+                    // Alle Unterpunkte dieser Gruppe merken
+                    if (groupItems.length) {
+                        $j.each(groupItems, function(gi, item) {
+                            kt._menuGroups[item.smenu + '.' + item.action] = { title: val.title, items: groupItems };
+                        });
+                    }
 
                     //console.log(submenu, submenu.children().length);
 
@@ -307,16 +316,16 @@
             });
             ////initCbStyle();
         }
-        initCbTr();
-        initCbMd();
+        initCbTr(function () {
+            initCbMd();
+        });
     }
 
-    function initCbTr() {
+    function initCbTr(callback) {
         $j.ajax({
             type: 'POST',
             url: 'php/GetTrList.php',
             data: "",
-            async: false,
             success: function (result) {
                 var data = result.data,
 					items = [],
@@ -338,6 +347,7 @@
                     }
                     sel.val(kt.trid);
                 }
+                if (callback) callback();
             }
         });
     }
@@ -348,7 +358,6 @@
             url: 'php/GetMdList.php',
             data: { trid: kt.trid },
             contentType: "application/x-www-form-urlencoded",
-            async: false,
             success: function (result) {
                 var data = result.data,
 					items = [],
@@ -501,9 +510,40 @@
             //window["kt"][smenu][action](param);
             kt.lastmenu = { smenu: smenu, action: action };
             kt[smenu][action](param);
+            updateSubnav(smenu, action);
         } catch (e) {
             console.log(e, smenu, action, param);
         }
+    }
+
+    function updateSubnav(smenu, action) {
+        var $sub = $j('#subnav');
+        var group = kt._menuGroups && kt._menuGroups[smenu + '.' + action];
+        if (!group || group.items.length < 2) { $sub.html(''); return; }
+
+        // Hauptmenu-Punkt hervorheben
+        $j('#mainmenu > li').removeClass('active');
+        $j('#mainmenu > li > a.dropdown-toggle, #mainmenu > li > a.mi').each(function() {
+            if ($j(this).text().replace(/\s/g, '') === group.title.replace(/\s/g, '')) {
+                $j(this).parent().addClass('active');
+            }
+        });
+
+        // Subnav aufbauen
+        var html = '';
+        $j.each(group.items, function(i, item) {
+            var cls = (item.smenu === smenu && item.action === action) ? 'subnav-item active' : 'subnav-item';
+            html += '<a href="#" class="' + cls + '" data-smenu="' + item.smenu + '" data-action="' + item.action + '">' + item.title + '</a>';
+        });
+        $sub.html(html);
+
+        // Click-Handler
+        $sub.find('a').off('click').on('click', function(e) {
+            e.preventDefault();
+            var s = $j(this).data('smenu'), a = $j(this).data('action');
+            kt.menu(s, a);
+            setTitle($j(this).text());
+        });
     }
 
     // alle Dialogfenster schließen
@@ -525,7 +565,6 @@
             url: cfg.url,
             data: cfg.param || {},
             contentType: "application/x-www-form-urlencoded",
-            async: false,
             success: function (result) {
                 var data = result.data,
 					items = [],
