@@ -16,8 +16,8 @@
     <link rel="stylesheet" href="css/ui.jqgrid-bootstrap.css" />
     <link rel="stylesheet" href="css/ui.jqgrid-bootstrap-ui.css" />
 
-    <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/kt-gray.css">
+    <link rel="stylesheet" href="css/style-modern.css" id="cssBase">
+    <link rel="stylesheet" href="css/kt-modern.css" id="cssTheme">
 	
 	<link rel="shortcut icon" type="image/x-icon" href="/favicon.ico">
 	
@@ -62,6 +62,15 @@
                     </ul>-->
             </div><!--/.nav-collapse -->
 
+            <div class="theme-toggle" style="position:absolute;right:10px;top:8px;">
+                <label title="Design umschalten" style="cursor:pointer;margin:0;display:flex;align-items:center;font-size:12px;color:#777;">
+                    <span id="themeLabel" style="margin-right:6px;">Klassisch</span>
+                    <input type="checkbox" id="themeSwitch" style="display:none;">
+                    <span id="themeSwitchTrack" style="display:inline-block;width:36px;height:20px;border-radius:10px;background:#ccc;position:relative;transition:background 0.2s;">
+                        <span id="themeSwitchKnob" style="display:block;width:16px;height:16px;border-radius:50%;background:#fff;position:absolute;top:2px;left:2px;transition:left 0.2s;box-shadow:0 1px 2px rgba(0,0,0,0.2);"></span>
+                    </span>
+                </label>
+            </div>
         </div>
     </nav>
     <div id="msg" class="ktcontent container"></div>
@@ -85,7 +94,60 @@
     <script src="js/kt.js"></script>
     <script src="js/kt.funcs.js"></script>
 
-    <script type="text/javascript">jQuery(document).ready(function () { kt.init(); });</script>
+    <script type="text/javascript">
+    (function() {
+        var cssBase = document.getElementById('cssBase');
+        var cssTheme = document.getElementById('cssTheme');
+
+        function applyTheme(modern) {
+            if (modern) {
+                cssBase.href = 'css/style-modern.css';
+                cssTheme.href = 'css/kt-modern.css';
+            } else {
+                cssBase.href = 'css/style-classic.css';
+                cssTheme.href = 'css/kt-classic.css';
+            }
+        }
+
+        // Gespeicherte Einstellung laden (Standard: klassisch)
+        var saved = localStorage.getItem('kt_theme');
+        var isModern = (saved === 'modern');
+        applyTheme(isModern);
+
+        jQuery(document).ready(function () {
+            var sw = document.getElementById('themeSwitch');
+            var track = document.getElementById('themeSwitchTrack');
+            var knob = document.getElementById('themeSwitchKnob');
+            var label = document.getElementById('themeLabel');
+
+            function updateToggle(modern) {
+                sw.checked = modern;
+                track.style.background = modern ? '#2c5f2d' : '#ccc';
+                knob.style.left = modern ? '18px' : '2px';
+                label.textContent = modern ? 'Modern' : 'Klassisch';
+            }
+
+            updateToggle(isModern);
+
+            sw.addEventListener('change', function() {
+                isModern = sw.checked;
+                localStorage.setItem('kt_theme', isModern ? 'modern' : 'classic');
+                applyTheme(isModern);
+                updateToggle(isModern);
+            });
+
+            // Label/Track klickbar machen
+            track.parentElement.addEventListener('click', function(e) {
+                if (e.target !== sw) {
+                    sw.checked = !sw.checked;
+                    sw.dispatchEvent(new Event('change'));
+                }
+            });
+
+            kt.init();
+        });
+    })();
+    </script>
 
 </body>
 </html>
