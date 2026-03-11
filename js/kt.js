@@ -14,6 +14,9 @@
 
             // letzten Menüpunkt aufrufen
             if (kt.lastmenu) exec(kt.lastmenu.smenu, kt.lastmenu.action);
+
+            // Fußball-Physik starten (nur Desktop)
+            if (kt.initBall) kt.initBall();
         });
 
         //$j.extend(verge);
@@ -481,6 +484,9 @@
             $j('#content').append(content);
         else
             $j('#content').html(content);
+
+        // Fußball-Hindernisse nach Content-Wechsel aktualisieren
+        if (kt.rescanBallObstacles) kt.rescanBallObstacles();
     };
 
     function refreshGrids() {

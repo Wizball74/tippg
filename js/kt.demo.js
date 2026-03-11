@@ -39,7 +39,8 @@
                     { title: 'Dashboard', smenu: 'Stat', action: 'Dashboard' },
                     { title: 'Punkteverlauf', smenu: 'Stat', action: 'Punkteverlauf' },
                     { title: 'Trefferquote', smenu: 'Stat', action: 'Trefferquote' },
-                    { title: 'Tabellen', smenu: 'Stat', action: 'Tabellen' }
+                    { title: 'Tabellen', smenu: 'Stat', action: 'Tabellen' },
+                    { title: 'Breakout', smenu: 'Stat', action: 'Breakout' }
                 ],
                 Admin: [
                     { title: 'Einstellungen', smenu: 'Admin', action: 'Einstellungen' },

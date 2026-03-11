@@ -371,6 +371,9 @@
 							//MA 13.08.2012
 							if (opt.events && opt.events.afterLoadComplete) opt.events.afterLoadComplete.call(this, data);
 
+							// Fußball-Hindernisse aktualisieren
+							if (kt.rescanBallObstacles) kt.rescanBallObstacles();
+
 							////ajaxLoading(false);
 						}
 					}
