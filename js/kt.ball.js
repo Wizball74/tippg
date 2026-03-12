@@ -72,6 +72,7 @@
 
     // ═══════════════════════════════════════════════════════════════
     kt.initBall = function () {
+        if (localStorage.getItem('kt_ball_off') === '1') return;
         if (window.innerWidth < CFG.MIN_VP) return;
 
         canvas = document.createElement('canvas');
@@ -98,6 +99,10 @@
 
     kt.rescanBallObstacles = function () {
         if (!active) return;
+        // Score pro Seitenansicht zurücksetzen (Highscores bleiben in localStorage)
+        score = 0;
+        revealed = false;
+        removeScorePanel();
         setTimeout(function () {
             if (!ball) spawnBall();
         }, 1500);

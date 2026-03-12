@@ -685,7 +685,12 @@
                 html += '<button class="btn btn-default theme-btn' + cls + '" data-theme="' + t.id + '">' + t.label + '</button> ';
             });
 
-            html += '</div></div></div>';
+            html += '</div></div>'
+                 + '<div class="settings-section"><h4>Extras</h4>'
+                 + '<label class="settings-toggle"><input type="checkbox" id="chkBall"'
+                 + ((localStorage.getItem('kt_ball_off') !== '1') ? ' checked' : '')
+                 + '> Fußball auf der Tipp-Übersicht</label>'
+                 + '</div></div>';
             setContent(html);
 
             $j('.theme-btn').click(function () {
@@ -693,6 +698,14 @@
                 window.ktSetTheme(name);
                 $j('.theme-btn').removeClass('active');
                 $j(this).addClass('active');
+            });
+
+            $j('#chkBall').change(function () {
+                if (this.checked) {
+                    localStorage.removeItem('kt_ball_off');
+                } else {
+                    localStorage.setItem('kt_ball_off', '1');
+                }
             });
         },
         Liga: function () {

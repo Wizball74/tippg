@@ -63,6 +63,8 @@ a.navbar-brand { float:none; font-weight: 700; color: #1a2332 !important; font-s
 .settings-section { margin-bottom: 20px; }
 .theme-btn { margin: 4px; min-width: 100px; }
 .theme-btn.active { font-weight: bold; box-shadow: inset 0 2px 4px rgba(0,0,0,0.2); }
+.settings-toggle { display: block; cursor: pointer; margin: 6px 0; }
+.settings-toggle input { margin-right: 6px; vertical-align: middle; }
 
 /**** Grids **************************************************************************/
 .ui-jqgrid th { font-size: 0.85em; font-weight: 500; }
