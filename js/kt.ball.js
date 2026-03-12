@@ -12,22 +12,13 @@
     var CFG = {
         R:          10,       // Ball-Radius
         GRAVITY:    0.09,     // Schwerkraft pro Frame
-        BOUNCE:     0.65,     // Rückprall-Faktor
+        BOUNCE:     0.69,     // Rückprall-Faktor
         FRICTION:   0.997,    // Luftwiderstand (multipliziert pro Frame)
         CURSOR_R:   20,       // Cursor-Kollisionsradius
         MAX_V:      14,       // Maximalgeschwindigkeit
         MIN_VP:     992,      // Minimum-Viewport-Breite
         GHOST_MS:   2500,     // Max Ghost-Mode-Dauer
-        PLATFORM_SEL: [
-            '.ui-jqgrid-titlebar',
-            '.ui-jqgrid-hdiv',
-            'tr.rowUser',
-            'tr.rowOpponent',
-            '.ui-jqgrid-pager',
-            '.ui-jqgrid-toppager',
-            '.ui-userdata',
-            'footer'
-        ],
+        BOTTOM_M:   50,       // Abstand zum unteren Fensterrand (Taskleiste)
         BLOCK_SEL: 'td.Pts1',
         LS_KEY: 'kt_ball_data'
     };
@@ -41,6 +32,7 @@
     var score = 0;
     var allScores = {};  // { "trid_md_fullName": { name, fullName, trid, md, score } }
     var floatingTexts = [];
+    var particles = [];
     var scorePanel = null;
 
     // Pentagon-Zentren auf Einheitskugel (Ikosaeder)
@@ -51,6 +43,86 @@
         {x:.724,y:.447,z:.526},{x:-.276,y:.447,z:.851},{x:-.894,y:.447,z:0},
         {x:-.276,y:.447,z:-.851},{x:.724,y:.447,z:-.526}
     ];
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Quaternion-Hilfsfunktionen (physikalisch korrekte 3D-Rotation)
+    // ═══════════════════════════════════════════════════════════════
+    function qMul(a, b) {
+        return [
+            a[0]*b[0] - a[1]*b[1] - a[2]*b[2] - a[3]*b[3],
+            a[0]*b[1] + a[1]*b[0] + a[2]*b[3] - a[3]*b[2],
+            a[0]*b[2] - a[1]*b[3] + a[2]*b[0] + a[3]*b[1],
+            a[0]*b[3] + a[1]*b[2] - a[2]*b[1] + a[3]*b[0]
+        ];
+    }
+
+    function qNorm(q) {
+        var len = Math.sqrt(q[0]*q[0] + q[1]*q[1] + q[2]*q[2] + q[3]*q[3]);
+        return [q[0]/len, q[1]/len, q[2]/len, q[3]/len];
+    }
+
+    function qRotate(q, px, py, pz) {
+        // q * [0,px,py,pz] * q^-1
+        var qp = qMul(q, [0, px, py, pz]);
+        var r = qMul(qp, [q[0], -q[1], -q[2], -q[3]]);
+        return [r[1], r[2], r[3]];
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Injiziertes CSS: Glut-Effekt + Hover-Deaktivierung
+    // ═══════════════════════════════════════════════════════════════
+    var styleEl = null;
+    function injectStyles() {
+        if (styleEl) return;
+        styleEl = document.createElement('style');
+        styleEl.textContent =
+            // Row-Hover im Game-Mode komplett deaktivieren
+            'body.kt-ball-active .ui-jqgrid tr.jqgrow:hover td,' +
+            'body.kt-ball-active .ui-jqgrid tr.ui-state-hover td {' +
+            '  background: inherit !important;' +
+            '}' +
+
+            // Getroffene Zellen: kein Hover, kein Rand
+            '.kt-ball-burned,' +
+            '.kt-ball-burned:hover,' +
+            'tr.ui-state-hover .kt-ball-burned,' +
+            'tr.jqgrow:hover .kt-ball-burned {' +
+            '  cursor: default !important;' +
+            '  border: none !important;' +
+            '}' +
+
+            // Glut-Animation: sanftes, zufälliges Glimmen
+            '@keyframes kt-ember {' +
+            '  0%   { background-color: rgba(180,80,20,0.08); }' +
+            '  15%  { background-color: rgba(200,90,15,0.14); }' +
+            '  30%  { background-color: rgba(160,60,10,0.06); }' +
+            '  50%  { background-color: rgba(210,100,20,0.16); }' +
+            '  65%  { background-color: rgba(170,70,15,0.05); }' +
+            '  80%  { background-color: rgba(190,85,20,0.12); }' +
+            '  100% { background-color: rgba(180,80,20,0.08); }' +
+            '}' +
+
+            '.ui-jqgrid td.kt-ball-burned,' +
+            '.ui-jqgrid tr.jqgrow td.kt-ball-burned,' +
+            '.ui-jqgrid tr.ui-state-hover td.kt-ball-burned {' +
+            '  background-color: transparent;' +
+            '  animation: kt-ember 3s ease-in-out infinite;' +
+            '  animation-delay: calc(-3s * var(--ember-d, 0));' +
+            '}';
+        document.head.appendChild(styleEl);
+    }
+
+    function removeStyles() {
+        if (styleEl && styleEl.parentNode) styleEl.parentNode.removeChild(styleEl);
+        styleEl = null;
+        // Burned-Klasse von allen Zellen entfernen
+        var burned = document.querySelectorAll('.kt-ball-burned');
+        for (var i = 0; i < burned.length; i++) {
+            burned[i].classList.remove('kt-ball-burned');
+            burned[i].style.cssText = '';
+            burned[i].style.pointerEvents = '';
+        }
+    }
 
     // ═══════════════════════════════════════════════════════════════
     //  Name-Hilfsfunktionen
@@ -83,6 +155,8 @@
         document.body.appendChild(canvas);
         ctx = canvas.getContext('2d');
 
+        injectStyles();
+        document.body.classList.add('kt-ball-active');
         bindEvents();
         active = true;
         loadScores();
@@ -94,6 +168,8 @@
         if (animFrame) cancelAnimationFrame(animFrame);
         if (canvas && canvas.parentNode) canvas.parentNode.removeChild(canvas);
         removeScorePanel();
+        removeStyles();
+        document.body.classList.remove('kt-ball-active');
         ball = null; canvas = null; ctx = null;
     };
 
@@ -117,7 +193,10 @@
         ball = {
             x: r.left + r.width * (0.3 + Math.random() * 0.4),
             y: -CFG.R - 30,
-            vx: 0, vy: 0, angle: 0, spin: 0
+            vx: 0, vy: 0,
+            quat: [1, 0, 0, 0],
+            wx: 0, wz: 0,           // Winkelgeschwindigkeit (X- und Z-Achse)
+            onGround: false
         };
         score = 0;
         revealed = false;
@@ -146,19 +225,58 @@
             ball.vx -= (1 + CFG.BOUNCE) * dot * col.nx;
             ball.vy -= (1 + CFG.BOUNCE) * dot * col.ny;
         }
+        // Bodenkontakt: Normale zeigt nach oben (ny < -0.5)
+        if (col.ny < -0.5) ball.onGround = true;
     }
 
     // ═══════════════════════════════════════════════════════════════
-    //  Platform-Kollisionen (feste Strukturen)
+    //  Platform-Kollisionen (nur markierte horizontale Linien)
     // ═══════════════════════════════════════════════════════════════
     function collidePlatforms() {
         if (ghostMode) return;
-        var els = document.querySelectorAll(CFG.PLATFORM_SEL.join(','));
-        for (var i = 0; i < els.length; i++) {
-            var rect = els[i].getBoundingClientRect();
-            if (rect.width < 10 || rect.height < 2) continue;
+
+        // Breite aus dem Grid-Container ermitteln
+        var container = document.querySelector('.ui-jqgrid') ||
+                        document.querySelector('.ui-jqgrid-bdiv');
+        if (!container) return;
+        var cRect = container.getBoundingClientRect();
+        var left = cRect.left, right = cRect.right;
+        var T = 3; // Liniendicke für Kollision
+
+        var lines = [];
+
+        // Linie 1: Oberkante Titlebar (Panel-Kopf)
+        var tb = document.querySelector('.ui-jqgrid-titlebar');
+        if (tb) lines.push(tb.getBoundingClientRect().top);
+
+        // Linie 2: Unterkante rowUser
+        var ru = document.querySelector('tr.rowUser');
+        if (ru) lines.push(ru.getBoundingClientRect().bottom);
+
+        // Linie 3: Unterkante rowOpponent
+        var ro = document.querySelector('tr.rowOpponent');
+        if (ro) lines.push(ro.getBoundingClientRect().bottom);
+
+        // Linie 4: Unterkante letzte Tabellenzeile
+        var rows = document.querySelectorAll('.ui-jqgrid-bdiv tr[role="row"]');
+        if (rows.length) lines.push(rows[rows.length - 1].getBoundingClientRect().bottom);
+
+        for (var i = 0; i < lines.length; i++) {
+            var y = lines[i];
+            // Dünne Kollisions-Rect (kein Schweben)
+            var rect = { left: left, right: right, top: y - T / 2, bottom: y + T / 2 };
             var col = circleRectCollision(ball.x, ball.y, CFG.R, rect);
-            if (col) resolveCollision(col);
+            if (col) { resolveCollision(col); continue; }
+
+            // Anti-Tunneling: Ball hat Linie im letzten Frame überquert
+            if (ball.x >= left && ball.x <= right && ball.vy > 0) {
+                var prevY = ball.y - ball.vy;
+                if (prevY + CFG.R <= y && ball.y + CFG.R > y) {
+                    ball.y = y - CFG.R;
+                    ball.vy = -Math.abs(ball.vy) * CFG.BOUNCE;
+                    ball.onGround = true;
+                }
+            }
         }
     }
 
@@ -190,45 +308,84 @@
         }
 
         score += pts;
-        saveScore();        // sofort speichern
-        updateScorePanel(); // Panel mit frischen Daten (auch andere Sessions)
+        saveScore();
+        updateScorePanel();
 
-        // Floating-Text: Punkte fliegen nach oben
         var cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+
+        // Floating-Text: Punkte (langsamer, kontrastreicher)
         floatingTexts.push({
             x: cx, y: cy,
-            text: '' + pts,
-            life: 1400, maxLife: 1400,
-            color: pts >= 3 ? '#FFD700' : pts >= 2 ? '#4CAF50' : '#aaa'
+            text: '+' + pts,
+            life: 2200, maxLife: 2200,
+            color: pts >= 3 ? '#D4A017' : pts >= 2 ? '#2E7D32' : '#555',
+            stroke: pts >= 3 ? '#7A5B00' : pts >= 2 ? '#1B4D1B' : '#222'
         });
-        // Gesamt-Score fällt langsam nach unten
+        // Gesamt-Score
         floatingTexts.push({
             x: cx, y: cy,
             text: '' + score,
-            life: 1800, maxLife: 1800,
-            color: '#fff', falling: true
+            life: 2400, maxLife: 2400,
+            color: '#333', stroke: '#999', falling: true
         });
 
-        // Ganze Zelle weg-puffen
-        el.style.transition = 'opacity 0.35s ease-out, transform 0.35s ease-out, filter 0.35s ease-out';
-        el.style.transformOrigin = 'center center';
+        // Partikel entlang der Zellenränder erzeugen
+        spawnBorderParticles(rect, pts);
+
+        // Zelle: Inhalt ausblenden, dann Rand entfernen + Glut-Effekt
+        el.style.transition = 'opacity 0.4s ease-out';
         el.style.opacity = '0';
-        el.style.transform = 'scale(2)';
-        el.style.filter = 'blur(8px)';
         setTimeout(function () {
             el.textContent = '';
-            el.style.visibility = 'hidden';
-            el.style.cssText = '';
-        }, 350);
+            el.style.cssText = 'border:none !important;pointer-events:none;';
+            el.style.setProperty('--ember-d', Math.random().toFixed(3));
+            el.classList.add('kt-ball-burned');
+        }, 400);
+    }
+
+    function spawnBorderParticles(rect, pts) {
+        var color = pts >= 3 ? '#D4A017' : pts >= 2 ? '#4CAF50' : '#999';
+        var count = 20 + pts * 6;
+        var edges = [
+            // oben
+            function () { return { x: rect.left + Math.random() * rect.width, y: rect.top }; },
+            // unten
+            function () { return { x: rect.left + Math.random() * rect.width, y: rect.bottom }; },
+            // links
+            function () { return { x: rect.left, y: rect.top + Math.random() * rect.height }; },
+            // rechts
+            function () { return { x: rect.right, y: rect.top + Math.random() * rect.height }; }
+        ];
+        var cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+
+        for (var i = 0; i < count; i++) {
+            var pos = edges[i % 4]();
+            // Richtung: weg vom Zellzentrum + etwas Zufall
+            var dx = pos.x - cx, dy = pos.y - cy;
+            var dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            var speed = 1.2 + Math.random() * 2.5;
+            var vx = (dx / dist) * speed + (Math.random() - 0.5) * 1.5;
+            var vy = (dy / dist) * speed + (Math.random() - 0.5) * 1.5;
+
+            particles.push({
+                x: pos.x, y: pos.y,
+                vx: vx, vy: vy,
+                life: 600 + Math.random() * 500,
+                maxLife: 600 + Math.random() * 500,
+                size: 1.5 + Math.random() * 2.5,
+                color: color,
+                rot: Math.random() * Math.PI * 2
+            });
+        }
     }
 
     function revealEffect(rect) {
         var cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
         floatingTexts.push({
-            x: cx, y: cy - 30,
+            x: cx, y: cy - 20,
             text: 'BREAKOUT!',
-            life: 2000, maxLife: 2000,
-            color: '#FFD700', big: true
+            life: 3500, maxLife: 3500,
+            color: '#B8860B', stroke: '#5C3A00', big: true
         });
     }
 
@@ -246,10 +403,26 @@
         ball.x += nx * (min - dist);
         ball.y += ny * (min - dist);
 
+        // Ball-Geschwindigkeit in Richtung Cursor reflektieren (Abprall)
+        var dot = ball.vx * nx + ball.vy * ny;
+        if (dot < 0) {
+            ball.vx -= (1 + CFG.BOUNCE) * dot * nx;
+            ball.vy -= (1 + CFG.BOUNCE) * dot * ny;
+        }
+
+        // Drehimpuls aus tangentialer Cursor-Komponente (Effet)
+        var tx = -ny, ty = nx;                              // Tangente am Kontaktpunkt
+        var tSpeed = cursor.vx * tx + cursor.vy * ty;      // tangentiale Cursor-Geschw.
+        ball.wz += tSpeed * 0.004;
+
+        // Zusätzlicher linearer Impuls aus Cursor-Bewegung
+        // Progressiv: sanft bei langsamer Maus, kräftig bei Wucht
         var spd = Math.sqrt(cursor.vx * cursor.vx + cursor.vy * cursor.vy);
-        var push = Math.min(spd * 0.15, 4) + 0.3;
-        ball.vx += nx * push;
-        ball.vy += ny * push;
+        var push = Math.min(spd * 0.05 + spd * spd * 0.003, 5);
+        if (push > 0.05) {
+            ball.vx += nx * push;
+            ball.vy += ny * push;
+        }
         if (spd > 8 && !ghostMode) activateGhost();
     }
 
@@ -273,13 +446,14 @@
     //  Wand-Kollisionen
     // ═══════════════════════════════════════════════════════════════
     function collideWalls() {
-        var w = window.innerWidth, h = window.innerHeight, r = CFG.R;
+        var w = window.innerWidth, h = window.innerHeight - CFG.BOTTOM_M, r = CFG.R;
         if (ball.x - r < 0) { ball.x = r; ball.vx = Math.abs(ball.vx) * CFG.BOUNCE; }
         if (ball.x + r > w) { ball.x = w - r; ball.vx = -Math.abs(ball.vx) * CFG.BOUNCE; }
         if (ball.y + r > h) {
             ball.y = h - r;
             ball.vy = -Math.abs(ball.vy) * CFG.BOUNCE;
             ball.vx *= 0.95;
+            ball.onGround = true;
         }
     }
 
@@ -296,15 +470,38 @@
         ball.vy += CFG.GRAVITY;
         ball.x += ball.vx;
         ball.y += ball.vy;
-        ball.angle -= ball.vx / CFG.R;
-        ball.spin  += ball.vy / CFG.R;
         ball.vx *= CFG.FRICTION;
         ball.vy *= CFG.FRICTION;
+
+        // Kollisionen (setzen ggf. ball.onGround = true)
+        ball.onGround = false;
         collideWalls();
         collidePlatforms();
         collideBlocks();
         clampSpeed();
         updateGhost();
+
+        // Rotation: Boden = exaktes Abrollen, Luft = Trudeln mit Dämpfung
+        if (ball.onGround) {
+            // Horizontale Fläche: nur vx erzeugt Rollbewegung (um Z-Achse)
+            ball.wz = ball.vx / CFG.R;
+            ball.wx *= 0.9;             // vertikales Trudeln am Boden abdämpfen
+        } else {
+            // In der Luft: Trudeln langsam abdämpfen
+            ball.wx *= 0.98;
+            ball.wz *= 0.98;
+        }
+
+        // Winkelgeschwindigkeit auf Quaternion anwenden
+        var wSpd = Math.sqrt(ball.wx * ball.wx + ball.wz * ball.wz);
+        if (wSpd > 0.0001) {
+            var ax = ball.wx / wSpd;
+            var az = ball.wz / wSpd;
+            var half = wSpd / 2, s = Math.sin(half);
+            var dq = [Math.cos(half), ax * s, 0, az * s];
+            ball.quat = qNorm(qMul(dq, ball.quat));
+        }
+
         if (ball.y > window.innerHeight + 300 || ball.y < -3000) spawnBall();
     }
 
@@ -327,16 +524,13 @@
         g.addColorStop(0, '#fff'); g.addColorStop(0.7, '#e8e8e8'); g.addColorStop(1, '#b0b0b0');
         ctx.fillStyle = g; ctx.fillRect(-r, -r, r * 2, r * 2);
 
-        var angle = ball.angle, spin = ball.spin;
-        var cA = Math.cos(angle), sA = Math.sin(angle), cB = Math.cos(spin), sB = Math.sin(spin);
+        var q = ball.quat;
         for (var i = 0; i < pentas.length; i++) {
             var p = pentas[i];
-            // Z-Achse: horizontales Rollen (aus vx)
-            var x1 = p.x * cA - p.y * sA, y1 = p.x * sA + p.y * cA, z1 = p.z;
-            // X-Achse: vertikales Rollen (aus vy)
-            var y2 = y1 * cB - z1 * sB, z2 = y1 * sB + z1 * cB;
+            var rp = qRotate(q, p.x, p.y, p.z);
+            var z2 = rp[2];
             if (z2 < 0.1) continue;
-            var px = x1 * r, py = y2 * r, pr = r * 0.28 * (0.3 + z2 * 0.7);
+            var px = rp[0] * r, py = rp[1] * r, pr = r * 0.28 * (0.3 + z2 * 0.7);
             ctx.fillStyle = 'rgba(40,40,40,' + (0.3 + z2 * 0.6) + ')';
             ctx.beginPath();
             for (var j = 0; j < 5; j++) {
@@ -370,30 +564,69 @@
             if (ft.life <= 0) { floatingTexts.splice(i, 1); continue; }
 
             var t = 1 - ft.life / ft.maxLife;
-            var ease = 1 - Math.pow(1 - t, 3);
-            var alpha, yOff, font;
+            // Langsamer Ease-Out, bleibt länger sichtbar
+            var ease = 1 - Math.pow(1 - t, 2);
+            // Erst in der letzten 40% ausfaden
+            var alpha = t < 0.6 ? 1 : 1 - ((t - 0.6) / 0.4);
+            var yOff, font;
 
             if (ft.falling) {
-                alpha = 1 - ease * ease;
-                yOff = ease * 50;
-                font = 'bold 18px sans-serif';
+                yOff = ease * 40;
+                font = 'bold 16px sans-serif';
+            } else if (ft.big) {
+                yOff = ease * -20;
+                font = 'bold 32px sans-serif';
             } else {
-                // Punkte: nach oben, wachsend, langsam ausfadend
-                alpha = 1 - ease * ease;
-                yOff = ease * -50;
-                var size = 28 + ease * 16;  // 28px → 44px
-                font = 'bold ' + Math.round(size) + 'px sans-serif';
+                yOff = ease * -35;
+                font = 'bold 22px sans-serif';
             }
 
             ctx.save();
             ctx.globalAlpha = alpha;
             ctx.font = font;
             ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            var x = ft.x, y = ft.y + yOff;
+
+            // Outline für Kontrast auf hellem Hintergrund
+            if (ft.stroke) {
+                ctx.strokeStyle = ft.stroke;
+                ctx.lineWidth = ft.big ? 5 : 3;
+                ctx.lineJoin = 'round';
+                ctx.strokeText(ft.text, x, y);
+            }
+
             ctx.fillStyle = ft.color;
-            ctx.shadowColor = ft.color;
-            // Blur: anfangs wenig, erst gegen Ende stärker
-            ctx.shadowBlur = ft.big ? 12 : t * t * 10;
-            ctx.fillText(ft.text, ft.x, ft.y + yOff);
+            ctx.fillText(ft.text, x, y);
+            ctx.restore();
+        }
+    }
+
+    function drawParticles(dt) {
+        for (var i = particles.length - 1; i >= 0; i--) {
+            var p = particles[i];
+            p.life -= dt;
+            if (p.life <= 0) { particles.splice(i, 1); continue; }
+
+            p.x += p.vx;
+            p.y += p.vy;
+            p.vy += 0.04;           // leichte Schwerkraft
+            p.vx *= 0.98;
+            p.vy *= 0.98;
+            p.rot += 0.1;
+
+            var t = 1 - p.life / p.maxLife;
+            var alpha = t < 0.5 ? 1 : 1 - (t - 0.5) / 0.5;
+            var size = p.size * (1 - t * 0.6);
+
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            ctx.translate(p.x, p.y);
+            ctx.rotate(p.rot);
+            ctx.fillStyle = p.color;
+            // Kleine Rechteck-Fragmente (Rahmenstücke)
+            ctx.fillRect(-size, -size * 0.4, size * 2, size * 0.8);
             ctx.restore();
         }
     }
@@ -539,6 +772,7 @@
         step();
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawParticles(dt);
         drawBall();
         drawFloatingTexts(dt);
 
