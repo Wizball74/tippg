@@ -301,6 +301,11 @@
 								if (totalDelta > 0) {
 									var gw = $g.jqGrid('getGridParam', 'width') || $g.width();
 									var newW = gw + totalDelta;
+									// Desktop: nicht breiter als Container (CSS .ktgrid overflow-x:hidden clippt Rest)
+									if (verge.viewportW() >= 768) {
+										var maxW = $j('#d' + id).width() || gw;
+										if (newW > maxW) newW = maxW;
+									}
 									htable.css('width', newW + 'px');
 									btable.css('width', newW + 'px');
 									$jqg.css('width', newW + 'px');
@@ -387,12 +392,9 @@
 
 				// Grid erstellen
 				$j(gridid).jqGrid(cfg);
-				// Mobile: Inline overflow-Styles entfernen, damit CSS-Scroll greift
+				// Mobile: Inline overflow-Styles entfernen, damit CSS !important fuer sticky greift
+				fixMobileOverflow(gridid);
 				if (verge.viewportW() < 768) {
-					$j(gridid).closest('.ui-jqgrid').find('.ui-jqgrid-bdiv, .ui-jqgrid-hdiv').css({
-						'overflow-x': 'visible',
-						'overflow-y': 'visible'
-					});
 				// Frozen columns: Header-Zelle der Name-Spalte fuer sticky markieren
 				$j.each(res.colModel, function(idx, col) {
 					if (col.classes && col.classes.indexOf('Name') >= 0) {
@@ -524,7 +526,7 @@
 			input.addClass("ui-pg-input");
 			input.addClass('rounded gradient');
 			input.css('float', 'right');
-			if (p.width) input.css('width', p.width);
+			if (p.width) input.css('max-width', p.width).css('width', '100%');
 			$j(tbd)//.addClass('ui-pg-input ui-corner-all')
 				.append("<div class='ui-pg-div'>" + icon + p.caption || "" + "</div>").attr("title", p.title || "")
 				.append(input);
@@ -629,12 +631,27 @@
 
 
 	// Grid-Groessenanpassung
+	// Mobile: Inline overflow-Styles entfernen, damit CSS !important fuer sticky greift
+	function fixMobileOverflow(gridEl) {
+		if (verge.viewportW() >= 768) return;
+		$j(gridEl).closest('.ui-jqgrid').find('.ui-jqgrid-bdiv, .ui-jqgrid-hdiv').each(function() {
+			this.style.removeProperty('overflow');
+			this.style.removeProperty('overflow-x');
+			this.style.removeProperty('overflow-y');
+		});
+	}
+
 	function jgqResize(id, opts) {
 		var gridid = "#grid" + id,
 			gw = opts.size || 0,
 			pw = $j("#d" + id).parent().width();
 		if (pw > 0 && pw !== gw) {
-			$j(gridid).jqGrid('setGridWidth', Math.max(pw, opts.minwidth || 320), true);
+			if (verge.viewportW() < 768) {
+				// Mobile: nur overflow fixen, Grid behaelt natuerliche Breite (.ktgrid scrollt)
+				fixMobileOverflow(gridid);
+			} else {
+				$j(gridid).jqGrid('setGridWidth', Math.max(pw, opts.minwidth || 320), true);
+			}
 		}
 	}
 
@@ -642,11 +659,16 @@
 	$j(window).on('orientationchange resize', function () {
 		clearTimeout(window._ktResizeTimer);
 		window._ktResizeTimer = setTimeout(function () {
+			var mobile = verge.viewportW() < 768;
 			$j('table[id^="grid"]').each(function () {
 				var id = this.id.replace('grid', ''),
 					pw = $j("#d" + id).parent().width();
 				if (pw > 0) {
-					$j(this).jqGrid('setGridWidth', Math.max(pw, 320), true);
+					if (mobile) {
+						fixMobileOverflow(this);
+					} else {
+						$j(this).jqGrid('setGridWidth', Math.max(pw, 320), true);
+					}
 				}
 			});
 		}, 250);

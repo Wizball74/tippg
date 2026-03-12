@@ -89,10 +89,10 @@ a.navbar-brand { float:none; /*font-size: 18px;*/ }
 .settings-toggle { display: block; cursor: pointer; margin: 6px 0; }
 .settings-toggle input { margin-right: 6px; vertical-align: middle; }
 
-/* Grid horizontal scroll wrapper */
+/* Grid horizontal scroll wrapper – Desktop: hidden verhindert Scrollbalken durch Border-Overflow;
+   Mobile: wird per Media Query auf auto gesetzt */
 .ktgrid {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+    overflow-x: hidden;
 }
 
 /**** Grids **************************************************************************/
@@ -264,6 +264,7 @@ body { overflow-x: hidden; }
 
 @media (max-width: 767px) {
     .ktcontent { padding: 4px 2px; }
+    #content { overflow-x: visible; }
 
     .navbar-brand { display: none; }
     .navbar { margin-bottom: 0; min-height: 0; }
@@ -302,6 +303,9 @@ body { overflow-x: hidden; }
     .ui-jqgrid { overflow: visible !important; }
     .ui-jqgrid .ui-jqgrid-bdiv { overflow: visible !important; }
     .ui-jqgrid .ui-jqgrid-hdiv { overflow: visible !important; }
+
+    /* Toolbar: horizontal scroll if buttons overflow */
+    .ui-jqgrid-toolbar { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
     /* Frozen Name column (horizontal sticky) */
     .ui-jqgrid td.Name {

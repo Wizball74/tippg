@@ -243,7 +243,7 @@
                 rnd = trdata()[kt.trid].Ligen,
                 i, opt;
 
-            for (i = 1; i <= rnd; i++) { table.push(makeTable(id + i, { fl: 'left' })); }
+            for (i = 1; i <= rnd; i++) { table.push(makeTable(id + i, { fl: 'left', cls: 'col-lg-6 col-md-6 col-xs-12' })); }
             setContent(table.join('')); //'<br/>'));
 
             for (i = 1; i <= rnd; i++) {
@@ -376,8 +376,7 @@
             gridview: true,
             colModel: colModel,
             caption: 'Zusammenfassung',
-            width: 450,
-            autowidth: false,
+            autowidth: true,
             grouping: true,
             footerrow: true,
             userDataOnFooter: true,
@@ -716,7 +715,7 @@
                 i, opt, events, dndopts, btn;
 
             for (i = 0; i <= rnd; i++) {
-                table.push(makeTable(id + i, { fl: 'left', pager: true, cls: 'col-lg-3 col-md-3 col-xs-4' }));
+                table.push(makeTable(id + i, { fl: 'left', pager: true, cls: 'col-lg-3 col-md-3 col-xs-6' }));
                 gridids.push('#grid' + id + i);
             }
             setContent(table.join(''));
@@ -852,8 +851,8 @@
                 rnd = 1,
                 events;
 
-            table = makeTable(id, { fl: 'left', cls: 'col-lg-6 col-md-6 col-xs-6' });
-            table += makeTable(idsum, { fl: 'left', cls: 'col-lg-6 col-md-6 col-xs-6' });
+            table = makeTable(id, { fl: 'left', cls: 'col-lg-6 col-md-6 col-xs-12' });
+            table += makeTable(idsum, { fl: 'left', cls: 'col-lg-6 col-md-6 col-xs-12' });
             setContent(table);
 
             btn = [

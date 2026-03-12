@@ -1,7 +1,18 @@
 {
   "permissions": {
     "allow": [
-      "Bash(xargs cat:*)"
+      "Bash(xargs cat:*)",
+      "Bash(grep:*)",
+      "Bash(ls:*)",
+      "Bash(xargs:*)",
+      "Bash(\"/c/Program Files/php/php.exe\":*)",
+      "Bash(node:*)",
+      "Bash(curl:*)",
+      "Bash(git add:*)",
+      "Bash(npx --yes http-server -p 8080 -c-1 2>&1 | head -20)",
+      "Bash(npx http-server:*)",
+      "Bash(npx -y http-server \"C:\\\\Daten\\\\GIT\\\\tippg\" -p 8080 -c-1)",
+      "Bash(git push:*)"
     ]
   }
 }

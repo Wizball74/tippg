@@ -77,7 +77,7 @@
 
         canvas = document.createElement('canvas');
         canvas.id = 'kt-ball-canvas';
-        canvas.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:9999';
+        canvas.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999';
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
         document.body.appendChild(canvas);
@@ -434,8 +434,12 @@
         var fresh;
         try { fresh = JSON.parse(localStorage.getItem(CFG.LS_KEY) || '{}'); }
         catch (e) { fresh = {}; }
+        var trid = kt.trid || 0, md = kt.md || 0;
         var entries = [];
-        for (var key in fresh) entries.push(fresh[key]);
+        for (var key in fresh) {
+            var e = fresh[key];
+            if (e.trid === trid && e.md === md) entries.push(e);
+        }
         entries.sort(function (a, b) { return b.score - a.score; });
         return entries.slice(0, 10);
     }
