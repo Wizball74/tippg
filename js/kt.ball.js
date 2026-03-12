@@ -91,15 +91,15 @@
             '  border: none !important;' +
             '}' +
 
-            // Glut-Animation: sanftes, zufälliges Glimmen
+            // Glut-Animation: Inner Glow mit flackerndem box-shadow
             '@keyframes kt-ember {' +
-            '  0%   { background-color: rgba(180,80,20,0.08); }' +
-            '  15%  { background-color: rgba(200,90,15,0.14); }' +
-            '  30%  { background-color: rgba(160,60,10,0.06); }' +
-            '  50%  { background-color: rgba(210,100,20,0.16); }' +
-            '  65%  { background-color: rgba(170,70,15,0.05); }' +
-            '  80%  { background-color: rgba(190,85,20,0.12); }' +
-            '  100% { background-color: rgba(180,80,20,0.08); }' +
+            '  0%   { box-shadow: inset 0 0 8px 2px rgba(200,80,20,0.25); }' +
+            '  15%  { box-shadow: inset 0 0 12px 3px rgba(220,100,15,0.4); }' +
+            '  30%  { box-shadow: inset 0 0 6px 1px rgba(180,60,10,0.15); }' +
+            '  50%  { box-shadow: inset 0 0 14px 4px rgba(230,110,20,0.45); }' +
+            '  65%  { box-shadow: inset 0 0 5px 1px rgba(170,70,15,0.12); }' +
+            '  80%  { box-shadow: inset 0 0 10px 3px rgba(210,90,20,0.35); }' +
+            '  100% { box-shadow: inset 0 0 8px 2px rgba(200,80,20,0.25); }' +
             '}' +
 
             '.ui-jqgrid td.kt-ball-burned,' +

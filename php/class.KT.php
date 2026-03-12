@@ -80,7 +80,7 @@ class KT
 	function loadTeams()
 	{
 		$teams = array();
-		$data = $this->db->getData(sprintf("SELECT * FROM %s", $this->TABLE[teams]));
+		$data = $this->db->getData(sprintf("SELECT * FROM %s", $this->TABLE['teams']));
 		foreach ($data as $row) {
 			$teams[$row['tid']] = $row;
 		}
@@ -115,8 +115,8 @@ class KT
 			} // for
 		}
 
-		$trrow = $this->db->Query(sprintf("SELECT * FROM %s WHERE trid=%d", $this->TABLE[tipprunde], $trid))->fetch_assoc();
-		$anz = $this->db->Query(sprintf("SELECT max(sptag) AS sptag FROM %s WHERE trid=%d", $this->TABLE[spielplan], $trid))->fetch_assoc();
+		$trrow = $this->db->Query(sprintf("SELECT * FROM %s WHERE trid=%d", $this->TABLE['tipprunde'], $trid))->fetch_assoc();
+		$anz = $this->db->Query(sprintf("SELECT max(sptag) AS sptag FROM %s WHERE trid=%d", $this->TABLE['spielplan'], $trid))->fetch_assoc();
 		$trrow['MaxST'] = $anz['sptag'];
 
 		// Wertungsrunden
@@ -134,14 +134,14 @@ class KT
 		$row = $this->db->Query(sprintf(
 			"SELECT IF(min(sptag), min(sptag), 34) AS sptag
 											FROM %s WHERE trid=%d AND Ergebnis='-:-' AND (Datum > curdate() - INTERVAL 3 day)",
-			$this->TABLE[spielplan],
+			$this->TABLE['spielplan'],
 			$trid
 		))->fetch_assoc();
 		$trrow['AktST'] = $row['sptag'];
 
 		// aktuelle Wertungsrunde +
 		// Anz. Spielttage +  aktuelle Wertungsrunde
-		$row = $this->db->Query(sprintf("SELECT max(sptag) as sptag FROM %s where trid=%d", $this->TABLE[spielplan], $trid))->fetch_assoc();
+		$row = $this->db->Query(sprintf("SELECT max(sptag) as sptag FROM %s where trid=%d", $this->TABLE['spielplan'], $trid))->fetch_assoc();
 		$trrow['AnzST'] = $row['sptag'];
 		if (!isset($trrow['AktST'])) $trrow['AktST'] = $trrow['AnzST'];
 
@@ -157,7 +157,7 @@ class KT
 
 		// Prämien
 		unset($bonus);
-		$data = $this->db->getData(sprintf("SELECT * FROM %s WHERE trid=%d", $this->TABLE[praemien], $trid));
+		$data = $this->db->getData(sprintf("SELECT * FROM %s WHERE trid=%d", $this->TABLE['praemien'], $trid));
 		foreach ($data as $row) {
 			$bonus[$row['LRnd']][$row['Liga']][$row['platz']] = $row['betrag'];
 		} // while
@@ -174,8 +174,8 @@ class KT
 			"SELECT tr.*, tn.name as name FROM  %s tn, %s tr
 							WHERE tr.trid = %d AND tr.tnid=tn.tnid AND tn.userlevel > 0 AND tr.Liga > 0
 							ORDER BY tr.LRnd, tn.name",
-			$this->TABLE[teilnehmer],
-			$this->TABLE[tr_teilnehmer],
+			$this->TABLE['teilnehmer'],
+			$this->TABLE['tr_teilnehmer'],
 			$trid
 		);
 
@@ -186,7 +186,7 @@ class KT
 		}
 
 		// MA 26.09.2009 komplette Liste
-		$sql = sprintf("SELECT tnid, name FROM %s ORDER BY name", $this->TABLE[teilnehmer]);
+		$sql = sprintf("SELECT tnid, name FROM %s ORDER BY name", $this->TABLE['teilnehmer']);
 
 		$data = $this->db->getData($sql);
 		foreach ($data as $row) {
@@ -283,7 +283,7 @@ class KT
 		/* Check if user has been remembered via token */
 		if (isset($_COOKIE['remember_token']) && !isset($_SESSION['username'])) {
 			$token = $_COOKIE['remember_token'];
-			$sql = sprintf("SELECT user FROM %s WHERE remember_token = ?", $this->TABLE[teilnehmer]);
+			$sql = sprintf("SELECT user FROM %s WHERE remember_token = ?", $this->TABLE['teilnehmer']);
 			$result = $this->db->prepare($sql, 's', [$token]);
 			if ($result && $result->num_rows > 0) {
 				$row = $result->fetch_assoc();
@@ -299,7 +299,7 @@ class KT
 				return false;
 			}
 
-			$sql = sprintf("UPDATE %s SET lastLogin = ? WHERE tnid = ?", $this->TABLE[teilnehmer]);
+			$sql = sprintf("UPDATE %s SET lastLogin = ? WHERE tnid = ?", $this->TABLE['teilnehmer']);
 			$this->db->prepareExecute($sql, 'si', [date("YmdHis"), $this->user['tnid']]);
 
 			return true;
@@ -311,7 +311,7 @@ class KT
 	function confirmUser($username, $password)
 	{
 		/* Verify that user is in database */
-		$sql = sprintf("SELECT tnid, password FROM %s WHERE user = ?", $this->TABLE[teilnehmer]);
+		$sql = sprintf("SELECT tnid, password FROM %s WHERE user = ?", $this->TABLE['teilnehmer']);
 		$result = $this->db->prepare($sql, 's', [$username]);
 		if (!$result || ($result->num_rows < 1)) {
 			return 1; // Username not found
@@ -332,7 +332,7 @@ class KT
 			if ($password === $dbPassword) {
 				// Migrate to bcrypt
 				$newHash = password_hash($password, PASSWORD_DEFAULT);
-				$sql = sprintf("UPDATE %s SET password = ? WHERE tnid = ?", $this->TABLE[teilnehmer]);
+				$sql = sprintf("UPDATE %s SET password = ? WHERE tnid = ?", $this->TABLE['teilnehmer']);
 				$this->db->prepareExecute($sql, 'si', [$newHash, $dbarray['tnid']]);
 				return 0;
 			}
@@ -342,11 +342,11 @@ class KT
 
 	function setUser($username)
 	{
-		$sql = sprintf("SELECT tnid, name, userlevel FROM %s WHERE user = ?", $this->TABLE[teilnehmer]);
+		$sql = sprintf("SELECT tnid, name, userlevel FROM %s WHERE user = ?", $this->TABLE['teilnehmer']);
 		$result = $this->db->prepare($sql, 's', [$username]);
 		if ($result && $result->num_rows > 0) {
 			$this->user = $result->fetch_assoc();
-			$sql = sprintf("UPDATE %s SET lastLogin2 = CURRENT_TIMESTAMP WHERE tnid = ?", $this->TABLE[teilnehmer]);
+			$sql = sprintf("UPDATE %s SET lastLogin2 = CURRENT_TIMESTAMP WHERE tnid = ?", $this->TABLE['teilnehmer']);
 			$this->db->prepareExecute($sql, 'i', [$this->user['tnid']]);
 		} else {
 			$this->user = null;
@@ -356,7 +356,7 @@ class KT
 	function generateRememberToken($tnid)
 	{
 		$token = bin2hex(random_bytes(32));
-		$sql = sprintf("UPDATE %s SET remember_token = ? WHERE tnid = ?", $this->TABLE[teilnehmer]);
+		$sql = sprintf("UPDATE %s SET remember_token = ? WHERE tnid = ?", $this->TABLE['teilnehmer']);
 		$this->db->prepareExecute($sql, 'si', [$token, $tnid]);
 		return $token;
 	}
@@ -365,7 +365,7 @@ class KT
 	{
 		// Remember-Token loeschen
 		if ($this->user) {
-			$sql = sprintf("UPDATE %s SET remember_token = NULL WHERE tnid = ?", $this->TABLE[teilnehmer]);
+			$sql = sprintf("UPDATE %s SET remember_token = NULL WHERE tnid = ?", $this->TABLE['teilnehmer']);
 			$this->db->prepareExecute($sql, 'i', [$this->user['tnid']]);
 		}
 
@@ -395,8 +395,8 @@ class KT
 								and  (Datum > (curdate() - INTERVAL 3 day)) 
 								and  (Datum < (curdate() + INTERVAL 3 day))
 								group by trid) st ON t.trid = st.trid",
-				$this->TABLE[tipprunde],
-				$this->TABLE[spielplan]
+				$this->TABLE['tipprunde'],
+				$this->TABLE['spielplan']
 			);
 			if ($this->user['userlevel'] < 100) $sql = $sql . " WHERE t.aktiv ='J'"; // TODO: nur wenn eingeloggter Benutzer Teilnehmer ist
 			$sql = $sql . " ORDER BY t.trid DESC";
@@ -415,7 +415,7 @@ class KT
 			$sql = sprintf(
 				"SELECT *, DATE_FORMAT(Datum, '%%d.%%m.%%Y') AS DatumF
 								FROM %s WHERE trid=%d ORDER BY sptag",
-				$this->TABLE[spielplan],
+				$this->TABLE['spielplan'],
 				$trid
 			);
 			$data = $this->db->getData($sql);
@@ -549,7 +549,7 @@ class KT
 		// 	Gegner Ligasystem
 		$tnid = $this->user['tnid'];
 		if ($tnid > 0) {
-			$sql = sprintf("SELECT * FROM %s WHERE trid=%d AND sptag=%d AND ((tnid1=%d) or (tnid2=%d))", $this->TABLE[ligaergebnis], $trid, $matchday, $tnid, $tnid);
+			$sql = sprintf("SELECT * FROM %s WHERE trid=%d AND sptag=%d AND ((tnid1=%d) or (tnid2=%d))", $this->TABLE['ligaergebnis'], $trid, $matchday, $tnid, $tnid);
 			$row = $this->db->Query($sql)->fetch_assoc();
 			if ($row['tnid1'] == $tnid) $result = $row['tnid2'];
 			else $result = $row['tnid1'];
@@ -567,8 +567,8 @@ class KT
 		$sql = sprintf(
 			"SELECT sp.sid as sid, Ergebnis, Tipp, t.tnid as tnid, sp.Datum as Datum, sp.Uhrzeit
 							FROM %s sp, %s t WHERE sp.trid=%d AND sp.sptag=%d AND sp.sid=t.sid ORDER BY t.tnid, sp.sid",
-			$this->TABLE[spielplan],
-			$this->TABLE[tipps],
+			$this->TABLE['spielplan'],
+			$this->TABLE['tipps'],
 			$trid,
 			$matchday
 		);
@@ -603,7 +603,7 @@ class KT
 		$row = $this->db->Query(sprintf(
 			"SELECT *, DATE_FORMAT(Datum, '%%d.%%m.%%Y') AS DatumF FROM %s
 											WHERE trid=%d AND sptag=%d ORDER BY Datum, Uhrzeit",
-			$this->TABLE[spielplan],
+			$this->TABLE['spielplan'],
 			$trid,
 			$matchday
 		))->fetch_assoc();
@@ -698,7 +698,7 @@ class KT
 				$pts[$tnid] = $t['Points'];
 			}
 		}
-		$sql = sprintf("SELECT * FROM %s WHERE trid=%d AND sptag=%d", $this->TABLE[ligaergebnis], $trid, $matchday);
+		$sql = sprintf("SELECT * FROM %s WHERE trid=%d AND sptag=%d", $this->TABLE['ligaergebnis'], $trid, $matchday);
 		$data = $this->db->getData($sql);
 		foreach ($data as $row) {
 			$tn1 = $row['tnid1'];
@@ -708,7 +708,7 @@ class KT
 
 			$sql = sprintf(
 				"REPLACE INTO %s (trid,sptag,liga,tnid1,tnid2,Ergebnis) VALUES(%d,%d,%d,%d,%d,'%s')",
-				$this->TABLE[ligaergebnis],
+				$this->TABLE['ligaergebnis'],
 				$trid,
 				$matchday,
 				$row['Liga'],
@@ -740,7 +740,7 @@ class KT
 			// Datenmodell
 			$colModel[] = array('label' => "Name", 'width' => 200, 'name' => "Name", 'classes' => 'Name');
 
-			$sql = sprintf("SELECT s.* FROM %s s WHERE s.trid=%d AND s.sptag=%d ORDER BY s.sid", $this->TABLE[spielplan], $trid, $md);
+			$sql = sprintf("SELECT s.* FROM %s s WHERE s.trid=%d AND s.sptag=%d ORDER BY s.sid", $this->TABLE['spielplan'], $trid, $md);
 			$data = $this->db->getData($sql);
 			foreach ($data as $row) {
 				$hdr = sprintf(
@@ -818,7 +818,7 @@ class KT
 		// Spieltag komplett? Sieger mit Krone markieren
 		if (is_array($data) && count($data) > 0) {
 			// Pruefen ob alle Ergebnisse vorliegen
-			$sql = sprintf("SELECT COUNT(*) as cnt FROM %s WHERE trid=%d AND sptag=%d AND (Ergebnis='' OR Ergebnis='-:-' OR Ergebnis IS NULL)", $this->TABLE[spielplan], $trid, $md);
+			$sql = sprintf("SELECT COUNT(*) as cnt FROM %s WHERE trid=%d AND sptag=%d AND (Ergebnis='' OR Ergebnis='-:-' OR Ergebnis IS NULL)", $this->TABLE['spielplan'], $trid, $md);
 			$check = $this->db->getData($sql);
 			$allComplete = (isset($check[0]) && $check[0]['cnt'] == 0);
 
@@ -875,8 +875,8 @@ class KT
 				"SELECT s.*, t.Tipp, %d AS tnid FROM %s s LEFT JOIN %s t ON s.sid=t.sid AND (t.tnid=%d OR t.tnid IS NULL)
 								WHERE s.trid=%d AND s.sptag=%d ORDER BY Datum, Uhrzeit",
 				$userid,
-				$this->TABLE[spielplan],
-				$this->TABLE[tipps],
+				$this->TABLE['spielplan'],
+				$this->TABLE['tipps'],
 				$userid,
 				$trid,
 				$md
@@ -946,7 +946,7 @@ class KT
 
 					if ($valid) {
 						if ($tip != '') $savecnt++;
-						$sql = sprintf("REPLACE INTO %s (sid,tnid,Tipp) VALUES (?, ?, ?)", $this->TABLE[tipps]);
+						$sql = sprintf("REPLACE INTO %s (sid,tnid,Tipp) VALUES (?, ?, ?)", $this->TABLE['tipps']);
 						$this->db->prepareExecute($sql, 'iis', [(int)$d['sid'], (int)$d['tnid'], $d['Tip']]);
 					}
 				}
@@ -976,13 +976,13 @@ class KT
 			$teams = $this->teams;
 			$limit = 6;
 
-			$sql = sprintf("SELECT * FROM %s WHERE (tid1=%d OR tid2=%d) AND Ergebnis <>'-:-' ORDER BY Datum DESC LIMIT %d", $this->TABLE[spielplan], $tidH, $tidH, $limit);
+			$sql = sprintf("SELECT * FROM %s WHERE (tid1=%d OR tid2=%d) AND Ergebnis <>'-:-' ORDER BY Datum DESC LIMIT %d", $this->TABLE['spielplan'], $tidH, $tidH, $limit);
 			$html .= $this->getTable($sql, 'letzte Spiele von <b>' . $teams[$tidH]['Name'] . '</b>');
 
-			$sql = sprintf("SELECT * FROM %s WHERE (tid1=%d OR tid2=%d) AND Ergebnis <>'-:-' ORDER BY Datum DESC LIMIT %d", $this->TABLE[spielplan], $tidA, $tidA, $limit);
+			$sql = sprintf("SELECT * FROM %s WHERE (tid1=%d OR tid2=%d) AND Ergebnis <>'-:-' ORDER BY Datum DESC LIMIT %d", $this->TABLE['spielplan'], $tidA, $tidA, $limit);
 			$html .= $this->getTable($sql, 'letzte Spiele von <b>' . $teams[$tidA]['Name'] . '</b>');
 
-			$sql = sprintf("SELECT * FROM %s WHERE ((tid1=%d AND tid2=%d) OR (tid1=%d AND tid2=%d)) AND Ergebnis <>'-:-' ORDER BY Datum DESC LIMIT %d", $this->TABLE[spielplan], $tidH, $tidA, $tidA, $tidH, $limit);
+			$sql = sprintf("SELECT * FROM %s WHERE ((tid1=%d AND tid2=%d) OR (tid1=%d AND tid2=%d)) AND Ergebnis <>'-:-' ORDER BY Datum DESC LIMIT %d", $this->TABLE['spielplan'], $tidH, $tidA, $tidA, $tidH, $limit);
 			$html .= $this->getTable($sql, 'letzte Spiele gegeneinander');
 		} else {
 			$html = 'Tippabgabe bitte wie folgt: 1:0, 2:1, 2:2, ...<br/><br/>' .
@@ -1120,7 +1120,7 @@ class KT
 			$colModel[] = array('name' => "id", 'key' => true, 'hidden' => true);
 			$colModel[] = array('name' => "cls", 'hidden' => true);
 
-			$sql = sprintf("SELECT * FROM %s WHERE trid=%d AND sptag=%d AND Liga=%d", $this->TABLE[ligaergebnis], $trid, $md, $league);
+			$sql = sprintf("SELECT * FROM %s WHERE trid=%d AND sptag=%d AND Liga=%d", $this->TABLE['ligaergebnis'], $trid, $md, $league);
 			$data = $this->db->getData($sql);
 			unset($schedule);
 
@@ -1208,7 +1208,7 @@ class KT
 
 		$sql = sprintf(
 			"SELECT * FROM %s sp WHERE sp.trid=%d AND Liga=%d AND sptag BETWEEN %d AND %d",
-			$this->TABLE[ligaergebnis],
+			$this->TABLE['ligaergebnis'],
 			$trid,
 			$leaguenr,
 			$start,
@@ -1350,7 +1350,7 @@ class KT
 		$tnid = $this->user['tnid'];
 		$cls[$tnid] = 'rowUser';
 
-		$sql = sprintf("SELECT * FROM %s sp WHERE Liga=%d AND trid IN (SELECT trid FROM %s WHERE Aktiv='J')", $this->TABLE[ligaergebnis], $leaguenr, $this->TABLE[tipprunde]);
+		$sql = sprintf("SELECT * FROM %s sp WHERE Liga=%d AND trid IN (SELECT trid FROM %s WHERE Aktiv='J')", $this->TABLE['ligaergebnis'], $leaguenr, $this->TABLE['tipprunde']);
 		$data = $this->db->getData($sql);
 
 		unset($_sp);
@@ -1664,7 +1664,7 @@ class KT
 					if ($r['betrag'] > 0)
 						$sql = sprintf(
 							"replace into %s (trid,LRnd,Liga,Platz,betrag) values (%d,%d,%d,%d,%01.2f)",
-							$this->TABLE[praemien],
+							$this->TABLE['praemien'],
 							$r['trid'],
 							$r['LRnd'],
 							$r['Liga'],
@@ -1674,7 +1674,7 @@ class KT
 					else
 						$sql = sprintf(
 							"delete from %s where trid=%d AND LRnd=%d AND Liga=%d AND Platz=%d",
-							$this->TABLE[praemien],
+							$this->TABLE['praemien'],
 							$r['trid'],
 							$r['LRnd'],
 							$r['Liga'],
@@ -1686,7 +1686,7 @@ class KT
 
 				// Prämien neu laden
 				unset($bonus);
-				$sql = sprintf("SELECT * FROM %s WHERE trid=%d", $this->TABLE[praemien], $trid);
+				$sql = sprintf("SELECT * FROM %s WHERE trid=%d", $this->TABLE['praemien'], $trid);
 				$data = $this->db->getData($sql);
 				foreach ($data as $row) {
 					$bonus[$row['LRnd']][$row['Liga']][$row['platz']] = $row['betrag'];
@@ -1736,7 +1736,7 @@ class KT
 
 			$sql = sprintf(
 				"SELECT *, DATE_FORMAT(Datum, '%%d.%%m.%%Y') AS DatumF FROM %s WHERE trid=%d AND sptag=%d ORDER BY Datum, Uhrzeit",
-				$this->TABLE[spielplan],
+				$this->TABLE['spielplan'],
 				$_POST['trid'],
 				$_POST['md']
 			);
@@ -1785,7 +1785,7 @@ class KT
 			if (!isset($mode)) $mode = 't';
 			$teams = $this->teams;
 
-			$sql = sprintf("SELECT * FROM %s WHERE trid=%d AND sptag<=%d", $this->TABLE[spielplan], $trid, $md);
+			$sql = sprintf("SELECT * FROM %s WHERE trid=%d AND sptag<=%d", $this->TABLE['spielplan'], $trid, $md);
 			$data = $this->db->getData($sql);
 			foreach ($data as $row) {
 				$schedule[$row['sptag']][$row['sid']] = $row;
@@ -1891,8 +1891,8 @@ class KT
 
 			$sql = sprintf(
 				"SELECT t.Tipp FROM %s t INNER JOIN %s s ON t.sid = s.sid where s.trid=%d AND s.Datum<='%s'",
-				$this->TABLE[tipps],
-				$this->TABLE[spielplan],
+				$this->TABLE['tipps'],
+				$this->TABLE['spielplan'],
 				$trid,
 				date("Y-m-d")
 			);
@@ -2041,7 +2041,7 @@ class KT
 
 
 			if ($member[$rnd][$tnid]['Liga'] == '1') {
-				$sql = sprintf("SELECT * FROM %s sp WHERE sp.trid=%d AND Liga=1 AND sptag BETWEEN %d AND %d", $this->TABLE[ligaergebnis], $trid, $start, $end);
+				$sql = sprintf("SELECT * FROM %s sp WHERE sp.trid=%d AND Liga=1 AND sptag BETWEEN %d AND %d", $this->TABLE['ligaergebnis'], $trid, $start, $end);
 				$data = $this->db->getData($sql);
 
 				unset($_sp);
@@ -2209,7 +2209,7 @@ class KT
 
 		$sql = sprintf("SELECT s.sid, s.Ergebnis, t.Tipp, t.tnid, s.trid FROM %s s INNER JOIN %s t ON s.sid = t.sid
 							WHERE s.Datum < '%s' AND s.Ergebnis <> '-:-' AND s.trid IN (SELECT trid FROM %s WHERE Aktiv='J')
-							ORDER BY t.tnid, s.sid", $this->TABLE[spielplan], $this->TABLE[tipps], date("Y-m-d"), $this->TABLE[tipprunde]);
+							ORDER BY t.tnid, s.sid", $this->TABLE['spielplan'], $this->TABLE['tipps'], date("Y-m-d"), $this->TABLE['tipprunde']);
 
 		$data = $this->db->getData($sql);
 		//echo $sql;
@@ -2226,7 +2226,7 @@ class KT
 
 		$member = $this->member[-1];
 
-		$sql = sprintf("SELECT trid, Runden FROM %s WHERE Aktiv='J'", $this->TABLE[tipprunde]);
+		$sql = sprintf("SELECT trid, Runden FROM %s WHERE Aktiv='J'", $this->TABLE['tipprunde']);
 		$data = $this->db->getData($sql);
 		unset($sprnd);
 		foreach ($data as $row) $sprnd[$row['trid']] = 306 / $row['Runden']; // 306 = (18/2)*(18-1)*2
@@ -2290,8 +2290,8 @@ class KT
 
 			$sql = sprintf(
 				"SELECT * FROM %s s INNER JOIN %s t ON s.sid = t.sid WHERE trid=%d and sptag<=%d AND tnid=%d",
-				$this->TABLE[spielplan],
-				$this->TABLE[tipps],
+				$this->TABLE['spielplan'],
+				$this->TABLE['tipps'],
 				$trid,
 				$md,
 				$tnid
@@ -2414,7 +2414,7 @@ class KT
 			$colModel[] = array('label' => "id", 'name' => "tnid", 'key' => true, 'hidden' => true);
 
 			unset($results);
-			$sql = sprintf("SELECT * FROM %s", $this->TABLE[teilnehmer]);
+			$sql = sprintf("SELECT * FROM %s", $this->TABLE['teilnehmer']);
 			if (($mode == 'all') && ($user['userlevel'] == 100)) {
 				$colModel[] = array(
 					'label' => "Level", 'width' => 50, 'name' => "userlevel", 'align' => 'right', 'sorttype' => 'int',
@@ -2445,7 +2445,7 @@ class KT
 						if ($user['userlevel'] == 100) {
 							$sql = sprintf(
 								"INSERT INTO %s (user,email,name,userlevel,password,remind) values('%s','%s','%s',%d,'%s',%d)",
-								$this->TABLE[teilnehmer],
+								$this->TABLE['teilnehmer'],
 								$data['user'],
 								$data['email'],
 								utf8_decode($data['name']),
@@ -2462,7 +2462,7 @@ class KT
 					case 'edit':
 						$sql = sprintf(
 							"UPDATE %s SET user='%s', email='%s', name='%s', remind=%d",
-							$this->TABLE[teilnehmer],
+							$this->TABLE['teilnehmer'],
 							$data['user'],
 							$data['email'],
 							utf8_decode($data['name']),
@@ -2478,7 +2478,7 @@ class KT
 
 					case 'del':
 						if ($user['userlevel'] == 100) {
-							$sql = sprintf("DELETE FROM %s WHERE tnid=%d", $this->TABLE[teilnehmer], $data['id']);
+							$sql = sprintf("DELETE FROM %s WHERE tnid=%d", $this->TABLE['teilnehmer'], $data['id']);
 							$this->db->Query($sql);
 							$this->jsonResult2(true, Status::OK, 'Benutzer gelöscht!');
 							// TODO verknüpfte Daten?
@@ -2531,7 +2531,7 @@ class KT
 
 			if ($userid > 0) {
 				$sql = sprintf("SELECT s.*, t.Tipp, %d AS tnid FROM %s s LEFT JOIN %s t ON s.sid = t.sid AND (t.tnid = %d OR t.tnid IS NULL)
-									WHERE s.trid=%d AND s.sptag=%d ORDER BY Datum, Uhrzeit", $userid, $this->TABLE[spielplan], $this->TABLE[tipps], $userid, $trid, $md);
+									WHERE s.trid=%d AND s.sptag=%d ORDER BY Datum, Uhrzeit", $userid, $this->TABLE['spielplan'], $this->TABLE['tipps'], $userid, $trid, $md);
 
 				$data = $this->db->getData($sql);
 				unset($tips);
@@ -2570,7 +2570,7 @@ class KT
 					$sql = sprintf(
 						"INSERT INTO %s (uid, kommentar, sid, tnid, alt, neu)
 								VALUES (%d,'%s',%d, %d, '%s','%s')",
-						$this->TABLE[adminlog],
+						$this->TABLE['adminlog'],
 						$this->user['tnid'],
 						$_POST['comment'],
 						$d['sid'],
@@ -2580,7 +2580,7 @@ class KT
 					);
 					//echo $sql;
 					$this->db->Query($sql);
-					$sql = sprintf("replace into %s (sid,tnid,Tipp) values (%d,%d,'%s')", $this->TABLE[tipps], $d['sid'], $d['tnid'], $d['Tip']);
+					$sql = sprintf("replace into %s (sid,tnid,Tipp) values (%d,%d,'%s')", $this->TABLE['tipps'], $d['sid'], $d['tnid'], $d['Tip']);
 					$this->db->Query($sql);
 					//echo $sql;
 				}
@@ -2645,7 +2645,7 @@ class KT
 			unset($results);
 
 			if ($user['userlevel'] == 100) {
-				$sql = sprintf("SELECT * FROM %s ORDER BY trid", $this->TABLE[tipprunde]);
+				$sql = sprintf("SELECT * FROM %s ORDER BY trid", $this->TABLE['tipprunde']);
 				$data = $this->db->getData($sql);
 				foreach ($data as $row) {
 					$results[] = array(
@@ -2681,7 +2681,7 @@ class KT
 						$sql = sprintf(
 							"INSERT INTO %s (Name,Beginn,Ende,Aktiv,P1,P2,P3,deadline,Runden,Ligen,Ersteller)
 							        values('%s','%s','%s','%s',%d,%d,%d,%d,%d,%d,%d)",
-							$this->TABLE[tipprunde],
+							$this->TABLE['tipprunde'],
 							$data['Name'],
 							$this->convertDate($data['Start']),
 							$this->convertDate($data['End']),
@@ -2702,7 +2702,7 @@ class KT
 						$sql = sprintf(
 							"UPDATE %s SET Name='%s', Beginn='%s', Ende='%s', Aktiv='%s',
 									P1=%d, P2=%d, P3=%d, deadline=%d, Runden=%d, Ligen=%d",
-							$this->TABLE[tipprunde],
+							$this->TABLE['tipprunde'],
 							$data['Name'],
 							$this->convertDate($data['Start']),
 							$this->convertDate($data['End']),
@@ -2758,8 +2758,8 @@ class KT
 			$sql = sprintf(
 				"SELECT tn.tnid AS tnid1, tn.name AS name, tr.* FROM %s tn LEFT JOIN %s tr ON (tn.tnid=tr.tnid AND trid=%d AND LRnd=%d)
 								WHERE userlevel>0 AND IFNULL(tr.Liga,0)=%d ORDER BY tn.name",
-				$this->TABLE[teilnehmer],
-				$this->TABLE[tr_teilnehmer],
+				$this->TABLE['teilnehmer'],
+				$this->TABLE['tr_teilnehmer'],
 				$trid,
 				$rnd,
 				$lnr
@@ -2792,12 +2792,12 @@ class KT
 				$rnd = $data[0]['rnd'];
 
 				if (!empty($rnd)) {
-					$this->db->Query(sprintf("DELETE FROM %s WHERE trid=%d AND LRnd=%d", $this->TABLE[tr_teilnehmer], $trid, $rnd));
+					$this->db->Query(sprintf("DELETE FROM %s WHERE trid=%d AND LRnd=%d", $this->TABLE['tr_teilnehmer'], $trid, $rnd));
 					foreach ($data as $d) {
 						$nr = (isset($d['LNr'])) ? $d['LNr'] : 0;
 						$sql = sprintf(
 							"INSERT INTO %s (trid, tnid, Liga, LRnd, LNr) VALUES(%d,%d,%d,%d,%d)",
-							$this->TABLE[tr_teilnehmer],
+							$this->TABLE['tr_teilnehmer'],
 							$trid,
 							$d['tnid'],
 							$d['League'],
@@ -2844,7 +2844,7 @@ class KT
 					exit;
 				}
 
-				$sql = sprintf("SELECT DISTINCT tid1 FROM %s WHERE trid=%d AND sptag BETWEEN %d and %d", $this->TABLE[spielplan], $trid, $start, $end);
+				$sql = sprintf("SELECT DISTINCT tid1 FROM %s WHERE trid=%d AND sptag BETWEEN %d and %d", $this->TABLE['spielplan'], $trid, $start, $end);
 				$idx = 1;
 				$data = $this->db->getData($sql);
 				foreach ($data as $row) {
@@ -2858,7 +2858,7 @@ class KT
 				}
 
 				// Spielplan generieren
-				$sql = sprintf("SELECT tid1, tid2, sptag FROM %s WHERE trid=%d AND sptag BETWEEN %d AND %d ORDER BY sptag,sid", $this->TABLE[spielplan], $trid, $start, $end);
+				$sql = sprintf("SELECT tid1, tid2, sptag FROM %s WHERE trid=%d AND sptag BETWEEN %d AND %d ORDER BY sptag,sid", $this->TABLE['spielplan'], $trid, $start, $end);
 
 				$data = $this->db->getData($sql);
 				foreach ($data as $row) {
@@ -2867,7 +2867,7 @@ class KT
 
 					$this->db->Query(sprintf(
 						"INSERT INTO %s (trid,sptag,Liga,tnid1,tnid2,Ergebnis) VALUES(%d, %d, %d, %d, %d, '-:-')",
-						$this->TABLE[ligaergebnis],
+						$this->TABLE['ligaergebnis'],
 						$trid,
 						$row['sptag'],
 						$league,
@@ -2896,7 +2896,7 @@ class KT
 				foreach ($data as $d) {
 					$sql = sprintf(
 						"UPDATE %s SET Datum='%s', Uhrzeit='%s', Ergebnis='%s' WHERE sid = %d",
-						$this->TABLE[spielplan],
+						$this->TABLE['spielplan'],
 						$this->convertDate($d['Date']),
 						$d['Time'],
 						$d['Result'],
@@ -2937,7 +2937,7 @@ class KT
 
 		// Spieltage laden
 		unset($_sid);
-		$sql = sprintf("SELECT * FROM %s where trid=%d AND sptag=%d", $this->TABLE[spielplan], $trid, $md);
+		$sql = sprintf("SELECT * FROM %s where trid=%d AND sptag=%d", $this->TABLE['spielplan'], $trid, $md);
 		$data = $this->db->getData($sql);
 		foreach ($data as $row) {
 			$_sid[$row['tid1']][$row['tid2']] = $row['sid'];
@@ -2982,7 +2982,7 @@ class KT
 	{
 		if ($name) {
 			$sql = sprintf("INSERT INTO %s (Name, kurz) SELECT '%s', '%s' FROM DUAL WHERE NOT EXISTS
-								(SELECT * FROM %s WHERE Name='%s' OR kurz='%s')", $this->TABLE[teams], $name, $kurz, $this->TABLE[teams], $name, $kurz);
+								(SELECT * FROM %s WHERE Name='%s' OR kurz='%s')", $this->TABLE['teams'], $name, $kurz, $this->TABLE['teams'], $name, $kurz);
 			//$sql .= "LIMIT 1";
 			$this->db->Query($sql);
 		}
@@ -3070,9 +3070,9 @@ class KT
 							INNER JOIN %s S ON R.trid = S.trid AND R.sptag = S.sptag
 							WHERE R.diff BETWEEN 0 AND TN.remind
 							GROUP BY R.tnid, R.trid, R.sptag",
-			$this->TABLE[teilnehmer],
-			$this->TABLE[tipprunde],
-			$this->TABLE[spielplan]
+			$this->TABLE['teilnehmer'],
+			$this->TABLE['tipprunde'],
+			$this->TABLE['spielplan']
 		);
 
 		$data = $this->db->getData($sql);
@@ -3094,7 +3094,7 @@ class KT
 			if ($this->SendRemindMail("reminder@tippg.de", $row['email'], $subject, $message)) {
 				$sql = sprintf(
 					"REPLACE INTO %s VALUES(%d, %d, %d, '%s', CURRENT_TIMESTAMP)",
-					$this->TABLE[remind],
+					$this->TABLE['remind'],
 					$row['trid'],
 					$row['tnid'],
 					$row['sptag'],
