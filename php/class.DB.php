@@ -16,8 +16,12 @@
 
 		private function getConnection()
 		{
-			if (!$this->db || !$this->db->ping()) {
+			if (!$this->db || !($this->db instanceof mysqli) || $this->db->connect_errno) {
 				$this->db = new mysqli($this->host, $this->userid, $this->pw, $this->database);
+				if ($this->db->connect_error) {
+					error_log("DB Connect Error: " . $this->db->connect_error);
+					die('Datenbankverbindung fehlgeschlagen.');
+				}
 				$this->db->set_charset('utf8');
 			}
 			return $this->db;
