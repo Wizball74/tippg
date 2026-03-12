@@ -117,7 +117,7 @@
         ball = {
             x: r.left + r.width * (0.3 + Math.random() * 0.4),
             y: -CFG.R - 30,
-            vx: 0, vy: 0, angle: 0, omega: 0
+            vx: 0, vy: 0, angle: 0, spin: 0
         };
         score = 0;
         revealed = false;
@@ -250,8 +250,6 @@
         var push = Math.min(spd * 0.15, 4) + 0.3;
         ball.vx += nx * push;
         ball.vy += ny * push;
-        ball.omega += (dx * cursor.vy - dy * cursor.vx) * 0.0003;
-
         if (spd > 8 && !ghostMode) activateGhost();
     }
 
@@ -282,7 +280,6 @@
             ball.y = h - r;
             ball.vy = -Math.abs(ball.vy) * CFG.BOUNCE;
             ball.vx *= 0.95;
-            ball.omega *= 0.9;
         }
     }
 
@@ -299,10 +296,10 @@
         ball.vy += CFG.GRAVITY;
         ball.x += ball.vx;
         ball.y += ball.vy;
-        ball.angle += ball.omega;
+        ball.angle -= ball.vx / CFG.R;
+        ball.spin  += ball.vy / CFG.R;
         ball.vx *= CFG.FRICTION;
         ball.vy *= CFG.FRICTION;
-        ball.omega *= 0.995;
         collideWalls();
         collidePlatforms();
         collideBlocks();
@@ -330,14 +327,16 @@
         g.addColorStop(0, '#fff'); g.addColorStop(0.7, '#e8e8e8'); g.addColorStop(1, '#b0b0b0');
         ctx.fillStyle = g; ctx.fillRect(-r, -r, r * 2, r * 2);
 
-        var angle = ball.angle, spin = ball.vx * 0.02;
+        var angle = ball.angle, spin = ball.spin;
         var cA = Math.cos(angle), sA = Math.sin(angle), cB = Math.cos(spin), sB = Math.sin(spin);
         for (var i = 0; i < pentas.length; i++) {
             var p = pentas[i];
+            // Z-Achse: horizontales Rollen (aus vx)
             var x1 = p.x * cA - p.y * sA, y1 = p.x * sA + p.y * cA, z1 = p.z;
-            var x2 = x1 * cB + z1 * sB, z2 = -x1 * sB + z1 * cB;
+            // X-Achse: vertikales Rollen (aus vy)
+            var y2 = y1 * cB - z1 * sB, z2 = y1 * sB + z1 * cB;
             if (z2 < 0.1) continue;
-            var px = x2 * r, py = y1 * r, pr = r * 0.28 * (0.3 + z2 * 0.7);
+            var px = x1 * r, py = y2 * r, pr = r * 0.28 * (0.3 + z2 * 0.7);
             ctx.fillStyle = 'rgba(40,40,40,' + (0.3 + z2 * 0.6) + ')';
             ctx.beginPath();
             for (var j = 0; j < 5; j++) {
