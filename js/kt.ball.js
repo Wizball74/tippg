@@ -77,9 +77,10 @@
         styleEl = document.createElement('style');
         styleEl.textContent =
             // Row-Hover im Game-Mode komplett deaktivieren
-            'body.kt-ball-active .ui-jqgrid tr.jqgrow:hover td,' +
-            'body.kt-ball-active .ui-jqgrid tr.ui-state-hover td {' +
-            '  background: inherit !important;' +
+            'body.kt-ball-game .ui-jqgrid tr.jqgrow:hover td,' +
+            'body.kt-ball-game .ui-jqgrid tr.ui-state-hover td,' +
+            'body.kt-ball-game .ui-jqgrid tr.jqgrow.ui-state-hover td {' +
+            '  background: none !important;' +
             '}' +
 
             // Getroffene Zellen: kein Hover, kein Rand
@@ -170,6 +171,7 @@
         removeScorePanel();
         removeStyles();
         document.body.classList.remove('kt-ball-active');
+        document.body.classList.remove('kt-ball-game');
         ball = null; canvas = null; ctx = null;
     };
 
@@ -179,6 +181,7 @@
         score = 0;
         revealed = false;
         removeScorePanel();
+        document.body.classList.remove('kt-ball-game');
         setTimeout(function () {
             if (!ball) spawnBall();
         }, 1500);
@@ -313,7 +316,7 @@
 
         var cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
 
-        // Floating-Text: Punkte (langsamer, kontrastreicher)
+        // Floating-Text: Punkte
         floatingTexts.push({
             x: cx, y: cy,
             text: '+' + pts,
@@ -321,13 +324,9 @@
             color: pts >= 3 ? '#D4A017' : pts >= 2 ? '#2E7D32' : '#555',
             stroke: pts >= 3 ? '#7A5B00' : pts >= 2 ? '#1B4D1B' : '#222'
         });
-        // Gesamt-Score
-        floatingTexts.push({
-            x: cx, y: cy,
-            text: '' + score,
-            life: 2400, maxLife: 2400,
-            color: '#333', stroke: '#999', falling: true
-        });
+
+        // Score-Panel kurz aufblinken lassen
+        pulseScorePanel();
 
         // Partikel entlang der Zellenränder erzeugen
         spawnBorderParticles(rect, pts);
@@ -380,6 +379,7 @@
     }
 
     function revealEffect(rect) {
+        document.body.classList.add('kt-ball-game');
         var cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
         floatingTexts.push({
             x: cx, y: cy - 20,
@@ -570,10 +570,7 @@
             var alpha = t < 0.6 ? 1 : 1 - ((t - 0.6) / 0.4);
             var yOff, font;
 
-            if (ft.falling) {
-                yOff = ease * 40;
-                font = 'bold 16px sans-serif';
-            } else if (ft.big) {
+            if (ft.big) {
                 yOff = ease * -20;
                 font = 'bold 32px sans-serif';
             } else {
@@ -680,15 +677,50 @@
     function updateScorePanel() {
         if (!scorePanel) return;
         var top = getTop10();
+        var fullName = getFullName();
+        var myName = shortName(fullName);
+
+        // Aktuelle Runde einfügen falls nicht schon als Highscore drin
+        var currentInList = false;
+        for (var i = 0; i < top.length; i++) {
+            if (top[i].fullName === fullName && top[i].score === score) {
+                currentInList = true;
+                top[i]._current = true;
+                break;
+            }
+        }
+        if (!currentInList && score > 0) {
+            top.push({ name: myName, fullName: fullName, score: score, _current: true });
+            top.sort(function (a, b) { return b.score - a.score; });
+            top = top.slice(0, 10);
+        }
+
         var html = '';
         for (var i = 0; i < top.length; i++) {
             var e = top[i];
-            html += '<div style="white-space:nowrap">' +
+            var style = 'white-space:nowrap';
+            if (e._current) style += ';color:#FFD700';
+            html += '<div style="' + style + '">' +
                 '<span style="display:inline-block;min-width:28px;text-align:right;font-weight:bold;margin-right:6px">' +
-                e.score + '</span>' + e.name + '</div>';
+                e.score + '</span>' + e.name +
+                (e._current ? ' \u25C0' : '') + '</div>';
         }
         if (!html) html = '<div style="opacity:0.5">Noch keine Scores</div>';
         scorePanel.innerHTML = html;
+    }
+
+    function pulseScorePanel() {
+        if (!scorePanel) return;
+        scorePanel.style.transition = 'none';
+        scorePanel.style.transform = 'translateY(0) scale(1.12)';
+        scorePanel.style.boxShadow = '0 0 16px rgba(255,180,50,0.6)';
+        requestAnimationFrame(function () {
+            requestAnimationFrame(function () {
+                scorePanel.style.transition = 'transform 0.4s ease-out, box-shadow 0.6s ease-out';
+                scorePanel.style.transform = 'translateY(0) scale(1)';
+                scorePanel.style.boxShadow = 'none';
+            });
+        });
     }
 
     function removeScorePanel() {
