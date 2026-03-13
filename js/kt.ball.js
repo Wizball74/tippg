@@ -76,11 +76,15 @@
         if (styleEl) return;
         styleEl = document.createElement('style');
         styleEl.textContent =
-            // Row-Hover im Game-Mode komplett deaktivieren
+            // Platz am unteren Rand, damit der Ball die letzten Zeilen erreicht
+            'body.kt-ball-active { margin-bottom: ' + CFG.BOTTOM_M + 'px; }' +
+
+            // Row-Hover im Game-Mode deaktivieren (alle Themes)
             'body.kt-ball-game .ui-jqgrid tr.jqgrow:hover td,' +
+            'body.kt-ball-game .ui-jqgrid tr.jqgrow.gridRowEven:hover td,' +
             'body.kt-ball-game .ui-jqgrid tr.ui-state-hover td,' +
             'body.kt-ball-game .ui-jqgrid tr.jqgrow.ui-state-hover td {' +
-            '  background: none !important;' +
+            '  background: transparent !important;' +
             '}' +
 
             // Getroffene Zellen: kein Hover, kein Rand
@@ -339,7 +343,51 @@
             el.style.cssText = 'border:none !important;pointer-events:none;';
             el.style.setProperty('--ember-d', Math.random().toFixed(3));
             el.classList.add('kt-ball-burned');
+
+            // Alle Blöcke abgeräumt? → Konfetti!
+            if (allBlocksCleared()) spawnConfetti();
         }, 400);
+    }
+
+    function allBlocksCleared() {
+        var cells = document.querySelectorAll(CFG.BLOCK_SEL);
+        for (var i = 0; i < cells.length; i++) {
+            var val = parseInt(cells[i].textContent);
+            if (val >= 1) return false;
+        }
+        return true;
+    }
+
+    function spawnConfetti() {
+        var w = window.innerWidth;
+        var colors = ['#FF4136','#FF851B','#FFDC00','#2ECC40','#0074D9','#B10DC9','#FF69B4','#01FF70'];
+        var count = 150;
+
+        floatingTexts.push({
+            x: w / 2, y: window.innerHeight / 2 - 40,
+            text: 'ALL CLEAR!',
+            life: 4000, maxLife: 4000,
+            color: '#FFD700', stroke: '#7A5B00', big: true
+        });
+
+        for (var i = 0; i < count; i++) {
+            var x = Math.random() * w;
+            var delay = Math.random() * 600;
+            (function (x, delay) {
+                setTimeout(function () {
+                    particles.push({
+                        x: x, y: -10,
+                        vx: (Math.random() - 0.5) * 3,
+                        vy: 1.5 + Math.random() * 3,
+                        life: 2500 + Math.random() * 1500,
+                        maxLife: 2500 + Math.random() * 1500,
+                        size: 2 + Math.random() * 4,
+                        color: colors[Math.floor(Math.random() * colors.length)],
+                        rot: Math.random() * Math.PI * 2
+                    });
+                }, delay);
+            })(x, delay);
+        }
     }
 
     function spawnBorderParticles(rect, pts) {
@@ -380,6 +428,12 @@
 
     function revealEffect(rect) {
         document.body.classList.add('kt-ball-game');
+        // Hover in allen Grids deaktivieren
+        try { jQuery('table.ui-jqgrid-btable').each(function() {
+            jQuery(this).jqGrid('setGridParam', { hoverrows: false });
+            jQuery(this).off('mouseover mouseout');
+            jQuery(this).find('tr.ui-state-hover').removeClass('ui-state-hover');
+        }); } catch (e) {}
         var cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
         floatingTexts.push({
             x: cx, y: cy - 20,
@@ -550,9 +604,21 @@
         ctx.beginPath(); ctx.arc(bx, by, r, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
 
         if (!ghostMode) {
-            ctx.save(); ctx.globalAlpha = 0.12; ctx.fillStyle = '#000';
-            ctx.beginPath(); ctx.ellipse(bx, by + r + 2, r * 0.7, 2, 0, 0, Math.PI * 2);
-            ctx.fill(); ctx.restore();
+            var groundY = window.innerHeight - CFG.BOTTOM_M;
+            var height  = groundY - (by + r);
+            if (height < 30) {
+                var t = Math.max(0, 1 - height / 30);
+                var blur = (1 - t) * 6;
+                ctx.save();
+                ctx.globalAlpha = 0.15 * t;
+                ctx.shadowColor = '#000';
+                ctx.shadowBlur = blur;
+                ctx.fillStyle = '#000';
+                ctx.beginPath();
+                ctx.ellipse(bx, groundY, r * (0.4 + 0.3 * t), 2, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
         }
     }
 
