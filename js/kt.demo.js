@@ -493,18 +493,12 @@
     $.ajax = function(opts) {
         var url = opts.url || '';
 
-        // Erster Call: testen ob PHP erreichbar
-        if (!firstCallDone && !demoMode) {
-            firstCallDone = true;
-            // Pruefen ob wir auf file:// sind
-            if (window.location.protocol === 'file:') {
-                activateDemo();
-            }
+        // Demo-Modus nur bei file:// Protokoll (lokale Vorschau ohne Server)
+        if (!demoMode && window.location.protocol === 'file:') {
+            activateDemo();
         }
 
-        if (demoMode || window.location.protocol === 'file:') {
-            activateDemo();
-
+        if (demoMode) {
             var mockData = demoData[url];
             if (typeof mockData === 'function') {
                 // Params extrahieren
@@ -535,18 +529,6 @@
                 return deferred.promise();
             }
         }
-
-        // Echter AJAX-Call, aber bei Fehler Demo-Modus aktivieren
-        var originalError = opts.error;
-        opts.error = function(xhr, status, error) {
-            if (!demoMode) {
-                activateDemo();
-                // Nochmal mit Demo-Daten versuchen
-                $.ajax(opts);
-                return;
-            }
-            if (originalError) originalError(xhr, status, error);
-        };
 
         return realAjax.call(this, opts);
     };

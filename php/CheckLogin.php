@@ -24,7 +24,7 @@ if ($kt->user)
 		'md'		=> $kt->md,
 		'menu'		=> $kt->menu,
 		'action'	=> $kt->action,
-		'username'	=> utf8_encode($kt->user['name']),
+		'username'	=> $kt->user['name'],
 		'ok'		=> true
 	);
 }

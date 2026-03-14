@@ -153,8 +153,9 @@
 							cfg.width = w;
 							cfg.shrinkToFit = false;
 						} else {
-							// Desktop: mindestens Containerbreite nutzen
-							cfg.width = Math.max(w, containerW);
+							// Desktop: natürliche Breite beibehalten
+							cfg.width = w;
+							cfg.shrinkToFit = false;
 						}
 						cfg.autowidth = false;
 					}

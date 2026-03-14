@@ -70,7 +70,7 @@ class KT
 
 		if (!$this->teams) $this->loadTeams();
 
-		if (!$this->trrow) {
+		if (!$this->trrow && $this->trid > 0) {
 			$this->loadTr($this->trid);
 			$this->loadMember($this->trid);
 			$this->loadRnds();
@@ -86,8 +86,8 @@ class KT
 		}
 
 		foreach ($teams as $i => $t) {
-			$teams[$i]['Name'] = utf8_encode($t['Name']);
-			$teams[$i]['kurz'] = utf8_encode($t['kurz']);
+			$teams[$i]['Name'] = $t['Name'];
+			$teams[$i]['kurz'] = $t['kurz'];
 		}
 
 		$this->teams = $teams;
@@ -182,7 +182,7 @@ class KT
 		$data = $this->db->getData($sql);
 		foreach ($data as $row) {
 			$member[$row['LRnd']][$row['tnid']] = $row;
-			$member[$row['LRnd']][$row['tnid']]['name'] =  utf8_encode($row['name']);
+			$member[$row['LRnd']][$row['tnid']]['name'] = $row['name'];
 		}
 
 		// MA 26.09.2009 komplette Liste
@@ -191,7 +191,7 @@ class KT
 		$data = $this->db->getData($sql);
 		foreach ($data as $row) {
 			$member[-1][$row['tnid']] = $row;
-			$member[-1][$row['tnid']]['name'] =  utf8_encode($row['name']);
+			$member[-1][$row['tnid']]['name'] = $row['name'];
 		}
 
 		$this->member = $member;
@@ -203,13 +203,13 @@ class KT
 		$member = $this->member;
 		$lcnt = $trrow['Ligen'];
 
-		unset($results);
+		$results = [];
 		for ($i = 1; $i <= $trrow['Runden']; $i++) {
-			unset($lcount);
+			$lcount = [];
 
 			//print_r($member[$i]);
-			if (is_array($member[$i])) foreach ($member[$i] as $m) {
-				$lcount[$m['Liga']]++;
+			if (isset($member[$i]) && is_array($member[$i])) foreach ($member[$i] as $m) {
+				$lcount[$m['Liga']] = ($lcount[$m['Liga']] ?? 0) + 1;
 			}
 
 			$results[$i] = array(
@@ -329,7 +329,7 @@ class KT
 			return 2;
 		} else {
 			// Legacy MD5 hash
-			if ($password === $dbPassword) {
+			if (md5($password) === $dbPassword) {
 				// Migrate to bcrypt
 				$newHash = password_hash($password, PASSWORD_DEFAULT);
 				$sql = sprintf("UPDATE %s SET password = ? WHERE tnid = ?", $this->TABLE['teilnehmer']);
@@ -387,6 +387,7 @@ class KT
 	 *****************************************************************************************************************************/
 	function getTrList()
 	{
+		$rows = [];
 		if ($this->user) {
 			// Tipprunde
 			$sql = sprintf(
@@ -409,6 +410,7 @@ class KT
 
 	function getMdList()
 	{
+		$rows = [];
 		if ($this->user && isset($_POST['trid'])) {
 			// Spieltag
 			$trid = $_POST['trid'];
@@ -643,6 +645,7 @@ class KT
 	function getBonus($rnd, $league, $pts)
 	{
 		unset($bonus);
+		if (!is_array($pts)) return null;
 		unset($pts[0]);
 		//print_r($pts);
 		if (sizeof($pts) > 0) {
@@ -770,7 +773,7 @@ class KT
 			$colModel[] = array('label' => "Pkt.", 'width' => 40, 'name' => "Pts", 'align' => 'right', 'sorttype' => 'int', 'classes' => 'Pts');
 			$colModel[] = array(
 				'label' => "Prämie", 'width' => 80, 'name' => "Bonus", 'align' => 'right', 'formatter' => 'currency', 'sorttype' => 'currency',
-				formatoptions => array("defaultValue" => ""), 'classes' => 'Bonus'
+				'formatoptions' => array("defaultValue" => ""), 'classes' => 'Bonus'
 			);
 			$colModel[] = array('name' => "id", 'key' => true, 'hidden' => true);
 			$colModel[] = array('name' => "cls", 'hidden' => true);
@@ -1045,7 +1048,7 @@ class KT
 
 			$colModel[] = array(
 				'label' => "Prämie", 'width' => 70, 'name' => "Bonus", 'align' => 'right', 'formatter' => 'currency', 'sorttype' => 'currency',
-				formatoptions => array("defaultValue" => ""), 'classes' => 'Bonus'
+				'formatoptions' => array("defaultValue" => ""), 'classes' => 'Bonus'
 			);
 			$colModel[] = array('name' => "id", 'key' => true, 'hidden' => true);
 			$colModel[] = array('name' => "cls", 'hidden' => true);
@@ -1462,12 +1465,12 @@ class KT
 
 			// Datenmodell
 			$colModel[] = array('label' => "Name", 'width' => 200, 'name' => "Name", 'align' => 'left', 'classes' => 'Name');
-			$colModel[] = array('label' => "Spieltage", 'width' => 100, 'name' => "Matches", 'align' => 'right', 'formatter' => 'currency', 'sorttype' => 'currency', formatoptions => array("defaultValue" => ""));
-			$colModel[] = array('label' => "Gesamtwertung", 'width' => 100, 'name' => "Total", 'align' => 'right', 'formatter' => 'currency', 'sorttype' => 'currency', formatoptions => array("defaultValue" => ""));
-			$colModel[] = array('label' => "Ligawertung", 'width' => 100, 'name' => "League", 'align' => 'right', 'formatter' => 'currency', 'sorttype' => 'currency', formatoptions => array("defaultValue" => ""));
-			$colModel[] = array('label' => "Einsatz", 'width' => 100, 'name' => "Stake", 'align' => 'right', 'formatter' => 'currency', 'sorttype' => 'currency', formatoptions => array("defaultValue" => ""));
-			$colModel[] = array('label' => "Ligaeinsatz", 'width' => 100, 'name' => "StakeLeague", 'align' => 'right', 'formatter' => 'currency', 'sorttype' => 'currency', formatoptions => array("defaultValue" => ""));
-			$colModel[] = array('label' => "Summe", 'width' => 100, 'name' => "Sum", 'align' => 'right', 'formatter' => 'currency', 'sorttype' => 'currency', formatoptions => array("defaultValue" => ""), 'classes' => 'Bonus');
+			$colModel[] = array('label' => "Spieltage", 'width' => 100, 'name' => "Matches", 'align' => 'right', 'formatter' => 'currency', 'sorttype' => 'currency', 'formatoptions' => array("defaultValue" => ""));
+			$colModel[] = array('label' => "Gesamtwertung", 'width' => 100, 'name' => "Total", 'align' => 'right', 'formatter' => 'currency', 'sorttype' => 'currency', 'formatoptions' => array("defaultValue" => ""));
+			$colModel[] = array('label' => "Ligawertung", 'width' => 100, 'name' => "League", 'align' => 'right', 'formatter' => 'currency', 'sorttype' => 'currency', 'formatoptions' => array("defaultValue" => ""));
+			$colModel[] = array('label' => "Einsatz", 'width' => 100, 'name' => "Stake", 'align' => 'right', 'formatter' => 'currency', 'sorttype' => 'currency', 'formatoptions' => array("defaultValue" => ""));
+			$colModel[] = array('label' => "Ligaeinsatz", 'width' => 100, 'name' => "StakeLeague", 'align' => 'right', 'formatter' => 'currency', 'sorttype' => 'currency', 'formatoptions' => array("defaultValue" => ""));
+			$colModel[] = array('label' => "Summe", 'width' => 100, 'name' => "Sum", 'align' => 'right', 'formatter' => 'currency', 'sorttype' => 'currency', 'formatoptions' => array("defaultValue" => ""), 'classes' => 'Bonus');
 			$colModel[] = array('name' => "id", 'key' => true, 'hidden' => true);
 			$colModel[] = array('name' => "cls", 'hidden' => true);
 
@@ -2427,7 +2430,6 @@ class KT
 			$data = $this->db->getData($sql);
 			foreach ($data as $row) {
 				unset($row['password']);
-				$row['name'] = utf8_encode($row['name']);
 				$results[] = $row;
 			}
 		}
@@ -2506,7 +2508,7 @@ class KT
 		$colModel[] = array('label' => "Datum", 'width' => 90, 'name' => "Date", 'align' => 'right', 'formatter' => 'date', 'classes' => 'Date');
 		$colModel[] = array(
 			'label' => "Uhrzeit", 'width' => 90, 'name' => "Time", 'align' => 'center', 'formatter' => 'date',
-			formatoptions => array('srcformat' => 'H:i:s', 'newformat' => 'H:i'), 'classes' => 'Time'
+			'formatoptions' => array('srcformat' => 'H:i:s', 'newformat' => 'H:i'), 'classes' => 'Time'
 		);
 		$colModel[] = array(
 			'label' => "Tipp", 'width' => 90, 'name' => "Tip", 'align' => 'center', 'classes' => "Result",
@@ -2769,7 +2771,7 @@ class KT
 			foreach ($data as $row) {
 				$member[] = array(
 					'tnid' => $row['tnid1'],
-					'Name' => utf8_encode($row['name']),
+					'Name' => $row['name'],
 					'trid' => $trid,
 					'League' => $row['Liga'],
 					'LRnd' => $row['LRnd'],
@@ -2971,7 +2973,6 @@ class KT
 			// TODO Output
 		}
 
-		//$html = utf8_encode($html);
 		//$html = utf8_decode($html);
 
 		$json = array('ok' => true, 'html' => $html);

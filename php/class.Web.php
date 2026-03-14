@@ -77,12 +77,12 @@ class Web
 			//$_teams[$row['alias2']]=intval($row['tid']); // MA 26.01.2016
 
 			//$_teams[utf8_decode($row['Name'])]=intval($row['tid']); // MA 06.01.2017
-			$_teams[utf8_encode($row['Name'])] = intval($row['tid']); // MA 06.01.2017
-			$_teams[utf8_encode($row['alias'])] = intval($row['tid']); // MA 06.01.2017
+			$_teams[$row['Name']] = intval($row['tid']); // MA 06.01.2017
+			$_teams[$row['alias']] = intval($row['tid']); // MA 06.01.2017
 		}
 
 		// print_r($_teams);
-		//while ($row=$res->fetch_assoc()) { $_teams[utf8_encode($row['Name'])]=$row['tid']; }
+		//while ($row=$res->fetch_assoc()) { $_teams[($row['Name'])]=$row['tid']; }
 		//echo "<pre>";print_r($_teams);
 
 		$year = $this->getSeasonYear($trid);

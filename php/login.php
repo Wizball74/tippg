@@ -12,9 +12,9 @@
 	if(isset($_POST['loginUsername']) && isset($_POST['loginPassword']))
 	{
 		$user = trim($_POST['loginUsername']);
-		$md5pass = md5($_POST['loginPassword']);
+		$plainpass = $_POST['loginPassword'];
 
-		$result = $kt->confirmUser($user, $md5pass);
+		$result = $kt->confirmUser($user, $plainpass);
 
 		/* Check error codes */
 		if($result == 1)
@@ -46,7 +46,7 @@
 				setcookie("remember_token", $token, $cookieOptions);
 			}
 
-			$kt->jsonout(array('ok' => true, 'username' => utf8_encode($kt->user['name'])));
+			$kt->jsonout(array('ok' => true, 'username' => $kt->user['name']));
 			return;
 		}
 	}

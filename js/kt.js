@@ -8,15 +8,16 @@
         initAjax();
         checkLogin(function () {
             makeMenu();
-            initNav();
-            kt.initJqGrid();
-            setTitle();
+            initNav(false, function () {
+                kt.initJqGrid();
+                setTitle();
 
-            // letzten Menüpunkt aufrufen
-            if (kt.lastmenu) exec(kt.lastmenu.smenu, kt.lastmenu.action);
+                // letzten Menüpunkt aufrufen
+                if (kt.lastmenu) exec(kt.lastmenu.smenu, kt.lastmenu.action);
 
-            // Fußball-Physik starten (nur Desktop)
-            if (kt.initBall) kt.initBall();
+                // Fußball-Physik starten (nur Desktop)
+                if (kt.initBall) kt.initBall();
+            });
         });
 
         //$j.extend(verge);
@@ -101,11 +102,12 @@
                             kt.loggedIn = true;
                             // Menü aktualisieren
                             makeMenu();
-                            initNav(true);
                             // Benutzername anzeigen
                             $j("#username").html(res.username);
-                            // Übersicht aufrufen
-                            exec('Tipps', 'Uebersicht');
+                            // Navigation laden, dann Übersicht aufrufen
+                            initNav(true, function () {
+                                exec('Tipps', 'Uebersicht');
+                            });
                         } else // Fehler
                         {
                             $j('#login_response').html(res.message);
@@ -270,7 +272,7 @@
     this.trdata = function () { return $j("select#cbtrid").data("data") || {}; };
     this.mddata = function () { return $j("select#cbmd").data("data") || {}; };
 
-    function initNav(refresh) {
+    function initNav(refresh, onReady) {
 
         if (!refresh) {
             // Events anbinden            
@@ -320,7 +322,7 @@
             ////initCbStyle();
         }
         initCbTr(function () {
-            initCbMd();
+            initCbMd(onReady);
         });
     }
 
@@ -347,6 +349,7 @@
                     if (!kt.trid && data.Rows[0]) {
                         kt.trid = data.Rows[0].trid;
                         kt.curmd = data.Rows[0].curmd;
+                        kt.md = kt.curmd;
                     }
                     sel.val(kt.trid);
                 }
@@ -355,7 +358,7 @@
         });
     }
 
-    function initCbMd() {
+    function initCbMd(callback) {
         $j.ajax({
             type: 'POST',
             url: 'php/GetMdList.php',
@@ -380,6 +383,7 @@
                     if (data.Rows.length) kt.maxmd = data.Rows[data.Rows.length - 1].sptag;
                     sel.val(kt.md);
                 }
+                if (callback) callback();
             }
         });
     }
@@ -391,7 +395,7 @@
     function initAjax() {
         $j.ajaxSetup({
             type: "POST",
-            contentType: "application/json; charset=utf-8",
+            contentType: "application/x-www-form-urlencoded; charset=UTF-8",
             dataType: 'json',
             beforeSend: ajaxBeforeSend,
             complete: ajaxComplete,

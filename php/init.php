@@ -4,7 +4,7 @@ require_once('class.KT.php');
 
 session_start();
 
-if (!$_SESSION['_KT_'] instanceof KT)
+if (!($_SESSION['_KT_'] ?? null) instanceof KT)
 	$_SESSION['_KT_'] = new KT();
 
 $kt = $_SESSION['_KT_'];
