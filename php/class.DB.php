@@ -16,7 +16,11 @@
 
 		private function getConnection()
 		{
-			if (!$this->db || !($this->db instanceof mysqli) || $this->db->connect_errno) {
+			$needReconnect = !$this->db || !($this->db instanceof mysqli) || $this->db->connect_errno;
+			if (!$needReconnect) {
+				try { $this->db->query('SELECT 1'); } catch (\Error $e) { $needReconnect = true; }
+			}
+			if ($needReconnect) {
 				$this->db = new mysqli($this->host, $this->userid, $this->pw, $this->database);
 				if ($this->db->connect_error) {
 					error_log("DB Connect Error: " . $this->db->connect_error);

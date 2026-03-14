@@ -3,6 +3,9 @@
 *.env
 !.env.example
 
+# Database dumps
+/db/
+
 # IDE
 .idea/
 
