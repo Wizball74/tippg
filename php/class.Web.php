@@ -38,10 +38,12 @@ class Web
 		 */
 	function getSeasonYear($trid)
 	{
-		$row = $this->kt->db->Query(sprintf("SELECT Beginn FROM %s WHERE trid=%d", $this->kt->TABLE[tipprunde], $trid))->fetch_assoc();
-
+        $row = $this->kt->db->Query(sprintf("SELECT Beginn FROM %s WHERE trid=%d", $this->kt->TABLE['tipprunde'], $trid))->fetch_assoc(); // MA 14.03.2026
 		// Jahreszahl des Saisonstarts
-		return substr($row['Beginn'], 0, 4);
+        // MA 14.03.2026
+        // return substr($row['Beginn'], 0, 4);
+        $val = $row['Beginn'] ?? '';
+        return substr($val, 0, 4);
 	}
 
 	/*
@@ -67,7 +69,7 @@ class Web
 
 		// Teams laden
 		unset($_teams);
-		$data = $this->kt->db->getData(sprintf("SELECT * FROM %s", $this->kt->TABLE[teams]));
+		$data = $this->kt->db->getData(sprintf("SELECT * FROM %s", $this->kt->TABLE['teams'])); // MA 14.03.2026
 		//echo "----<br>";
 		//print_r($data);
 		//echo "----<br>";
@@ -240,7 +242,7 @@ class Web
 			case 'create':
 				if (is_array($sched)) {
 					// ggf. vorhandene Daten löschen // TODO !!
-					$sql = sprintf("DELETE FROM %s WHERE trid=%d", $this->kt->TABLE[spielplan], $trid);
+					$sql = sprintf("DELETE FROM %s WHERE trid=%d", $this->kt->TABLE['spielplan'], $trid); // MA 14.03.2026
 					// *** $this->kt->db->Query($sql);
 
 					foreach ($sched as $spid => $sptag) {
@@ -249,7 +251,7 @@ class Web
 							$_datum = $this->kt->convertDate($m['D']);
 							$sql = sprintf(
 								"INSERT INTO %s (trid,sptag,tid1,tid2,Datum,Uhrzeit,Ergebnis) VALUES(%d,%d,%d,%d,'%s','%s','-:-')",
-								$this->kt->TABLE[spielplan],
+							    $this->kt->TABLE['spielplan'], // MA 14.03.2026
 								$trid,
 								$spid,
 								$m['T1'],
@@ -272,7 +274,7 @@ class Web
 			case 'update':
 				$result = '<table class="kttable rounded shadow">';
 				$result .= '<tr><th>SpTag</th><th>Team1</th><th>Team2</th><th>SID</th><th>Datum alt</th><th>Zeit alt</th><th>Datum neu</th><th>Zeit neu</th></tr>';
-				$sql = sprintf("SELECT * FROM %s WHERE trid=%d AND Ergebnis='-:-'", $this->kt->TABLE[spielplan], $trid);
+                $sql = sprintf("SELECT * FROM %s WHERE trid=%d AND Ergebnis='-:-'", $this->kt->TABLE['spielplan'], $trid); // MA 14.03.2026
 				$data = $this->kt->db->getData($sql);
 				foreach ($data as $row) {
 					$s = $this->findSched($row['sptag'], $row['tid1'], $row['tid2'], $sched);
@@ -295,7 +297,7 @@ class Web
 
 							$sql = sprintf(
 								"UPDATE %s SET Datum='%s', Uhrzeit='%s' WHERE sid = %d",
-								$this->kt->TABLE[spielplan],
+								$this->kt->TABLE['spielplan'], // MA 14.03.2026
 								$_datum,
 								$_zeit,
 								$row['sid']
