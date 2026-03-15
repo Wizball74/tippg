@@ -156,7 +156,7 @@
 				if (res.gridOptions) $j.extend(cfg, res.gridOptions);
 				// Grid-Events
 				// universeller loadComplete-Handler
-				events = opt.events || {};
+				events = $j.extend({}, opt.events || {});
 				//console.log('BE', opt.events, events);
 				$j.extend(events,
 					{
@@ -356,7 +356,7 @@
 					if (!$hdiv.length || !$ktgrid.length) return;
 					// Offset des Headers innerhalb des Grid-Containers (Titlebar + Toolbar)
 					var hdivOffset = $hdiv[0].offsetTop;
-					$j(window).on('scroll.stickyHdr' + id, function() {
+					$j(window).off('scroll.stickyHdr' + id).on('scroll.stickyHdr' + id, function() {
 						var rect = $ktgrid[0].getBoundingClientRect();
 						var hh = $hdiv.outerHeight();
 						var headerTop = rect.top + hdivOffset;
@@ -383,7 +383,7 @@
 						$j("#d" + id).data("params", postparam);
 					}
 					if (ropt) {
-						opt = $j.extend(ropt, opt);
+						opt = $j.extend({}, opt, ropt);
 					}
 					//$j(gridid).jqGrid('GridUnload');
 					$j.jgrid.gridUnload(gridid);
@@ -395,8 +395,8 @@
 					if (opt.events && opt.events.OnResize) opt.events.OnResize.call(this, event);
 				});
 			},
-			error: function (x, e) {
-			    var msg = x.readyState + " " + x.status + " " + e.msg;
+			error: function (x, textStatus, errorThrown) {
+			    var msg = x.readyState + " " + x.status + " " + (errorThrown || textStatus);
 				showError(msg, 10);
 			}
 		});
@@ -404,12 +404,8 @@
 	};
 
 	function jqgSort(id, sortname, sortorder, time) {
-		//console.log(id, sortname, sortorder, time);
-		//setTimeout('jQuery("' + id + '").sortGrid("' + sortname + '",true,"' + sortorder || 'asc' + '");', time);
-		var cmd = "jQuery('" + id + "').sortGrid('" + sortname + "', true, '" + (sortorder || 'asc') + "');";
-		//console.log(cmd);
-		setTimeout(cmd, time);
-		//setTimeout("jQuery('" + id + "').sortGrid('" + sortname + "', true, '" + sortorder || 'asc' + "');", time);
+		var _id = id, _sn = sortname, _so = sortorder || 'asc';
+		setTimeout(function() { jQuery(_id).sortGrid(_sn, true, _so); }, time);
 	}
 
 	function jqgAddPrintButton(id) {

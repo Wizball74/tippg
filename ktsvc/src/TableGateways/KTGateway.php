@@ -163,6 +163,7 @@ class KTGateway
 
     function calcBonus($results, $division)
     {
+        if (empty($results)) return array();
         $trid = $results[0]['trid'];
         $rnd = $results[0]['round'];
         $_bonus = $this->getBonus($trid, $division);
@@ -212,6 +213,7 @@ class KTGateway
             $statement = $this->db->prepare($sql);
             $statement->execute(array($trid, $md, $tnid, $tnid));
             $result = $statement->fetchAll(\PDO::FETCH_ASSOC);
+            if (empty($result)) return null;
             $data = $result[0];
 
             if ($data['tnid1'] == $tnid) $result = $data['tnid2'];

@@ -26,7 +26,7 @@
         // Daten bereinigen (<input>)
         $j.each(gdata, function (idx, row) {
             $j.each(row, function (field, val) {
-                if (!val || val.indexOf("input") != -1 || val.indexOf("INPUT") != -1) {
+                if (typeof val === 'string' && (!val || val.indexOf("input") != -1 || val.indexOf("INPUT") != -1)) {
                     gdata[idx][field] = $j("#" + row[idcol] + "_" + field).val();
                 }
             });
@@ -82,8 +82,6 @@
             setContent(table);
 
             btn = [
-            //{ caption: '', buttonicon: "none", position: "last" },
-            //{ caption: '-', position: "last" },
                 {
                 caption: "Speichern",
                 title: "",
@@ -117,7 +115,7 @@
                     var rows = data.d || data;
                     if (rows) rows = rows.rows;
                     //console.log(rows[0].deadline);
-                    if (rows[0].deadline) {
+                    if (rows && rows.length && rows[0].deadline) {
                         var tbar = $j("#tb_grid" + id),
                             tbd = $j("<td></td>").html('Tippabgabe bis <span class="deadline">' + rows[0].deadline + '</span>'),
                             findnav = tbar.children('table');
@@ -126,35 +124,116 @@
                         else { $j("tr td:eq(0)", findnav).before(tbd); }
                     }
 
-                    $j(gridid + ' :input').focus(function () {
-                        // Zeile selektieren, wenn Eingabebox aktiviert wird
-                        var rid = $j(this).attr('id').replace(/_Tip/g, '');
-                        $j(gridid).jqGrid('setSelection', rid);
-                    });
+                    // tipMode hier lesen, damit nach Refresh der aktuelle Wert gilt
+                    var tipMode = localStorage.getItem('kt_tip_mode') || 'modern';
 
-                    // MA 23.08.2012 Tab-Handling, erlaubte Zeichen
-                    $j(gridid + ' :input').bind("keypress", function (e) {
-                        //console.log(e, e.keyCode, e.which, this);
-                        if (e.keyCode === 9) return true; // Tab
-                        if (e.keyCode === 8) return true; // BkSp
-                        if (e.keyCode === 46) return true; // Entf
-                        if (e.keyCode === 38) {
-                            nextInput(this, gridid, -1);
-                            return false;
-                        } // Cursor hoch
-                        if (e.keyCode === 40) {
-                            nextInput(this, gridid);
-                            return false;
-                        } // Cursor runter
-                        if (e.keyCode >= 35 && e.keyCode <= 40) return true; // Cursor, Pos1, Ende
-                        if (e.which === 58) return true; // :
-                        if (e.which === 13) {
-                            nextInput(this, gridid);
-                            return false;
-                        } // Enter
-                        if (e.which < 48 || e.which > 57) return false; // 0-9
-                        return true;
-                    });
+                    // Toggle-Button in obere Toolbar einfuegen (in die Tabellen-Zeile neben Drucken)
+                    (function() {
+                        var tbar = $j("#t_grid" + id);
+                        if (!tbar.length || tbar.find('.tipToggle').length) return;
+                        var activeClass = tipMode === 'modern' ? ' toggle-on' : '';
+                        var td = $j('<td class="tipToggle"></td>').html(
+                            '<div class="toggleContainer' + activeClass + '">' +
+                            '<div>Klassisch</div><div>Schnell</div>' +
+                            '</div>'
+                        );
+                        var row = tbar.find('table tr');
+                        if (row.length) row.append(td);
+                        td.find('.toggleContainer').on('click', function(e) {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            var cur = localStorage.getItem('kt_tip_mode') || 'modern';
+                            var newMode = cur === 'modern' ? 'classic' : 'modern';
+                            localStorage.setItem('kt_tip_mode', newMode);
+                            $j(this).toggleClass('toggle-on', newMode === 'modern');
+                            switchTipMode(newMode, gridid);
+                        });
+                    })();
+
+                    if (tipMode === 'modern') {
+                        // Moderne Eingabe: zwei separate Felder, Auto-Doppelpunkt, Auto-Weiter
+                        var _tipBuilding = true;
+                        $j(gridid + ' :input[id$="_Tip"]').each(function () {
+                            var orig = $j(this),
+                                sid = orig.attr('id').replace('_Tip', ''),
+                                val = orig.val() || '',
+                                parts = val.split(':'),
+                                h = parts[0] || '', a = parts[1] || '';
+
+                            var wrap = $j('<span class="tip-split"></span>');
+                            var inH = $j('<input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" class="tip-half tip-home gradient"/>').val(h).attr('data-sid', sid);
+                            var sep = $j('<span class="tip-sep">:</span>');
+                            var inA = $j('<input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" class="tip-half tip-away gradient"/>').val(a).attr('data-sid', sid);
+
+                            wrap.append(inH).append(sep).append(inA);
+                            orig.hide().after(wrap);
+
+                            // Sync zurueck ins Original
+                            function syncOrig() {
+                                var hv = inH.val(), av = inA.val();
+                                orig.val((hv !== '' && av !== '') ? hv + ':' + av : '');
+                            }
+
+                            // Nur Ziffern erlauben
+                            function filterKeys(e) {
+                                if (e.keyCode === 9 || e.keyCode === 8 || e.keyCode === 46) return true;
+                                if (e.keyCode >= 35 && e.keyCode <= 40) return true;
+                                if (e.which === 13) { nextModernInput(inA[0], gridid); return false; }
+                                if (e.which < 48 || e.which > 57) return false;
+                                return true;
+                            }
+
+                            inH.on('keypress', filterKeys);
+                            inA.on('keypress', filterKeys);
+
+                            // Auto-Weiter: nach Eingabe in Heim -> Auswaerts
+                            inH.on('input', function () {
+                                syncOrig();
+                                if (this.value.length >= 1) inA.focus().select();
+                            });
+                            // Nach Auswaerts-Eingabe -> naechste Zeile Heim
+                            inA.on('input', function () {
+                                syncOrig();
+                                if (this.value.length >= 1) nextModernInput(this, gridid);
+                            });
+                            inH.on('change', syncOrig);
+                            inA.on('change', syncOrig);
+
+                            // Zeile selektieren bei echtem User-Focus (nicht beim Aufbau)
+                            inH.add(inA).on('focus', function () {
+                                if (!_tipBuilding) {
+                                    $j(gridid).jqGrid('setSelection', sid);
+                                }
+                                $j(this).select();
+                            });
+
+                            // Cursor hoch/runter
+                            inH.add(inA).on('keydown', function (e) {
+                                if (e.keyCode === 38) { nextModernInput(this, gridid, -1); return false; }
+                                if (e.keyCode === 40) { nextModernInput(this, gridid, 1); return false; }
+                            });
+                        });
+                        setTimeout(function() { _tipBuilding = false; }, 50);
+                    } else {
+                        // Klassische Eingabe
+                        $j(gridid + ' :input').focus(function () {
+                            var rid = $j(this).attr('id').replace(/_Tip/g, '');
+                            $j(gridid).jqGrid('setSelection', rid);
+                        });
+
+                        $j(gridid + ' :input').bind("keypress", function (e) {
+                            if (e.keyCode === 9) return true;
+                            if (e.keyCode === 8) return true;
+                            if (e.keyCode === 46) return true;
+                            if (e.keyCode === 38) { nextInput(this, gridid, -1); return false; }
+                            if (e.keyCode === 40) { nextInput(this, gridid); return false; }
+                            if (e.keyCode >= 35 && e.keyCode <= 40) return true;
+                            if (e.which === 58) return true;
+                            if (e.which === 13) { nextInput(this, gridid); return false; }
+                            if (e.which < 48 || e.which > 57) return false;
+                            return true;
+                        });
+                    }
 
                     getTippInfo(0, gridid, idi);
                 },
@@ -215,6 +294,79 @@
         input[idx].focus();
     }
 
+    function nextModernInput(el, gridid, step) {
+        // Springt zum naechsten .tip-home Feld (naechste Zeile)
+        var homes = $j(gridid + ' .tip-home'),
+            current = $j(el).closest('.tip-split').find('.tip-home')[0],
+            idx = homes.index(current);
+
+        step = step || 1;
+        idx += step;
+        if (idx >= homes.length) idx = 0;
+        if (idx < 0) idx = homes.length - 1;
+        homes[idx].focus();
+        $j(homes[idx]).select();
+    }
+
+    function switchTipMode(mode, gridid) {
+        if (mode === 'modern') {
+            // Klassisch -> Modern: Einzelfelder in Split-Felder umwandeln
+            $j(gridid + ' :input[id$="_Tip"]:visible').each(function () {
+                var orig = $j(this),
+                    sid = orig.attr('id').replace('_Tip', ''),
+                    val = orig.val() || '',
+                    parts = val.split(':'),
+                    h = parts[0] || '', a = parts[1] || '';
+
+                var wrap = $j('<span class="tip-split"></span>');
+                var inH = $j('<input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" class="tip-half tip-home gradient"/>').val(h).attr('data-sid', sid);
+                var sep = $j('<span class="tip-sep">:</span>');
+                var inA = $j('<input type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" class="tip-half tip-away gradient"/>').val(a).attr('data-sid', sid);
+
+                wrap.append(inH).append(sep).append(inA);
+                orig.hide().after(wrap);
+
+                function syncOrig() {
+                    var hv = inH.val(), av = inA.val();
+                    orig.val((hv !== '' && av !== '') ? hv + ':' + av : '');
+                }
+                function filterKeys(e) {
+                    if (e.keyCode === 9 || e.keyCode === 8 || e.keyCode === 46) return true;
+                    if (e.keyCode >= 35 && e.keyCode <= 40) return true;
+                    if (e.which === 13) { nextModernInput(inA[0], gridid); return false; }
+                    if (e.which < 48 || e.which > 57) return false;
+                    return true;
+                }
+                inH.on('keypress', filterKeys);
+                inA.on('keypress', filterKeys);
+                inH.on('input', function () { syncOrig(); if (this.value.length >= 1) inA.focus().select(); });
+                inA.on('input', function () { syncOrig(); if (this.value.length >= 1) nextModernInput(this, gridid); });
+                inH.on('change', syncOrig);
+                inA.on('change', syncOrig);
+                inH.add(inA).on('focus', function () {
+                    $j(gridid).jqGrid('setSelection', sid);
+                    $j(this).select();
+                });
+                inH.add(inA).on('keydown', function (e) {
+                    if (e.keyCode === 38) { nextModernInput(this, gridid, -1); return false; }
+                    if (e.keyCode === 40) { nextModernInput(this, gridid, 1); return false; }
+                });
+            });
+        } else {
+            // Modern -> Klassisch: Split-Felder entfernen, Originalfelder zeigen
+            $j(gridid + ' .tip-split').each(function () {
+                var wrap = $j(this),
+                    orig = wrap.prev('input[id$="_Tip"]');
+                // Wert zurueckschreiben
+                var h = wrap.find('.tip-home').val() || '';
+                var a = wrap.find('.tip-away').val() || '';
+                orig.val((h !== '' && a !== '') ? h + ':' + a : '');
+                wrap.remove();
+                orig.show();
+            });
+        }
+    }
+
     /**********************************************************************************************
     * Liga
     */
@@ -223,7 +375,7 @@
         Tabellen: function () {
             var id = 'LigaTabelle',
                 table = [],
-                rnd = trdata()[kt.trid].Ligen,
+                rnd = kt.trdata()[kt.trid].Ligen,
                 i, opt;
 
             for (i = 1; i <= rnd; i++) { table.push(makeTable(id + i, { fl: 'left', cls: 'col-lg-6 col-md-6 col-xs-12' })); }
@@ -240,7 +392,7 @@
         Spielplan: function () {
             var id = 'LigaSpielplan',
                 table = [],
-                rnd = trdata()[kt.trid].Ligen,
+                rnd = kt.trdata()[kt.trid].Ligen,
                 i, opt;
 
             for (i = 1; i <= rnd; i++) { table.push(makeTable(id + i, { fl: 'left', cls: 'col-lg-6 col-md-6 col-xs-12' })); }
@@ -292,7 +444,7 @@
                     if (e.target) {
                         rnd = $j(e.target).val();
                         opt.btn[0].selval = rnd;
-                        $j(gridid).trigger('refresh', { rnd: rnd }, opt);
+                        $j(gridid).trigger('refresh', [{ rnd: rnd }, opt]);
                     }
                 }
             }];
@@ -344,14 +496,14 @@
 
         var fmt = { decimalPlaces: 2, decimalSeparator: ',', suffix: ' €' },
             cnt = rndinfo.MemberCount || 0,
-            euro = data[0].Total || 0,
+            euro = (data && data.length) ? (data[0].Total || 0) : 0,
             sumE = cnt * euro,
             sumA;
 
         gdata.push({ c1: 'Grundbetrag', c2: cnt + ' * ' + $j.fmatter.util.NumberFormat(euro, fmt), c3: cnt * euro, grp: 'Einnahmen' });
         for (i = 1; i <= rndinfo.LCount; i++) {
             cnt = rndinfo.LMembers[i] || 0;
-            euro = data[0]['L' + i] || 0;
+            euro = (data && data.length) ? (data[0]['L' + i] || 0) : 0;
             sumE += cnt * euro;
             gdata.push({ c1: 'Liga ' + i, c2: cnt + ' * ' + $j.fmatter.util.NumberFormat(euro, fmt), c3: cnt * euro, grp: 'Einnahmen' });
         }
@@ -559,7 +711,7 @@
                         if (e.target) {
                             var tnid = $j(e.target).val();
                             opt.btn[0].selval = tnid;
-                            $j(gridid).trigger('refresh', { tnid: tnid }, opt);
+                            $j(gridid).trigger('refresh', [{ tnid: tnid }, opt]);
                         }
                     }
                 },
@@ -645,9 +797,9 @@
 
             events = {
                 onSelectRow: function (rid) {
-                    if (id && id !== lastSel) {
+                    if (rid && rid !== lastSel) {
                         $j(gridid).restoreRow(lastSel);
-                        lastSel = id;
+                        lastSel = rid;
                     }
                     $j(gridid).jqGrid('editRow', rid, true);
                     $j(gridid + "_ilsave").removeClass('ui-state-disabled');
@@ -656,7 +808,7 @@
                     $j(gridid + "_iledit").addClass('ui-state-disabled');
                 },
                 afterLoadComplete: function () {
-                    setTimeout('jQuery("' + gridid + '_iladd").hide();', 100);
+                    setTimeout(function() { $j(gridid + '_iladd').hide(); }, 100);
                 }
             };
 
@@ -711,7 +863,7 @@
             var id = 'LigaTeilnehmer',
                 table = [],
                 gridids = [],
-                rnd = trdata()[kt.trid].Ligen,
+                rnd = kt.trdata()[kt.trid].Ligen,
                 i, opt, events, dndopts, btn;
 
             for (i = 0; i <= rnd; i++) {
@@ -767,7 +919,7 @@
                             rnd = $j(e.target).val();
                             if (opt.btn) {
                                 opt.btn[0].selval = rnd;
-                                $j('table[id^="grid' + id + '"]').trigger('refresh', { rnd: rnd }, opt);
+                                $j('table[id^="grid' + id + '"]').trigger('refresh', [{ rnd: rnd }, opt]);
                             }
                         }
                     }
@@ -821,9 +973,9 @@
 
             events = {
                 onSelectRow: function (rid) {
-                    if (id && id !== lastSel) {
+                    if (rid && rid !== lastSel) {
                         $j(gridid).restoreRow(lastSel);
-                        lastSel = id;
+                        lastSel = rid;
                     }
                     $j(gridid).jqGrid('editRow', rid, true);
                     $j(gridid + "_ilsave").removeClass('ui-state-disabled');
@@ -868,7 +1020,7 @@
                         if (e.target) {
                             rnd = $j(e.target).val();
                             opt.btn[0].selval = rnd;
-                            $j(gridid).trigger('refresh', { rnd: rnd }, opt);
+                            $j(gridid).trigger('refresh', [{ rnd: rnd }, opt]);
                         }
                     }
                 }, {
@@ -1040,7 +1192,7 @@
         // Daten bereinigen (<input>)
         $j.each(gdata, function (idx, row) {
             $j.each(row, function (field, val) {
-                if (val.indexOf("input") != -1) { gdata[idx][field] = $j("#" + row.tnid + "_" + field).val(); }
+                if (typeof val === 'string' && val.indexOf("input") != -1) { gdata[idx][field] = $j("#" + row.tnid + "_" + field).val(); }
             });
         });
         if (gdata.length != 18) {

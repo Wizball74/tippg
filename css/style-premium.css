@@ -1,3 +1,40 @@
+/* Toast */
+.kt-toast {
+    position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-80px);
+    padding: 12px 28px; border-radius: 8px; font-size: 14px; font-weight: 500;
+    z-index: 99999; opacity: 0; transition: transform 0.35s ease, opacity 0.35s ease;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.4); pointer-events: none;
+}
+.kt-toast-show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.kt-toast-ok { background: #2ecc71; color: #1e1e1e; }
+.kt-toast-warn { background: #f39c12; color: #1e1e1e; }
+.kt-toast-error { background: #e74c3c; color: #fff; }
+
+/* Tipp Split-Eingabe */
+.tip-split { display: inline-flex; align-items: center; gap: 1px; }
+.tip-half { width: 22px !important; text-align: center; padding: 2px !important; font-size: 13px; background: #333; color: #d0d0d0; border: 1px solid #555; border-radius: 4px; }
+.tip-half:focus { border-color: #888; outline: none; box-shadow: 0 0 0 2px rgba(150,150,150,0.15); }
+.tip-sep { font-weight: bold; margin: 0 1px; color: #888; }
+
+/* Tipp-Modus Toggle */
+.tipToggle { padding-left: 12px; vertical-align: middle; }
+.toggleContainer {
+    position: relative; display: grid; grid-template-columns: 1fr 1fr;
+    width: fit-content; border: 2px solid #555; border-radius: 14px;
+    background: #555; font-size: 11px; font-weight: 600;
+    cursor: pointer; user-select: none;
+}
+.toggleContainer::before {
+    content: ''; position: absolute; width: 50%; height: 100%;
+    left: 0; border-radius: 12px; background: #d0d0d0; transition: left 0.3s;
+}
+.toggleContainer.toggle-on::before { left: 50%; }
+.toggleContainer div { padding: 4px 10px; text-align: center; z-index: 1; white-space: nowrap; }
+.toggleContainer div:first-child { color: #222; transition: color 0.3s; }
+.toggleContainer div:last-child { color: #ccc; transition: color 0.3s; }
+.toggleContainer.toggle-on div:first-child { color: #ccc; }
+.toggleContainer.toggle-on div:last-child { color: #222; }
+
 /* ===== RESET & BASE ===== */
 body {
     background: #1e1e1e;
@@ -139,12 +176,18 @@ a.navbar-brand {
 
 /* ===== NAV CONTROLS ===== */
 .navbar-header > div { display: inline; }
+#subnav-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 4px 0;
+}
+.navtr.navtr-hidden { display: none !important; }
 .navtr {
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    vertical-align: middle;
-    margin-left: 8px;
 }
 .navtr select {
     background: #333;
@@ -590,12 +633,14 @@ a.navbar-brand {
     .subnav-item { flex-shrink: 0; }
 
     /* Nav controls */
+    #subnav-row { flex-wrap: wrap; padding: 4px; }
     .navtr {
-        display: flex !important;
+        display: flex;
         flex-wrap: nowrap;
         gap: 3px;
-        padding: 4px 0 4px 18px;
+        padding: 4px 0;
         align-items: center;
+        width: 100%;
     }
     .navtr select {
         font-size: 12px;
@@ -611,6 +656,13 @@ a.navbar-brand {
         padding: 6px 8px;
         flex: 0 0 auto;
     }
+
+    /* Toggle mobile */
+    .tipToggle { margin-left: 8px; }
+    .toggleContainer div { padding: 4px 8px; font-size: 10px; }
+
+    /* Split-Felder mobile */
+    .tip-half { width: 20px !important; font-size: 12px; padding: 4px 1px !important; }
 
     .ktgrid { padding: 0; }
     .ui-jqgrid { border-radius: 4px !important; overflow: visible !important; }

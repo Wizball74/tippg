@@ -35,14 +35,6 @@
                 </button>
                 <div>
                     <a href="#" class="navbar-brand">Die Online-Tippgemeinschaft</a>
-                    <div class="navtr">
-                        <select name="cbtrid" id="cbtrid" class="rounded gradient shadow fill"></select>
-                        <!--    -->
-                        <select name="cbmd" id="cbmd" class="rounded gradient shadow fill"></select>
-                        <button name="bprev" id="bprev" class="button">-</button>
-                        <button name="bnext" id="bnext" class="button">+</button>
-                        <button name="bcur" id="bcur" class="button">Akt.</button>
-                    </div>
                     <div class="clr"></div>
                 </div>
                 <div id="dbg"></div>
@@ -58,7 +50,17 @@
 
         </div>
     </nav>
-    <div id="subnav" class="container"></div>
+    <div id="subnav-row" class="container">
+        <div id="subnav"></div>
+        <div class="navtr navtr-hidden">
+            <select name="cbtrid" id="cbtrid" class="rounded gradient shadow fill"></select>
+            <select name="cbmd" id="cbmd" class="rounded gradient shadow fill"></select>
+            <button name="bprev" id="bprev" class="button">-</button>
+            <button name="bnext" id="bnext" class="button">+</button>
+            <button name="bcur" id="bcur" class="button">Akt.</button>
+        </div>
+        <div class="clr"></div>
+    </div>
     <div id="msg" class="ktcontent container"></div>
 
     <div id="content" class="ktcontent container"></div>

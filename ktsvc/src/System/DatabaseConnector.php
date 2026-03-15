@@ -17,7 +17,8 @@ class DatabaseConnector {
             $this->dbConnection = new \PDO(
                 "mysql:host=$host;port=$port;charset=utf8mb4;dbname=$db",
                 $user,
-                $pass
+                $pass,
+                [\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION]
             );
         } catch (\PDOException $e) {
             error_log("DB Connection Error: " . $e->getMessage());

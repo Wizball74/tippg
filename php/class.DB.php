@@ -26,7 +26,7 @@
 					error_log("DB Connect Error: " . $this->db->connect_error);
 					die('Datenbankverbindung fehlgeschlagen.');
 				}
-				$this->db->set_charset('utf8');
+				$this->db->set_charset('utf8mb4');
 			}
 			return $this->db;
 		}
@@ -43,6 +43,7 @@
 			{
 				error_log("DB Error: " . $db->error . " | SQL: " . $sql);
 				$GLOBALS['kt']->jsonout(array('message' => 'Ein Datenbankfehler ist aufgetreten.'));
+				return false;
 			}
 
 			return $erg;
@@ -51,6 +52,7 @@
 		function getData($sql)
 		{
 			$result = $this->Query($sql);
+			if (!$result) return array();
 			$data = array();
 
 			while ($row = $result->fetch_assoc())

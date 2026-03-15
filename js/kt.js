@@ -56,7 +56,7 @@
                     kt.loggedIn = res.loggedIn;
                     if (res.trid) kt.trid = res.trid;
                     if (res.md) kt.md = res.md;
-                    if (res.username) $j("#username").html(res.username);
+                    if (res.username) $j("#username").text(res.username);
                     if (res.menu && res.action) kt.lastmenu = { smenu: res.menu, action: res.action };
                     //console.log(res.menu, res.action);
                 }
@@ -103,14 +103,14 @@
                             // Menü aktualisieren
                             makeMenu();
                             // Benutzername anzeigen
-                            $j("#username").html(res.username);
+                            $j("#username").text(res.username);
                             // Navigation laden, dann Übersicht aufrufen
                             initNav(true, function () {
                                 exec('Tipps', 'Uebersicht');
                             });
                         } else // Fehler
                         {
-                            $j('#login_response').html(res.message);
+                            $j('#login_response').text(res.message);
                             $j('#login_response').show();
                         }
                         return false;
@@ -146,7 +146,7 @@
                 var res = data.d || data;
                 if (res.ok) {
                     kt.loggedIn = false;
-                    $j("#username").html("");
+                    $j("#username").text("");
                     $j("#subnav").html("");
                     clearContent();
                     closeDialogs();
@@ -258,9 +258,9 @@
 
                 // Navbar ein-/ausblenden
                 if (kt.loggedIn) {
-                    $j('.navtr').show();
+                    $j('.navtr').removeClass('navtr-hidden');
                 } else {
-                    $j('.navtr').hide();
+                    $j('.navtr').addClass('navtr-hidden');
                 }
 
                 return true;
@@ -270,8 +270,8 @@
         return false;
     };
 
-    this.trdata = function () { return $j("select#cbtrid").data("data") || {}; };
-    this.mddata = function () { return $j("select#cbmd").data("data") || {}; };
+    kt.trdata = function () { return $j("select#cbtrid").data("data") || {}; };
+    kt.mddata = function () { return $j("select#cbmd").data("data") || {}; };
 
     function initNav(refresh, onReady) {
 
@@ -279,7 +279,7 @@
             // Events anbinden            
             //cbtrid
             $j("select#cbtrid").change(function () {
-                var data = trdata();
+                var data = kt.trdata();
                 kt.trid = parseInt($j("select#cbtrid").val());
                 kt.curmd = data[kt.trid].curmd;
                 kt.md = kt.curmd;
@@ -317,8 +317,8 @@
             });
             //cbstyle
             $j("select#cbstyle").change(function () {
-                var id = parseInt($j("select#cbstyle").val());
-                setStyle(id);
+                var id = $j("select#cbstyle").val();
+                if (window.ktSetTheme) window.ktSetTheme(id);
             });
             ////initCbStyle();
         }
@@ -419,42 +419,37 @@
     */
 
     this.showMessage = function (data, d) {
-        /// <summary>Meldungen anzeigen</summary>
-
-        //console.log("showMessage", data, d);
         if (data.type == Status.NoMsg) return;
 
-        var opt = { html: data.message };
-        switch(data.type)
-        {
-            case Status.OK: opt.class = 'status'; break;
-            case Status.Warning: opt.class = 'warning'; break;
-            case Status.Error: opt.class = 'error'; break;
+        var cls = 'kt-toast';
+        switch(data.type) {
+            case Status.OK: cls += ' kt-toast-ok'; break;
+            case Status.Warning: cls += ' kt-toast-warn'; break;
+            case Status.Error: cls += ' kt-toast-error'; break;
         }
 
-        var m = $j('<div/>', opt);
-        //console.log(m);
+        var toast = $j('<div/>').addClass(cls).text(data.message);
+        $j('body').append(toast);
 
-        //var m = $j('<div/>').addClass('error').html(msg);
-        $j('#msg').append(m);
+        // einblenden
+        setTimeout(function() { toast.addClass('kt-toast-show'); }, 10);
 
-        // automatisch ausblenden?
-        if (d > 0) setTimeout('kt.clearError();', d * 1000);
-
-        scrollTop();
+        // ausblenden
+        var delay = (d > 0) ? d * 1000 : 4000;
+        setTimeout(function() {
+            toast.removeClass('kt-toast-show');
+            setTimeout(function() { toast.remove(); }, 400);
+        }, delay);
     };
 
     this.hideMessages = function () {
-        /// <summary>Meldung verstecken</summary>
-        //console.log('hideMessages');
-        $j('#msg').html('xyz');
+        $j('.kt-toast').remove();
     };
 
     /**********************************************************************************************
     * Fehlermeldung anzeigen
     */
     this.showError = function (msg, d) {
-        /// <summary>Fehlermeldung anzeigen</summary>
         var data = { message: msg, type: Status.Error };
         showMessage(data, d);
     };
@@ -463,9 +458,7 @@
     * Fehlermeldung löschen
     */
     function clearError() {
-        /// <summary>Fehleranzeige löschen</summary>
-
-        $j('#msg').html('');
+        $j('.kt-toast').remove();
     }
 
     kt.clearError = function () { clearError(); };
@@ -622,11 +615,12 @@
     this.maxmd = 0;
     this.loggedIn = false;
     this.lastmenu = {};
-    this.Status = {
+    var Status = {
         NoMsg : 0,
         OK: 1,
         Warning: 2,
         Error: 3,
     };
+    kt.Status = Status;
 
 } (window.kt = window.kt || {}, jQuery));

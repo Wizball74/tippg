@@ -504,7 +504,13 @@
                 // Params extrahieren
                 var params = {};
                 if (typeof opts.data === 'string') {
-                    try { params = JSON.parse(opts.data); } catch(e) {}
+                    try { params = JSON.parse(opts.data); } catch(e) {
+                        // URL-encoded form data (e.g. "trid=1&md=25&fn=GetData")
+                        opts.data.split('&').forEach(function(pair) {
+                            var kv = pair.split('=');
+                            if (kv.length === 2) params[decodeURIComponent(kv[0])] = decodeURIComponent(kv[1]);
+                        });
+                    }
                 } else if (typeof opts.data === 'object') {
                     params = opts.data;
                 }

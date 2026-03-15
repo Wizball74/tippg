@@ -116,7 +116,7 @@ class AuthController {
 
         $_SESSION = array(); // reset session array
         session_destroy();   // destroy session.
-        return false;
+        $this->api->RespondOk(['loggedOut' => true]);
     }
         
     /**

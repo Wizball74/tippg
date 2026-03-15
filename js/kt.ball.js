@@ -420,7 +420,7 @@
             showScorePanel();
         }
 
-        playPling(pts);
+        //playPling(pts);
         score += pts;
         saveScore();
         updateScorePanel();
@@ -586,7 +586,7 @@
         }
         if (spd > 8 && !ghostMode) activateGhost();
         cursorFlash = 1;
-        playKick(Math.min(spd / 25, 1));
+        //playKick(Math.min(spd / 25, 1));
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -963,7 +963,7 @@
     // ═══════════════════════════════════════════════════════════════
     function bindEvents() {
         // AudioContext bei erster Interaktion initialisieren (Browser-Policy)
-        document.addEventListener('click', function () { initAudio(); }, { once: true });
+        //document.addEventListener('click', function () { initAudio(); }, { once: true });
         document.addEventListener('mousemove', function (e) {
             var now = performance.now(), dt = now - cursor.lt;
             if (dt > 0) {

@@ -95,27 +95,24 @@ class KT
 		$this->teams = $teams;
 	}
 
+	private static function makeLaps(&$s, &$e, $trrow)
+	{
+		$rnd = $trrow['Runden'];
+		$asp = $trrow['Runden'] > 0 ? $trrow['MaxST'] / $trrow['Runden'] : $trrow['MaxST'];
+
+		$et = 0;
+		for ($i = 1; $i <= $rnd; $i++) {
+			$st = $et + 1;
+			$et = $st + $asp - 1;
+
+			$s[$i] = round($st);
+			$e[$i] = round($et);
+		} // for
+	}
+
 	function loadTr($trid)
 	{
 		unset($trrow);
-
-		//**************************************************************************
-		// split season in laps
-		//**************************************************************************
-		function makeLaps(&$s, &$e, $trrow)
-		{
-			$rnd = $trrow['Runden'];
-			$asp = $trrow['Runden'] > 0 ? $trrow['MaxST'] / $trrow['Runden'] : $trrow['MaxST'];
-
-			$et = 0;
-			for ($i = 1; $i <= $rnd; $i++) {
-				$st = $et + 1;
-				$et = $st + $asp - 1;
-
-				$s[$i] = round($st);
-				$e[$i] = round($et);
-			} // for
-		}
 
 		$trrow = $this->db->Query(sprintf("SELECT * FROM %s WHERE trid=%d", $this->TABLE['tipprunde'], $trid))->fetch_assoc();
 		$anz = $this->db->Query(sprintf("SELECT max(sptag) AS sptag FROM %s WHERE trid=%d", $this->TABLE['spielplan'], $trid))->fetch_assoc();
@@ -126,7 +123,7 @@ class KT
 		$s[0] = 0;
 		unset($e);
 		$e[0] = 0;
-		makeLaps($s, $e, $trrow);
+		self::makeLaps($s, $e, $trrow);
 		$trrow['s'] = $s;
 		$trrow['e'] = $e;
 		foreach ($s as $i => $x) $a[$i] = $e[$i] - $s[$i] + 1;
@@ -2457,7 +2454,7 @@ class KT
 								$this->TABLE['teilnehmer'],
 								$data['user'],
 								$data['email'],
-								utf8_decode($data['name']),
+								$data['name'],
 								$data['userlevel'],
 								md5($data['password']),
 								$data['remind']
@@ -2474,7 +2471,7 @@ class KT
 							$this->TABLE['teilnehmer'],
 							$data['user'],
 							$data['email'],
-							utf8_decode($data['name']),
+							$data['name'],
 							$data['remind']
 						);
 						if (!empty($data['password'])) $sql .= sprintf(", password='%s'", md5($data['password']));
