@@ -1,5 +1,7 @@
 <?php
 
+error_reporting(E_ALL & ~E_WARNING); // MA 14.03.2026
+
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\Exception;
 
@@ -631,8 +633,8 @@ class KT
 				$_t = preg_split('/:/', $tip);
 				$_r = preg_split('/:/', $result);
 
-				$t = $_t[0] - $_t[1];
-				$r = $_r[0] - $_r[1];
+				$t = intval($_t[0]) - intval($_t[1]); // MA 14.03.2026
+				$r = intval($_r[0]) - intval($_r[1]); // MA 14.03.2026
 
 				if ($t == $r) $pts = $P2;
 				else
@@ -732,6 +734,7 @@ class KT
 	/**/	function GetTippsUebersichtData()
 	{
 		$colModel = array();
+		$data = array(); // MA 14.03.2026
 
 		if (isset($_POST['trid']) && isset($_POST['md'])) {
 
@@ -1031,6 +1034,7 @@ class KT
 	function GetTippsGesamtstandData()
 	{
 		$colModel = array();
+		$data = array(); // MA 14.03.2026
 
 		if (isset($_POST['trid']) && isset($_POST['md'])) {
 			$trid = $_POST['trid'];
@@ -1265,7 +1269,7 @@ class KT
 				$_sort['idx'][$idx]  = $idx;
 				$_sort['Pts'][$idx]  = $_sp[$idx]['Pts'];
 				$_sort['Diff'][$idx] = $_sp[$idx]['Diff'];
-				$_sort['Tore'][$idx] = $_sp[$idx]['gf'];
+				$_sort['Tore'][$idx] = $_sp[$idx]['Tore'];
 			} // foreach
 
 			array_multisort(
@@ -1402,7 +1406,7 @@ class KT
 				$_sort['idx'][$idx]  = $idx;
 				$_sort['Pts'][$idx]  = $_sp[$idx]['Pts'];
 				$_sort['Diff'][$idx] = $_sp[$idx]['Diff'];
-				$_sort['Tore'][$idx] = $_sp[$idx]['gf'];
+				$_sort['Tore'][$idx] = $_sp[$idx]['Tore'];
 			} // foreach
 
 			array_multisort(
