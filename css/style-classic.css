@@ -6,15 +6,20 @@
     background: #fff;
     border-bottom: 2px solid #e8e8e8;
     box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-    min-height: 52px;
+    min-height: 36px;
+    margin-bottom: 0;
 }
 a.navbar-brand {
     float: none;
-    font-size: 18px;
+    display: inline;
+    font-size: 16px;
     font-weight: 700;
     color: #333 !important;
     letter-spacing: -0.3px;
+    padding: 10px 10px 10px 0;
+    height: auto;
 }
+.navbar-header { float: none; display: inline-block; }
 a.navbar-brand:hover { color: #4a7c59 !important; }
 .navbar-default .navbar-nav > li > a {
     color: #555;
@@ -26,9 +31,17 @@ a.navbar-brand:hover { color: #4a7c59 !important; }
 
 .clr { clear:both; }
 
-.navtr select { margin-right:0.5em; border-radius:4px; margin:1px;}
-.navtr button:first-of-type { margin-left:0.5em;}
-.navtr { display:none; }
+.navbar-header > div { display: inline; }
+.navtr {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    vertical-align: middle;
+    margin-left: 8px;
+}
+.navtr select { border-radius:4px; padding: 2px 4px; font-size: 13px; }
+.navtr button { font-size: 13px; padding: 2px 8px; }
+.navbar-header .clr { display: none; }
 
 .content { margin-right:0.5em; margin-bottom:0.5em;}
 
@@ -97,6 +110,13 @@ a.navbar-brand:hover { color: #4a7c59 !important; }
 .kttable.tipinfo { width:100%; }
 
 .ui-jqgrid td.Team { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Sticky header (JS-gesteuert via transform) */
+.ui-jqgrid .ui-jqgrid-hdiv.stuck {
+    z-index: 10;
+    position: relative;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
 
 .ui-state-default .ui-icon.icon-print { background-image: url(images/print.png); }
 .ui-state-default .ui-icon.icon-disk { background-image: url(images/save.png); }
@@ -365,7 +385,7 @@ body { overflow-x: hidden; }
         display: flex !important;
         flex-wrap: nowrap;
         gap: 3px;
-        padding: 4px 0;
+        padding: 4px 0 4px 18px;
         align-items: center;
     }
     .navtr select {

@@ -501,7 +501,7 @@ class KT
 		$vw = isset($_POST['_w']) ? intval($_POST['_w']) : 1024;
 		$w = 0;
 		foreach ($colModel as $c) {
-			if (!$c['hidden']) $w += $c['width'];
+			if (!($c['hidden'] ?? false)) $w += $c['width'];
 		}
 
 		// Auf Mobile: Name-Spalte verkleinern
@@ -584,7 +584,7 @@ class KT
 				$ret[$row['tnid']]['Tips'][$row['sid']]['Tip'] = $row['Tipp'];
 				if ($row['Ergebnis'] <> '-:-') {
 					$ret[$row['tnid']]['Tips'][$row['sid']]['Points'] =  $this->evaluateTip($row['Tipp'], $row['Ergebnis']);
-					$ret[$row['tnid']]['Points'] += $ret[$row['tnid']]['Tips'][$row['sid']]['Points'];
+					$ret[$row['tnid']]['Points'] = ($ret[$row['tnid']]['Points'] ?? 0) + $ret[$row['tnid']]['Tips'][$row['sid']]['Points'];
 				} // if
 			} else {
 				$ret[$row['tnid']]['Tips'][$row['sid']]['Tip'] = '-:-';
@@ -631,8 +631,8 @@ class KT
 				$_t = preg_split('/:/', $tip);
 				$_r = preg_split('/:/', $result);
 
-				$t = $_t[0] - $_t[1];
-				$r = $_r[0] - $_r[1];
+				$t = (int)$_t[0] - (int)$_t[1];
+				$r = (int)$_r[0] - (int)$_r[1];
 
 				if ($t == $r) $pts = $P2;
 				else
@@ -807,7 +807,7 @@ class KT
 					'id' => $m['tnid'],
 					'Pts' => $tips[$m['tnid']]['Points'],
 					'Bonus' => isset($bonus[$m['tnid']]) ? sprintf("%3.2f", $bonus[$m['tnid']]) : '',
-					'cls' => $cls[$m['tnid']]
+					'cls' => $cls[$m['tnid']] ?? ''
 				);
 
 				if (is_array($tips[$m['tnid']]['Tips']))
@@ -928,8 +928,8 @@ class KT
 				$data = $_POST['data'];
 
 				// MA 09.02.2015
-				unset($t);
-				foreach ($data as $d) $t[$d['Tip']]++;
+				$t = [];
+				foreach ($data as $d) $t[$d['Tip']] = ($t[$d['Tip']] ?? 0) + 1;
 				unset($t['']);
 				foreach ($t as $cnt) {
 					if ($cnt >= 5) {
@@ -1075,7 +1075,7 @@ class KT
 				$tips[$i] = $this->matchdaySummary($trid, $i);
 
 				foreach ($member[$rnd] as $m) {
-					$pts[$m['tnid']] += $tips[$i][$m['tnid']]['Points'];
+					$pts[$m['tnid']] += ($tips[$i][$m['tnid']]['Points'] ?? 0);
 				}
 			}
 
@@ -1092,10 +1092,10 @@ class KT
 					'id' => $m['tnid'],
 					'Pts' => $p,
 					'Bonus' => isset($bonus[$tnid]) ? sprintf("%3.2f", $bonus[$tnid]) : '',
-					'cls' => $cls[$m['tnid']]
+					'cls' => $cls[$m['tnid']] ?? ''
 				);
 				for ($i = $start; $i <= $end; $i++) {
-					$data[$idx]["s$i"] = $tips[$i][$tnid]['Points'];
+					$data[$idx]["s$i"] = ($i <= $md) ? $tips[$i][$tnid]['Points'] : null;
 				}
 				$idx++;
 			}
@@ -1143,7 +1143,7 @@ class KT
 					'M1' => $member[$rnd][$row['tnid1']]['name'],
 					'M2' => $member[$rnd][$row['tnid2']]['name'],
 					'Result' => $row['Ergebnis'],
-					'cls' => $cls[$row['tnid1']] . $cls[$row['tnid2']],
+					'cls' => ($cls[$row['tnid1']] ?? '') . ($cls[$row['tnid2']] ?? ''),
 					'id' => $id++
 				);
 			}
@@ -1301,7 +1301,7 @@ class KT
 					'Draw' => $s['Draw'],
 					'Loss' => $s['Loss'],
 					'tnid' => $s['tnid'],
-					'cls' => $cls[$s['tnid']]
+					'cls' => $cls[$s['tnid']] ?? ''
 				);
 				$idx++;
 			} // foreach
@@ -1326,7 +1326,7 @@ class KT
 			$tips[$i] = $this->matchdaySummary($trid, $i);
 
 			foreach ($league as $l) {
-				$pts[$l['tnid']] += $tips[$i][$l['tnid']]['Points'];
+				$pts[$l['tnid']] += ($tips[$i][$l['tnid']]['Points'] ?? 0);
 			}
 		}
 
@@ -1341,7 +1341,7 @@ class KT
 				'Name' => $m['name'],
 				'Pts' => $p,
 				'tnid' => $tnid,
-				'cls' => $cls[$m['tnid']]
+				'cls' => $cls[$m['tnid']] ?? ''
 			);
 			$idx++;
 		}
@@ -1438,7 +1438,7 @@ class KT
 					'Draw' => $s['Draw'],
 					'Loss' => $s['Loss'],
 					'tnid' => $s['tnid'],
-					'cls' => $cls[$s['tnid']]
+					'cls' => $cls[$s['tnid']] ?? ''
 				);
 				$idx++;
 			} // foreach
@@ -1491,7 +1491,7 @@ class KT
 				foreach ($member[$rnd] as $m) {
 					if (isset($tips[$i][$m['tnid']]['Points'])) {
 						$pts[$i][$m['tnid']] = $tips[$i][$m['tnid']]['Points'];
-						$pts[0][$m['tnid']] += $pts[$i][$m['tnid']]; //$tips[$i][$m['tnid']]['Points'];
+						$pts[0][$m['tnid']] = ($pts[0][$m['tnid']] ?? 0) + $pts[$i][$m['tnid']];
 					}
 				}
 				//print_r($pts[$i]);
@@ -1500,7 +1500,7 @@ class KT
 
 				if (is_array($b[$i]))
 					foreach ($b[$i] as $tnid => $bo) {
-						$matches[$tnid] += $bo;
+						$matches[$tnid] = ($matches[$tnid] ?? 0) + $bo;
 					}
 			}
 
@@ -1535,7 +1535,7 @@ class KT
 					}
 
 					if (is_array($b))
-						foreach ($b as $tnid => $bo)	$league[$tnid] += $bo;
+						foreach ($b as $tnid => $bo)	$league[$tnid] = ($league[$tnid] ?? 0) + $bo;
 				}
 			}
 
@@ -1546,7 +1546,7 @@ class KT
 				$bonus[] = array(
 					'Name'  => $m['name'],
 					'id' => $m['tnid'],
-					'cls' => $cls[$m['tnid']],
+					'cls' => $cls[$m['tnid']] ?? '',
 					'Matches' => isset($matches[$m['tnid']]) ? sprintf("%3.2f", $matches[$m['tnid']]) : '',
 					'Total' => isset($total[$m['tnid']]) ? sprintf("%3.2f", $total[$m['tnid']]) : '',
 					'League' => isset($league[$m['tnid']]) ? sprintf("%3.2f", $league[$m['tnid']]) : '',
@@ -1806,6 +1806,9 @@ class KT
 						$result = preg_split('/:/', $row['Ergebnis']);
 
 						if ($result[0] <> '-') {
+							$z = ['Matches'=>0,'Win'=>0,'Draw'=>0,'Loss'=>0,'gf'=>0,'ga'=>0];
+							if (!isset($data[$t1])) $data[$t1] = $z;
+							if (!isset($data[$t2])) $data[$t2] = $z;
 							if (($mode == 't') || ($mode == 'h')) $data[$t1]['Matches']++;
 							if (($mode == 't') || ($mode == 'a')) $data[$t2]['Matches']++;
 							if (($mode == 't') || ($mode == 'h')) {
@@ -1907,9 +1910,9 @@ class KT
 			$anz = count($data);
 			//$anz = $result->num_rows;
 
-			unset($tipps);
+			$tipps = [];
 			foreach ($data as $row) {
-				$tipps[$row['Tipp']]++;
+				$tipps[$row['Tipp']] = ($tipps[$row['Tipp']] ?? 0) + 1;
 			}
 
 			unset($data);
@@ -2209,9 +2212,9 @@ class KT
 		$colModel[] = array('name' => "cls", 'hidden' => true);
 
 
-		unset($cls);
-		$tnid = $this->user['tnid'];
-		$cls[$tnid] = 'rowUser';
+		$cls = [];
+		$tnid = $this->user['tnid'] ?? 0;
+		if ($tnid) $cls[$tnid] = 'rowUser';
 
 		$sql = sprintf("SELECT s.sid, s.Ergebnis, t.Tipp, t.tnid, s.trid FROM %s s INNER JOIN %s t ON s.sid = t.sid
 							WHERE s.Datum < '%s' AND s.Ergebnis <> '-:-' AND s.trid IN (SELECT trid FROM %s WHERE Aktiv='J')
@@ -2225,9 +2228,9 @@ class KT
 			//print_r($row);
 			//echo "<br>".$row['Tipp'].'#'.$row['Ergebnis'].'#'.evaluateTip($row['Tipp'],$row['Ergebnis']);
 			$e = $this->evaluateTip($row['Tipp'], $row['Ergebnis']);
-			$pts[$row['tnid']][$e]++;
-			$pts[$row['tnid']]['sum'] += $e;
-			$cnt[$row['tnid']][$row['trid']]++;
+			$pts[$row['tnid']][$e] = ($pts[$row['tnid']][$e] ?? 0) + 1;
+			$pts[$row['tnid']]['sum'] = ($pts[$row['tnid']]['sum'] ?? 0) + $e;
+			$cnt[$row['tnid']][$row['trid']] = ($cnt[$row['tnid']][$row['trid']] ?? 0) + 1;
 		}
 
 		$member = $this->member[-1];
@@ -2241,7 +2244,7 @@ class KT
 			foreach ($x as $s => $c) {
 				$cnt[$m][$s] /= $sprnd[$s];
 				$cnt[$m][$s] = ceil($cnt[$m][$s]);
-				$cnt[$m]['sum'] += $cnt[$m][$s];
+				$cnt[$m]['sum'] = ($cnt[$m]['sum'] ?? 0) + $cnt[$m][$s];
 			}
 		}
 		//echo"<pre>";
@@ -2261,7 +2264,7 @@ class KT
 				'3er' => $pts[$m][3],
 				'2er' => $pts[$m][2],
 				'PPR' => sprintf("%.2f", $pts[$m]['sum'] / $cnt[$m]['sum']),
-				'cls' => $cls[$m]
+				'cls' => $cls[$m] ?? ''
 			);
 		}
 
@@ -2316,6 +2319,9 @@ class KT
 						$result = preg_split('/:/', $row['Tipp']);
 
 						if ($result[0] <> '-') {
+							$z = ['Matches'=>0,'Win'=>0,'Draw'=>0,'Loss'=>0,'gf'=>0,'ga'=>0];
+							if (!isset($data[$t1])) $data[$t1] = $z;
+							if (!isset($data[$t2])) $data[$t2] = $z;
 							if (($mode == 't') || ($mode == 'h')) $data[$t1]['Matches']++;
 							if (($mode == 't') || ($mode == 'a')) $data[$t2]['Matches']++;
 							if (($mode == 't') || ($mode == 'h')) {

@@ -341,29 +341,33 @@
 				// Mobile: Inline overflow-Styles entfernen, damit CSS !important fuer sticky greift
 				fixMobileOverflow(gridid);
 				if (verge.viewportW() < 768) {
-				// Frozen columns: Header-Zelle der Name-Spalte fuer sticky markieren
+				// Mobile: Frozen columns - Header-Zelle der Name-Spalte fuer sticky markieren
 				$j.each(res.colModel, function(idx, col) {
 					if (col.classes && col.classes.indexOf('Name') >= 0) {
 						$j(gridid).closest('.ui-jqgrid').find('.ui-jqgrid-hdiv th').eq(idx).addClass('frozen-col');
 					}
 				});
+				}
 				// Sticky header: Kopfzeile bleibt oben kleben beim vertikalen Scrollen
 				(function() {
 					var $jqgrid = $j(gridid).closest('.ui-jqgrid');
 					var $hdiv = $jqgrid.find('.ui-jqgrid-hdiv');
 					var $ktgrid = $jqgrid.closest('.ktgrid');
 					if (!$hdiv.length || !$ktgrid.length) return;
+					// Offset des Headers innerhalb des Grid-Containers (Titlebar + Toolbar)
+					var hdivOffset = $hdiv[0].offsetTop;
 					$j(window).on('scroll.stickyHdr' + id, function() {
 						var rect = $ktgrid[0].getBoundingClientRect();
 						var hh = $hdiv.outerHeight();
+						var headerTop = rect.top + hdivOffset;
 						// Offset: Navbar + Subnav (falls sichtbar)
 						var navH = 0;
 						var nav = document.querySelector('.navbar');
 						var sub = document.getElementById('subnav');
 						if (nav) { var nr = nav.getBoundingClientRect(); if (nr.bottom > 0) navH = nr.bottom; }
 						if (sub) { var sr = sub.getBoundingClientRect(); if (sr.bottom > navH) navH = sr.bottom; }
-						if (rect.top < navH && rect.bottom > navH + hh * 2) {
-							$hdiv.css('transform', 'translateY(' + (navH - rect.top) + 'px)');
+						if (headerTop < navH && rect.bottom > navH + hh * 2) {
+							$hdiv.css('transform', 'translateY(' + (navH - headerTop) + 'px)');
 							$hdiv.addClass('stuck');
 						} else {
 							$hdiv.css('transform', '');
@@ -371,7 +375,6 @@
 						}
 					});
 				})();
-				}
 				// Refresh-Event erstellen
 				$j(gridid).on('refresh', function (event, rparam, ropt) {
 					if (rparam) {

@@ -321,49 +321,71 @@
     }
 
     // ═══════════════════════════════════════════════════════════════
-    //  Platform-Kollisionen (nur markierte horizontale Linien)
+    //  Platform-Kollisionen – dynamisch pro sichtbarem Grid
     // ═══════════════════════════════════════════════════════════════
+    function collectPlatforms() {
+        var platforms = []; // { y, left, right }
+        var grids = document.querySelectorAll('.ui-jqgrid');
+        for (var g = 0; g < grids.length; g++) {
+            var grid = grids[g];
+            var gRect = grid.getBoundingClientRect();
+            if (gRect.width < 20 || gRect.bottom < 0 || gRect.top > window.innerHeight) continue;
+            var left = gRect.left, right = gRect.right;
+
+            // Titlebar – Oberkante
+            var tb = grid.querySelector('.ui-jqgrid-titlebar');
+            if (tb) {
+                var tbr = tb.getBoundingClientRect();
+                platforms.push({ y: tbr.top, left: left, right: right });
+            }
+
+            // Header – Unterkante (Spaltenüberschriften)
+            var hd = grid.querySelector('.ui-jqgrid-hdiv');
+            if (hd) {
+                var hdr = hd.getBoundingClientRect();
+                platforms.push({ y: hdr.bottom, left: left, right: right });
+            }
+
+            // Hervorgehobene Zeilen (rowUser, rowOpponent) – Unterkante
+            var specials = grid.querySelectorAll('tr.rowUser, tr.rowOpponent');
+            for (var s = 0; s < specials.length; s++) {
+                var sr = specials[s].getBoundingClientRect();
+                if (sr.height > 0) platforms.push({ y: sr.bottom, left: left, right: right });
+            }
+
+            // Toolbar / Pager – Oberkante (wenn sichtbar)
+            var pager = grid.querySelector('.ui-jqgrid-pager');
+            if (pager) {
+                var pr = pager.getBoundingClientRect();
+                if (pr.height > 0) platforms.push({ y: pr.top, left: left, right: right });
+            }
+
+            // Letzte Datenzeile – Unterkante (Tabellenboden)
+            var rows = grid.querySelectorAll('.ui-jqgrid-bdiv tr[role="row"]');
+            if (rows.length) {
+                var lr = rows[rows.length - 1].getBoundingClientRect();
+                platforms.push({ y: lr.bottom, left: left, right: right });
+            }
+        }
+        return platforms;
+    }
+
     function collidePlatforms() {
         if (ghostMode) return;
-
-        // Breite aus dem Grid-Container ermitteln
-        var container = document.querySelector('.ui-jqgrid') ||
-                        document.querySelector('.ui-jqgrid-bdiv');
-        if (!container) return;
-        var cRect = container.getBoundingClientRect();
-        var left = cRect.left, right = cRect.right;
         var T = 3; // Liniendicke für Kollision
+        var platforms = collectPlatforms();
 
-        var lines = [];
-
-        // Linie 1: Oberkante Titlebar (Panel-Kopf)
-        var tb = document.querySelector('.ui-jqgrid-titlebar');
-        if (tb) lines.push(tb.getBoundingClientRect().top);
-
-        // Linie 2: Unterkante rowUser
-        var ru = document.querySelector('tr.rowUser');
-        if (ru) lines.push(ru.getBoundingClientRect().bottom);
-
-        // Linie 3: Unterkante rowOpponent
-        var ro = document.querySelector('tr.rowOpponent');
-        if (ro) lines.push(ro.getBoundingClientRect().bottom);
-
-        // Linie 4: Unterkante letzte Tabellenzeile
-        var rows = document.querySelectorAll('.ui-jqgrid-bdiv tr[role="row"]');
-        if (rows.length) lines.push(rows[rows.length - 1].getBoundingClientRect().bottom);
-
-        for (var i = 0; i < lines.length; i++) {
-            var y = lines[i];
-            // Dünne Kollisions-Rect (kein Schweben)
-            var rect = { left: left, right: right, top: y - T / 2, bottom: y + T / 2 };
+        for (var i = 0; i < platforms.length; i++) {
+            var p = platforms[i];
+            var rect = { left: p.left, right: p.right, top: p.y - T / 2, bottom: p.y + T / 2 };
             var col = circleRectCollision(ball.x, ball.y, CFG.R, rect);
             if (col) { resolveCollision(col); continue; }
 
             // Anti-Tunneling: Ball hat Linie im letzten Frame überquert
-            if (ball.x >= left && ball.x <= right && ball.vy > 0) {
+            if (ball.x >= p.left && ball.x <= p.right && ball.vy > 0) {
                 var prevY = ball.y - ball.vy;
-                if (prevY + CFG.R <= y && ball.y + CFG.R > y) {
-                    ball.y = y - CFG.R;
+                if (prevY + CFG.R <= p.y && ball.y + CFG.R > p.y) {
+                    ball.y = p.y - CFG.R;
                     ball.vy = -Math.abs(ball.vy) * CFG.BOUNCE;
                     ball.onGround = true;
                 }

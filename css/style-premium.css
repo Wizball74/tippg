@@ -37,17 +37,21 @@ body {
     border: none;
     border-bottom: 1px solid #3a3a3a;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
-    min-height: 52px;
+    min-height: 36px;
     margin-bottom: 0;
 }
 
 .navbar-default .navbar-brand,
 a.navbar-brand {
     float: none;
+    display: inline;
     font-weight: 600 !important;
     font-size: 16px !important;
     color: #e0e0e0 !important;
+    padding: 10px 10px 10px 0;
+    height: auto;
 }
+.navbar-header { float: none; display: inline-block; }
 
 .navbar-default .navbar-nav > li > a {
     color: #999 !important;
@@ -134,14 +138,21 @@ a.navbar-brand {
 .navbar-default .navbar-nav > li.active > a:hover { color: #c0a050 !important; font-weight: 700; }
 
 /* ===== NAV CONTROLS ===== */
+.navbar-header > div { display: inline; }
+.navtr {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    vertical-align: middle;
+    margin-left: 8px;
+}
 .navtr select {
     background: #333;
     color: #d0d0d0;
     border: 1px solid #555;
     border-radius: 6px;
-    padding: 5px 10px;
+    padding: 2px 4px;
     font-size: 13px;
-    margin: 2px;
     transition: border-color 0.15s;
 }
 
@@ -150,8 +161,8 @@ a.navbar-brand {
     outline: none;
     box-shadow: 0 0 0 2px rgba(150, 150, 150, 0.15);
 }
-
-.navtr { display: none; }
+.navtr button { font-size: 13px; padding: 2px 8px; }
+.navbar-header .clr { display: none; }
 
 .button {
     background: #555;
@@ -447,6 +458,13 @@ a.navbar-brand {
 
 .ui-jqgrid td.Team { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
+/* Sticky header (JS-gesteuert via transform) */
+.ui-jqgrid .ui-jqgrid-hdiv.stuck {
+    z-index: 10;
+    position: relative;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
 .kttable.tipinfo {
     border-radius: 8px;
     overflow: hidden;
@@ -576,7 +594,7 @@ a.navbar-brand {
         display: flex !important;
         flex-wrap: nowrap;
         gap: 3px;
-        padding: 4px 0;
+        padding: 4px 0 4px 18px;
         align-items: center;
     }
     .navtr select {

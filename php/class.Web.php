@@ -158,14 +158,12 @@ class Web
 	function findTeam($teams, $name)
 	{
 		//echo "$name<br>";
-		$result = $teams[$name];
+		$result = $teams[$name] ?? null;
 		if ($result) return $result;
 
 		// MA 29.10.2016 Fix/Workaround
 		$name = trim(substr($name, 2));
-		//echo $name;
-		//if ($name == "KÃ¶ln") $name = "Köln";
-		$result = $teams[$name];
+		$result = $teams[$name] ?? null;
 		if ($result) return $result;
 
 		//echo "$name<br>";

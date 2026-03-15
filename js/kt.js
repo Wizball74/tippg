@@ -147,6 +147,7 @@
                 if (res.ok) {
                     kt.loggedIn = false;
                     $j("#username").html("");
+                    $j("#subnav").html("");
                     clearContent();
                     closeDialogs();
                     makeMenu();

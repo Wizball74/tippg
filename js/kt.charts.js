@@ -208,17 +208,25 @@
         });
 
         var labels = [];
-        for (var i = 1; i <= mdCols.length; i++) labels.push('' + i);
+        $j.each(mdCols, function(i, c) {
+            labels.push(c.replace('s', ''));
+        });
 
         // Top 8 Spieler + eigener User
         var datasets = [];
         var top = rows.slice(0, 8);
 
         $j.each(top, function(ri, r) {
-            var cumData = [], cum = 0;
+            var cumData = [], cum = 0, hasData = true;
             $j.each(mdCols, function(mi, col) {
-                cum += (parseInt(r[col]) || 0);
-                cumData.push(cum);
+                var val = r[col];
+                if (!hasData || val === '' || val === null || val === undefined) {
+                    hasData = false;
+                    cumData.push(null);
+                } else {
+                    cum += (parseInt(val) || 0);
+                    cumData.push(cum);
+                }
             });
             var name = r.Name.replace(/^\uD83D\uDC51\s*/, '');
             var isUser = r.cls === 'rowUser';
@@ -255,21 +263,21 @@
     // 3. TREFFERQUOTE: Stacked Bar + Spieltag-Schwierigkeit
     // ==================================================================================
     kt.Stat.Trefferquote = function() {
-        var html = '<div style="padding:8px 16px"><h4>Trefferquote</h4>'
-            + '<canvas id="chartTreffer" style="max-height:450px"></canvas></div>'
+        // Dropdown aus Navbar-Daten aufbauen
+        var sel = $j('select#cbmd'), opts = '';
+        sel.find('option').each(function() {
+            opts += '<option value="' + this.value + '">' + $j(this).text().trim() + '</option>';
+        });
+        var html = '<div style="padding:8px 16px">'
+            + '<h4 style="display:inline-block;margin-right:12px">Trefferquote</h4>'
+            + '<select id="cbTrefferMd" style="font-size:13px;padding:2px 6px;border-radius:4px;border:1px solid #888;color:#222;background:#fff">' + opts + '</select>'
+            + '</div>'
+            + '<div style="padding:0 16px"><canvas id="chartTreffer" style="max-height:450px"></canvas></div>'
             + '<div style="padding:8px 16px;margin-top:16px"><h4>Punkteverteilung pro Spieltag</h4>'
             + '<canvas id="chartSchwierigkeit" style="max-height:350px"></canvas></div>';
         setContent(html);
-
-        $j.ajax({
-            type: 'POST', url: 'php/GetData.php',
-            data: { trid: kt.trid, md: kt.md, fn: 'TippsUebersicht' },
-            contentType: 'application/x-www-form-urlencoded',
-            success: function(result) {
-                var res = result.d || result;
-                if (res && res.data && res.data.Rows) buildTreffer(res.data.Rows, res.colModel);
-            }
-        });
+        $j('#cbTrefferMd').val(kt.md).on('change', function() { loadTreffer(parseInt(this.value)); });
+        loadTreffer(kt.md);
 
         $j.ajax({
             type: 'POST', url: 'php/GetData.php',
@@ -282,6 +290,18 @@
         });
     };
 
+    function loadTreffer(md) {
+        $j.ajax({
+            type: 'POST', url: 'php/GetData.php',
+            data: { trid: kt.trid, md: md, fn: 'TippsUebersicht' },
+            contentType: 'application/x-www-form-urlencoded',
+            success: function(result) {
+                var res = result.d || result;
+                if (res && res.data && res.data.Rows) buildTreffer(res.data.Rows, res.colModel);
+            }
+        });
+    }
+
     function buildTreffer(rows, colModel) {
         var def = chartDefaults();
         // Punkte-Spalten finden (p1, p2, ...)
@@ -290,19 +310,18 @@
             if (c.name && c.name.match(/^p\d+$/)) ptsCols.push(c.name);
         });
 
-        var labels = [], exact = [], diff = [], tend = [], miss = [];
+        var labels = [], exact = [], tend = [], miss = [];
         $j.each(rows, function(ri, r) {
             var name = r.Name.replace(/^\uD83D\uDC51\s*/, '');
             labels.push(name.split(',')[0]);
-            var e = 0, d = 0, t = 0, m = 0;
+            var e = 0, t = 0, m = 0;
             $j.each(ptsCols, function(pi, col) {
                 var p = parseInt(r[col]) || 0;
                 if (p >= 3) e++;
-                else if (p === 2) d++;
-                else if (p === 1) t++;
+                else if (p >= 1) t++;
                 else m++;
             });
-            exact.push(e); diff.push(d); tend.push(t); miss.push(m);
+            exact.push(e); tend.push(t); miss.push(m);
         });
 
         destroyChart('chartTreffer');
@@ -312,7 +331,6 @@
                 labels: labels,
                 datasets: [
                     { label: 'Exakt', data: exact, backgroundColor: '#0072B2' },
-                    { label: 'Differenz', data: diff, backgroundColor: '#56B4E9' },
                     { label: 'Tendenz', data: tend, backgroundColor: '#F0E442' },
                     { label: 'Daneben', data: miss, backgroundColor: '#D55E00' }
                 ]
@@ -341,11 +359,19 @@
         $j.each(rows, function(ri, r) { if (r.cls === 'rowUser') { userRow = r; return false; } });
 
         $j.each(mdCols, function(mi, col) {
-            labels.push('' + (mi + 1));
-            var vals = [];
+            labels.push(col.replace('s', ''));
+            // Nur Spieltage mit Daten (mindestens ein Spieler hat einen Wert)
+            var vals = [], hasData = false;
             $j.each(rows, function(ri, r) {
-                vals.push(parseInt(r[col]) || 0);
+                var v = r[col];
+                if (v !== null && v !== undefined && v !== '') hasData = true;
+                vals.push(parseInt(v) || 0);
             });
+            if (!hasData) {
+                avgs.push(null); mins.push(null); maxs.push(null);
+                meine.push(null);
+                return;
+            }
             vals.sort(function(a,b) { return a - b; });
             var sum = 0;
             $j.each(vals, function(i,v) { sum += v; });
@@ -389,13 +415,15 @@
 
         $j.each(id, function (idx, val) { table += kt.makeTable(val, { fl: 'left', cls: 'col-lg-6 col-md-6 col-xs-12' }); });
 
+        table += '<div class="clr" style="margin-bottom:16px"></div>';
+
         // Ewige Ligatabelle
         var ligaId = 'LigaTabelleGesamt';
-        table += kt.makeTable(ligaId + '1');
+        table += kt.makeTable(ligaId + '1', { fl: 'left', cls: 'col-lg-6 col-md-6 col-xs-12' });
 
         // Ewiger Gesamtstand
         var ewigId = 'StatGesamtstand';
-        table += kt.makeTable(ewigId);
+        table += kt.makeTable(ewigId, { fl: 'left', cls: 'col-lg-6 col-md-6 col-xs-12' });
 
         setContent(table);
 
