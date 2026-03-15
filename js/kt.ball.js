@@ -27,6 +27,7 @@
     var ball, canvas, ctx;
     var active = false, animFrame;
     var cursor = { x: -999, y: -999, vx: 0, vy: 0, lx: 0, ly: 0, lt: 0 };
+    var cursorFlash = 0;  // Aufleuchten bei Kontakt (0..1)
     var ghostMode = false, ghostStart = 0;
     var revealed = false;
     var score = 0;
@@ -478,6 +479,7 @@
             ball.vy += ny * push;
         }
         if (spd > 8 && !ghostMode) activateGhost();
+        cursorFlash = 1;
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -620,6 +622,26 @@
                 ctx.restore();
             }
         }
+    }
+
+    function drawCursorRing(dt) {
+        if (cursorFlash <= 0) return;
+        var r = CFG.CURSOR_R;
+        // Ring expandiert leicht beim Ausfaden
+        var expand = (1 - cursorFlash) * 8;
+        var cr = r + expand;
+
+        ctx.save();
+        ctx.globalAlpha = cursorFlash * 0.4;
+        ctx.strokeStyle = ghostMode ? '#ff8800' : '#4a7c59';
+        ctx.lineWidth = 2 * cursorFlash;
+        ctx.beginPath();
+        ctx.arc(cursor.x, cursor.y, cr, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.restore();
+
+        cursorFlash -= dt * 0.003;
+        if (cursorFlash < 0) cursorFlash = 0;
     }
 
     function drawFloatingTexts(dt) {
@@ -872,6 +894,7 @@
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         drawParticles(dt);
         drawBall();
+        drawCursorRing(dt);
         drawFloatingTexts(dt);
 
         animFrame = requestAnimationFrame(loop);

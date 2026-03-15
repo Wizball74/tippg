@@ -146,17 +146,8 @@
 						if (col.key) keycol = col.name;
 					});
 					if (w) {
-						var vw = verge.viewportW();
-						var containerW = $j('#d' + id).parent().width() || $j('#content').width() || vw;
-						if (vw < 768 && w > vw) {
-							// Mobile: Grid behält natürliche Breite, Container scrollt
-							cfg.width = w;
-							cfg.shrinkToFit = false;
-						} else {
-							// Desktop: natürliche Breite beibehalten
-							cfg.width = w;
-							cfg.shrinkToFit = false;
-						}
+						cfg.width = w;
+						cfg.shrinkToFit = false;
 						cfg.autowidth = false;
 					}
 				}
@@ -267,52 +258,6 @@
 								//$j(gridid).jqGrid('setGridParam', 'sortname', res.sortname);
 							}
 
-							// Mindestbreite: Spalten duerfen Text nicht abschneiden
-							(function() {
-								var $g = $j(gridid);
-								var cm = $g.jqGrid('getGridParam', 'colModel') || [];
-								var $jqg = $g.closest('.ui-jqgrid');
-								var htable = $jqg.find('.ui-jqgrid-htable');
-								var btable = $g;
-								var canvas = document.createElement('canvas');
-								var ctx = canvas.getContext('2d');
-								var totalDelta = 0;
-
-								$j.each(cm, function(ci, col) {
-									if (col.hidden) return;
-									var maxW = 0;
-									// Textbreite in Body-Zellen messen
-									btable.find('td[aria-describedby="' + $g.attr('id') + '_' + col.name + '"]').each(function() {
-										var el = $j(this);
-										ctx.font = el.css('font-weight') + ' ' + el.css('font-size') + ' ' + el.css('font-family');
-										var tw = Math.ceil(ctx.measureText(el.text()).width) + 12;
-										if (tw > maxW) maxW = tw;
-									});
-									var curW = col.width || 0;
-									if (maxW > curW) {
-										var delta = maxW - curW;
-										totalDelta += delta;
-										// Header und Body Spaltenbreite anpassen
-										htable.find('th').eq(ci).css('width', maxW + 'px');
-										btable.find('tr:first td').eq(ci).css('width', maxW + 'px');
-										col.width = maxW;
-									}
-								});
-								// Gesamtbreite des Grids anpassen
-								if (totalDelta > 0) {
-									var gw = $g.jqGrid('getGridParam', 'width') || $g.width();
-									var newW = gw + totalDelta;
-									// Desktop: nicht breiter als Container (CSS .ktgrid overflow-x:hidden clippt Rest)
-									if (verge.viewportW() >= 768) {
-										var maxW = $j('#d' + id).width() || gw;
-										if (newW > maxW) newW = maxW;
-									}
-									htable.css('width', newW + 'px');
-									btable.css('width', newW + 'px');
-									$jqg.css('width', newW + 'px');
-									$jqg.find('.ui-jqgrid-hdiv, .ui-jqgrid-bdiv').css('width', newW + 'px');
-								}
-							})();
 
 							if (init) {
 
@@ -411,8 +356,14 @@
 					$j(window).on('scroll.stickyHdr' + id, function() {
 						var rect = $ktgrid[0].getBoundingClientRect();
 						var hh = $hdiv.outerHeight();
-						if (rect.top < 0 && rect.bottom > hh * 2) {
-							$hdiv.css('transform', 'translateY(' + (-rect.top) + 'px)');
+						// Offset: Navbar + Subnav (falls sichtbar)
+						var navH = 0;
+						var nav = document.querySelector('.navbar');
+						var sub = document.getElementById('subnav');
+						if (nav) { var nr = nav.getBoundingClientRect(); if (nr.bottom > 0) navH = nr.bottom; }
+						if (sub) { var sr = sub.getBoundingClientRect(); if (sr.bottom > navH) navH = sr.bottom; }
+						if (rect.top < navH && rect.bottom > navH + hh * 2) {
+							$hdiv.css('transform', 'translateY(' + (navH - rect.top) + 'px)');
 							$hdiv.addClass('stuck');
 						} else {
 							$hdiv.css('transform', '');
@@ -651,9 +602,18 @@
 				// Mobile: nur overflow fixen, Grid behaelt natuerliche Breite (.ktgrid scrollt)
 				fixMobileOverflow(gridid);
 			} else {
-				$j(gridid).jqGrid('setGridWidth', Math.max(pw, opts.minwidth || 320), true);
+				// Nicht breiter als Spaltensumme
+				var colW = jgqColWidth(gridid);
+				var newW = Math.min(Math.max(pw, opts.minwidth || 320), colW);
+				$j(gridid).jqGrid('setGridWidth', newW, false);
 			}
 		}
+	}
+
+	function jgqColWidth(gridid) {
+		var cm = $j(gridid).jqGrid('getGridParam', 'colModel') || [], w = 0;
+		$j.each(cm, function (i, col) { if (!col.hidden && col.width) w += col.width; });
+		return w || 9999;
 	}
 
 	// Orientation change: resize all visible grids
@@ -662,13 +622,15 @@
 		window._ktResizeTimer = setTimeout(function () {
 			var mobile = verge.viewportW() < 768;
 			$j('table[id^="grid"]').each(function () {
-				var id = this.id.replace('grid', ''),
+				var gid = '#' + this.id,
+					id = this.id.replace('grid', ''),
 					pw = $j("#d" + id).parent().width();
 				if (pw > 0) {
 					if (mobile) {
 						fixMobileOverflow(this);
 					} else {
-						$j(this).jqGrid('setGridWidth', Math.max(pw, 320), true);
+						var colW = jgqColWidth(gid);
+						$j(this).jqGrid('setGridWidth', Math.min(Math.max(pw, 320), colW), false);
 					}
 				}
 			});

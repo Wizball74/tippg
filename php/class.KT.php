@@ -851,10 +851,10 @@ class KT
 
 		if (isset($_POST['trid']) && isset($_POST['md'])) {
 			// Datenmodell
-			$colModel[] = array('label' => " ", 'width' => 20, 'name' => "HLogo", 'formatter' => 'logo');
-			$colModel[] = array('label' => "Heim", 'width' => 130, 'name' => "HTeam", 'formatter' => 'html', 'classes' => 'Team');
-			$colModel[] = array('label' => " ", 'width' => 20, 'name' => "ALogo", 'formatter' => 'logo');
-			$colModel[] = array('label' => "Ausw.", 'width' => 130, 'index' => "ATeam", 'name' => "ATeam", 'formatter' => 'html', 'classes' => 'Team');
+			$colModel[] = array('label' => " ", 'width' => 24, 'name' => "HLogo", 'formatter' => 'logo');
+			$colModel[] = array('label' => "Heim", 'width' => 200, 'name' => "HTeam", 'formatter' => 'html', 'classes' => 'Team');
+			$colModel[] = array('label' => " ", 'width' => 24, 'name' => "ALogo", 'formatter' => 'logo');
+			$colModel[] = array('label' => "Ausw.", 'width' => 200, 'index' => "ATeam", 'name' => "ATeam", 'formatter' => 'html', 'classes' => 'Team');
 			$colModel[] = array('label' => "Datum", 'width' => 70, 'name' => "DateTime", 'align' => 'center', 'formatter' => 'html', 'classes' => 'DateTime');
 			$colModel[] = array(
 				'label' => "Tipp", 'width' => 70, 'name' => "Tip", 'align' => 'center', 'classes' => "Result",
@@ -988,8 +988,9 @@ class KT
 			$sql = sprintf("SELECT * FROM %s WHERE ((tid1=%d AND tid2=%d) OR (tid1=%d AND tid2=%d)) AND Ergebnis <>'-:-' ORDER BY Datum DESC LIMIT %d", $this->TABLE['spielplan'], $tidH, $tidA, $tidA, $tidH, $limit);
 			$html .= $this->getTable($sql, 'letzte Spiele gegeneinander');
 		} else {
-			$html = 'Tippabgabe bitte wie folgt: 1:0, 2:1, 2:2, ...<br/><br/>' .
-				'Markieren Sie eine beliebige Zelle innerhalb einer Spalte, um weitere Informationen über die betreffende Partie zu erhalten';
+			$html = '<div class="kttable rounded shadow tipinfo" style="padding:10px">' .
+				'<p>Tippabgabe bitte wie folgt: <b>1:0</b>, <b>2:1</b>, <b>2:2</b>, ...</p>' .
+				'<p style="color:#888;font-size:0.9em">Markieren Sie ein Spiel, um Statistiken zur Partie anzuzeigen.</p></div>';
 		}
 
 		$json = array('ok' => true, 'html' => $html);
@@ -1002,10 +1003,11 @@ class KT
 
 		$html = '<table class="kttable rounded shadow tipinfo"><tr class="row3"><th colspan="4">' . $title . '</th></tr>';
 		$data = $this->db->getData($sql);
+		$cls = 'row2';
 		foreach ($data as $row) {
 			$styleH = '';
 			$styleA = '';
-			$r = preg_split('/:/', $row[Ergebnis]);
+			$r = preg_split('/:/', $row['Ergebnis']);
 			if ($r[0] > $r[1]) {
 				$styleH = ' bold';
 			} else if ($r[0] < $r[1]) {
@@ -1223,7 +1225,7 @@ class KT
 		foreach ($data as $row) {
 			$t1 = $row['tnid1'];
 			$t2 = $row['tnid2'];
-			$res = preg_split('/:/', $row[Ergebnis]);
+			$res = preg_split('/:/', $row['Ergebnis']);
 			if (!isset($_sp[$t1]['Matches'])) $_sp[$t1]['Matches'] = 0;
 			if (!isset($_sp[$t2]['Matches'])) $_sp[$t2]['Matches'] = 0;
 			if ($res[0] <> '-') {
@@ -1360,7 +1362,7 @@ class KT
 		foreach ($data as $row) {
 			$t1 = $row['tnid1'];
 			$t2 = $row['tnid2'];
-			$res = preg_split('/:/', $row[Ergebnis]);
+			$res = preg_split('/:/', $row['Ergebnis']);
 			if (!isset($_sp[$t1]['Matches'])) $_sp[$t1]['Matches'] = 0;
 			if (!isset($_sp[$t2]['Matches'])) $_sp[$t2]['Matches'] = 0;
 			if ($res[0] <> '-') {
@@ -2052,7 +2054,7 @@ class KT
 				foreach ($data as $row) {
 					$t1 = $row['tnid1'];
 					$t2 = $row['tnid2'];
-					$res = preg_split('/:/', $row[Ergebnis]);
+					$res = preg_split('/:/', $row['Ergebnis']);
 					$sp = $row['sptag'];
 					if ($res[0] <> '-') { {
 							$_sp[$sp][$t1]['gf'] = $_sp[$sp - 1][$t1]['gf'] + $res[0];

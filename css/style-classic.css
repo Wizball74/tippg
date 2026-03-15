@@ -1,9 +1,28 @@
-﻿#bLogin { width: 120px; height: 30px; }
-#login_loading { display: none; }
-#login_response { display: none; color: red;text-align: center;margin-top: 10px; }
+﻿#login_loading { display: none; }
+#login_response { display: none; color: #c0392b; text-align: center; margin-top: 10px; font-size: 13px; }
 
-a.navbar-brand { float:none; /*font-size: 18px;*/ }
-/*.navbar-brand { height:65px; font-size:14px; }*/
+/* Navbar */
+.navbar-default {
+    background: #fff;
+    border-bottom: 2px solid #e8e8e8;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+    min-height: 52px;
+}
+a.navbar-brand {
+    float: none;
+    font-size: 18px;
+    font-weight: 700;
+    color: #333 !important;
+    letter-spacing: -0.3px;
+}
+a.navbar-brand:hover { color: #4a7c59 !important; }
+.navbar-default .navbar-nav > li > a {
+    color: #555;
+    font-weight: 500;
+    font-size: 14px;
+    transition: color 0.15s;
+}
+.navbar-default .navbar-nav > li > a:hover { color: #4a7c59; }
 
 .clr { clear:both; }
 
@@ -64,7 +83,7 @@ a.navbar-brand { float:none; /*font-size: 18px;*/ }
 .subnav-item.active { background: #337ab7; color: #fff; }
 .subnav-item.active:hover { background: #286090; color: #fff; text-decoration: none; }
 .navbar-default .navbar-nav > li.active > a,
-.navbar-default .navbar-nav > li.active > a:hover { color: #337ab7; font-weight: 700; }
+.navbar-default .navbar-nav > li.active > a:hover { color: #4a7c59; font-weight: 700; }
 
 .kttable,
 .kttable .rounded { border: 0 none; } 
@@ -72,9 +91,12 @@ a.navbar-brand { float:none; /*font-size: 18px;*/ }
 .kttable td { font-weight: normal; padding:2px; }
 
 .kttable td.Date { width:60px;}
-.kttable td.Team { width:250px;}
-.kttable td.Result { width:60px;}
+.kttable td.Team { }
+.kttable td.Result { width:40px; white-space: nowrap; }
 .kttable .bold  { font-weight: bold; }
+.kttable.tipinfo { width:100%; }
+
+.ui-jqgrid td.Team { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .ui-state-default .ui-icon.icon-print { background-image: url(images/print.png); }
 .ui-state-default .ui-icon.icon-disk { background-image: url(images/save.png); }
@@ -241,23 +263,86 @@ body { overflow-x: hidden; }
 .ui-jqgrid .ui-jqgrid-bdiv { overflow-x: hidden; }
 
 /* Login dialog */
+.notitle .ui-dialog-titlebar { display: none; }
+.notitle.ui-dialog {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+    overflow: hidden;
+    padding: 0;
+    background: #fff;
+}
+.notitle .ui-dialog-content {
+    background: #fff !important;
+    padding: 32px 36px !important;
+}
+#login h2 {
+    font-size: 22px;
+    font-weight: 600;
+    color: #333;
+    margin: 0 0 24px 0;
+    padding-bottom: 12px;
+    border-bottom: 2px solid #e8e8e8;
+}
 #login fieldset { border: none; padding: 0; margin: 0; }
-#login p { margin: 0 0 12px 0; }
-#login label { display: block; margin-bottom: 4px; font-size: 13px; }
+#login legend { display: none; }
+#login p { margin: 0 0 16px 0; }
+#login label { display: block; margin-bottom: 6px; font-size: 13px; font-weight: 600; color: #555; }
 #login input.text {
     width: 100%;
-    padding: 6px 8px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
+    padding: 10px 14px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
     font-size: 14px;
     box-sizing: border-box;
+    background: #f9f9f9;
+    transition: border-color 0.2s, box-shadow 0.2s;
 }
+#login input.text:focus {
+    border-color: #4a7c59;
+    background: #fff;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(74,124,89,0.1);
+}
+#login input[type="checkbox"] {
+    width: 16px; height: 16px;
+    vertical-align: middle;
+    margin: -6px 0 0 0;
+    accent-color: #4a7c59;
+}
+#login p:has(input[type="checkbox"]) label {
+    display: inline;
+    font-weight: normal;
+    color: #666;
+    cursor: pointer;
+}
+#login p:has(input[type="checkbox"]) {
+    display: flex;
+    flex-direction: row-reverse;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 4px;
+}
+#bLogin {
+    width: 100%;
+    height: 42px;
+    border: none;
+    border-radius: 8px;
+    background: #4a7c59;
+    color: #fff;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+#bLogin:hover { background: #3d6a4b; }
+#bLogin:active { background: #33593f; }
 
 /* Media Queries */
 @media (max-width: 1024px) {
     .kttable { font-size:12px;}
     .kttable td.Date { width:40px; font-size:10px;}
-    .kttable td.Team { width:150px;}
+    .kttable td.Team { width:250px;}
     .kttable td.Result { width:40px;}
     .ui-jqgrid td { font-size: 0.9em; }
 }
@@ -347,9 +432,9 @@ body { overflow-x: hidden; }
         margin: 0 auto;
         left: 4vw !important;
     }
-    .ui-dialog .ui-dialog-content { padding: 16px !important; }
-    #login input.text { font-size: 16px; padding: 10px 12px; }
-    #bLogin { width: 100%; height: 44px; font-size: 16px; }
+    .notitle .ui-dialog-content { padding: 20px 24px !important; }
+    #login input.text { font-size: 16px; padding: 12px 14px; }
+    #bLogin { height: 48px; font-size: 16px; }
 
     /* Dropdown touch targets */
     .dropdown-menu > li > a { padding: 12px 16px; font-size: 15px; }
@@ -380,6 +465,7 @@ body { overflow-x: hidden; }
 }
 
 @media (min-width: 1200px) {
+  .kttable td.Team { width:250px;}
   .container {
     width: 1170px;
   }

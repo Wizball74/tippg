@@ -440,9 +440,12 @@ a.navbar-brand {
 .kttable td { font-weight: normal; padding: 4px; font-size: 0.9em; }
 
 .kttable td.Date { width: 60px; }
-.kttable td.Team { width: 250px; }
-.kttable td.Result { width: 60px; }
+.kttable td.Team { }
+.kttable td.Result { width: 40px; white-space: nowrap; }
 .kttable .bold { font-weight: 600; }
+.kttable.tipinfo { width: 100%; }
+
+.ui-jqgrid td.Team { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .kttable.tipinfo {
     border-radius: 8px;

@@ -77,8 +77,8 @@
                 events,
                 lastSel;
 
-            table = makeTable(id, { pager: false, fl: true, cls: 'col-lg-8 col-md-8 col-xs-12' });
-            table += $j('<div/>').attr('id', idi).addClass('col-lg-4 col-md-4 col-xs-12').prop('outerHTML'); //.css('float', 'left').prop('outerHTML');
+            table = makeTable(id, { pager: false, fl: true, cls: 'col-lg-7 col-md-7 col-xs-12' });
+            table += $j('<div/>').attr('id', idi).addClass('col-lg-5 col-md-5 col-xs-12').prop('outerHTML'); //.css('float', 'left').prop('outerHTML');
             setContent(table);
 
             btn = [
