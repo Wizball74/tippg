@@ -38,12 +38,22 @@ class Web
 		 */
 	function getSeasonYear($trid)
 	{
+<<<<<<< HEAD
         $row = $this->kt->db->Query(sprintf("SELECT Beginn FROM %s WHERE trid=%d", $this->kt->TABLE['tipprunde'], $trid))->fetch_assoc(); // MA 14.03.2026
 		// Jahreszahl des Saisonstarts
         // MA 14.03.2026
         // return substr($row['Beginn'], 0, 4);
         $val = $row['Beginn'] ?? '';
         return substr($val, 0, 4);
+=======
+		$row = $this->kt->db->Query(sprintf("SELECT Beginn FROM %s WHERE trid=%d", $this->kt->TABLE['tipprunde'], $trid))->fetch_assoc(); // MA 14.03.2026
+
+		// Jahreszahl des Saisonstarts
+		// MA 14.03.2026
+		// return substr($row['Beginn'], 0, 4);
+		$val = $row['Beginn'] ?? '';
+		return substr($val, 0, 4);
+>>>>>>> a3513afbf0c07a7968ab599306f058feefa35aa1
 	}
 
 	/*
@@ -251,7 +261,11 @@ class Web
 							$_datum = $this->kt->convertDate($m['D']);
 							$sql = sprintf(
 								"INSERT INTO %s (trid,sptag,tid1,tid2,Datum,Uhrzeit,Ergebnis) VALUES(%d,%d,%d,%d,'%s','%s','-:-')",
+<<<<<<< HEAD
 							    $this->kt->TABLE['spielplan'], // MA 14.03.2026
+=======
+								$this->kt->TABLE['spielplan'], // MA 14.03.2026
+>>>>>>> a3513afbf0c07a7968ab599306f058feefa35aa1
 								$trid,
 								$spid,
 								$m['T1'],
@@ -274,7 +288,11 @@ class Web
 			case 'update':
 				$result = '<table class="kttable rounded shadow">';
 				$result .= '<tr><th>SpTag</th><th>Team1</th><th>Team2</th><th>SID</th><th>Datum alt</th><th>Zeit alt</th><th>Datum neu</th><th>Zeit neu</th></tr>';
+<<<<<<< HEAD
                 $sql = sprintf("SELECT * FROM %s WHERE trid=%d AND Ergebnis='-:-'", $this->kt->TABLE['spielplan'], $trid); // MA 14.03.2026
+=======
+				$sql = sprintf("SELECT * FROM %s WHERE trid=%d AND Ergebnis='-:-'", $this->kt->TABLE['spielplan'], $trid); // MA 14.03.2026
+>>>>>>> a3513afbf0c07a7968ab599306f058feefa35aa1
 				$data = $this->kt->db->getData($sql);
 				foreach ($data as $row) {
 					$s = $this->findSched($row['sptag'], $row['tid1'], $row['tid2'], $sched);
