@@ -258,6 +258,7 @@ class KT
 			$menu['Stat'][] =   array('title' => 'Punkteverlauf',       'smenu' => 'Stat',        'action' => 'Punkteverlauf');
 			$menu['Stat'][] =   array('title' => 'Trefferquote',        'smenu' => 'Stat',        'action' => 'Trefferquote');
 			$menu['Stat'][] =   array('title' => 'Tabellen',            'smenu' => 'Stat',        'action' => 'Tabellen');
+			$menu['Stat'][] =   array('title' => 'Breakout',            'smenu' => 'Stat',        'action' => 'Breakout');
 
 			$menu['Admin'][] =   array('title' => 'Einstellungen',          'smenu' => 'Admin',       'action' => 'Einstellungen');
 			$menu['Admin'][] =   array('title' => 'Profil', 	   	        'smenu' => 'Admin',       'action' => 'Profil');
@@ -1207,7 +1208,7 @@ class KT
 		$end = $this->trrow['e'][$rnd];
 		$member = $this->member[$rnd];
 
-		unset($cls);
+		$cls = array();
 		$tnid = $this->user['tnid'];
 		$cls[$tnid] = 'rowUser';
 
@@ -1221,13 +1222,13 @@ class KT
 		);
 		$data = $this->db->getData($sql);
 
-		unset($_sp);
+		$_sp = array();
 		foreach ($data as $row) {
 			$t1 = $row['tnid1'];
 			$t2 = $row['tnid2'];
 			$res = preg_split('/:/', $row['Ergebnis']);
-			if (!isset($_sp[$t1]['Matches'])) $_sp[$t1]['Matches'] = 0;
-			if (!isset($_sp[$t2]['Matches'])) $_sp[$t2]['Matches'] = 0;
+			if (!isset($_sp[$t1])) $_sp[$t1] = array('Matches'=>0,'Win'=>0,'Draw'=>0,'Loss'=>0,'gf'=>0,'ga'=>0);
+			if (!isset($_sp[$t2])) $_sp[$t2] = array('Matches'=>0,'Win'=>0,'Draw'=>0,'Loss'=>0,'gf'=>0,'ga'=>0);
 			if ($res[0] <> '-') {
 				$_sp[$t1]['Matches']++;
 				$_sp[$t2]['Matches']++; {
@@ -1264,7 +1265,7 @@ class KT
 				$_sort['idx'][$idx]  = $idx;
 				$_sort['Pts'][$idx]  = $_sp[$idx]['Pts'];
 				$_sort['Diff'][$idx] = $_sp[$idx]['Diff'];
-				$_sort['Tore'][$idx] = $_sp[$idx]['Tore'];
+				$_sort['Tore'][$idx] = $_sp[$idx]['gf'];
 			} // foreach
 
 			array_multisort(
@@ -1282,9 +1283,9 @@ class KT
 		} // if
 
 		unset($data);
-		if (isset($_sort[idx])) {
+		if (isset($_sort['idx'])) {
 			$idx = 0;
-			foreach ($_sort[idx] as $i) {
+			foreach ($_sort['idx'] as $i) {
 				$s = $_sp[$i];
 				//$s[Platz] = $_nr++;
 				$m = $member[$s['tnid']];
@@ -1314,11 +1315,11 @@ class KT
 		$end = $this->trrow['e'][$rnd];
 		$member = $this->member[$rnd];
 
-		unset($cls);
+		$cls = array();
 		$tnid = $this->user['tnid'];
 		$cls[$tnid] = 'rowUser';
 
-		unset($pts);
+		$pts = array();
 		foreach ($league as $l) $pts[$l['tnid']] = 0;
 
 		for ($i = $start; $i <= $end; $i++) {
@@ -1351,20 +1352,20 @@ class KT
 	function createLeagueTableComplete($leaguenr)
 	{
 		$member = $this->member[-1];
-		unset($cls);
+		$cls = array();
 		$tnid = $this->user['tnid'];
 		$cls[$tnid] = 'rowUser';
 
 		$sql = sprintf("SELECT * FROM %s sp WHERE Liga=%d AND trid IN (SELECT trid FROM %s WHERE Aktiv='J')", $this->TABLE['ligaergebnis'], $leaguenr, $this->TABLE['tipprunde']);
 		$data = $this->db->getData($sql);
 
-		unset($_sp);
+		$_sp = array();
 		foreach ($data as $row) {
 			$t1 = $row['tnid1'];
 			$t2 = $row['tnid2'];
 			$res = preg_split('/:/', $row['Ergebnis']);
-			if (!isset($_sp[$t1]['Matches'])) $_sp[$t1]['Matches'] = 0;
-			if (!isset($_sp[$t2]['Matches'])) $_sp[$t2]['Matches'] = 0;
+			if (!isset($_sp[$t1])) $_sp[$t1] = array('Matches'=>0,'Win'=>0,'Draw'=>0,'Loss'=>0,'gf'=>0,'ga'=>0);
+			if (!isset($_sp[$t2])) $_sp[$t2] = array('Matches'=>0,'Win'=>0,'Draw'=>0,'Loss'=>0,'gf'=>0,'ga'=>0);
 			if ($res[0] <> '-') {
 				$_sp[$t1]['Matches']++;
 				$_sp[$t2]['Matches']++; {
@@ -1401,7 +1402,7 @@ class KT
 				$_sort['idx'][$idx]  = $idx;
 				$_sort['Pts'][$idx]  = $_sp[$idx]['Pts'];
 				$_sort['Diff'][$idx] = $_sp[$idx]['Diff'];
-				$_sort['Tore'][$idx] = $_sp[$idx]['Tore'];
+				$_sort['Tore'][$idx] = $_sp[$idx]['gf'];
 			} // foreach
 
 			array_multisort(
@@ -1419,9 +1420,9 @@ class KT
 		} // if
 
 		unset($data);
-		if (isset($_sort[idx])) {
+		if (isset($_sort['idx'])) {
 			$idx = 0;
-			foreach ($_sort[idx] as $i) {
+			foreach ($_sort['idx'] as $i) {
 				$s = $_sp[$i];
 				//$s[Platz] = $_nr++;
 				$m = $member[$s['tnid']];

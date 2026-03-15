@@ -35,6 +35,89 @@
     var floatingTexts = [];
     var particles = [];
     var scorePanel = null;
+    var audioCtx = null;
+
+    // "Pfubb"-Sound: kurzer gedämpfter Tiefton, Lautstärke proportional zur Schuss-Stärke
+    function initAudio() {
+        if (audioCtx) return;
+        try {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        } catch (e) {}
+    }
+
+    function playKick(intensity) {
+        if (intensity < 0.03) return;
+        if (!audioCtx) return;
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        try {
+            var now = audioCtx.currentTime;
+            var vol = 0.15 + intensity * 0.55;    // 0.15 (leise) bis 0.7 (kräftig)
+            var freq = 100 + intensity * 80;      // 100-180 Hz
+
+            // Noise-Burst für den "Pf"-Anteil
+            var bufLen = audioCtx.sampleRate * 0.03;
+            var noiseBuf = audioCtx.createBuffer(1, bufLen, audioCtx.sampleRate);
+            var data = noiseBuf.getChannelData(0);
+            for (var i = 0; i < bufLen; i++) data[i] = (Math.random() * 2 - 1) * 0.3;
+            var noise = audioCtx.createBufferSource();
+            noise.buffer = noiseBuf;
+            var noiseGain = audioCtx.createGain();
+            noiseGain.gain.setValueAtTime(vol * 0.4, now);
+            noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+            noise.connect(noiseGain);
+            noiseGain.connect(audioCtx.destination);
+            noise.start(now);
+
+            // Tiefer Sinus für den "ubb"-Anteil
+            var osc = audioCtx.createOscillator();
+            var gain = audioCtx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(freq, now);
+            osc.frequency.exponentialRampToValueAtTime(30, now + 0.12);
+            gain.gain.setValueAtTime(vol, now);
+            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start(now);
+            osc.stop(now + 0.2);
+        } catch (e) {}
+    }
+
+    // "Pling"-Sound beim Block-Zerstören: heller Glockenton
+    function playPling(pts) {
+        if (!audioCtx) return;
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        try {
+            var now = audioCtx.currentTime;
+            var vol = 0.18 + Math.min(pts, 3) * 0.06;
+            var baseFreq = 1200 + pts * 200;   // höher bei mehr Punkten
+
+            // Hauptton (Sinus)
+            var osc1 = audioCtx.createOscillator();
+            var g1 = audioCtx.createGain();
+            osc1.type = 'sine';
+            osc1.frequency.setValueAtTime(baseFreq, now);
+            osc1.frequency.exponentialRampToValueAtTime(baseFreq * 0.85, now + 0.25);
+            g1.gain.setValueAtTime(vol, now);
+            g1.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+            osc1.connect(g1);
+            g1.connect(audioCtx.destination);
+            osc1.start(now);
+            osc1.stop(now + 0.35);
+
+            // Oberton (Triangle, Oktave höher) für Glanz
+            var osc2 = audioCtx.createOscillator();
+            var g2 = audioCtx.createGain();
+            osc2.type = 'triangle';
+            osc2.frequency.setValueAtTime(baseFreq * 2, now);
+            g2.gain.setValueAtTime(vol * 0.3, now);
+            g2.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+            osc2.connect(g2);
+            g2.connect(audioCtx.destination);
+            osc2.start(now);
+            osc2.stop(now + 0.2);
+        } catch (e) {}
+    }
 
     // Pentagon-Zentren auf Einheitskugel (Ikosaeder)
     var pentas = [
@@ -315,6 +398,7 @@
             showScorePanel();
         }
 
+        playPling(pts);
         score += pts;
         saveScore();
         updateScorePanel();
@@ -480,6 +564,7 @@
         }
         if (spd > 8 && !ghostMode) activateGhost();
         cursorFlash = 1;
+        playKick(Math.min(spd / 25, 1));
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -855,6 +940,8 @@
     //  Events
     // ═══════════════════════════════════════════════════════════════
     function bindEvents() {
+        // AudioContext bei erster Interaktion initialisieren (Browser-Policy)
+        document.addEventListener('click', function () { initAudio(); }, { once: true });
         document.addEventListener('mousemove', function (e) {
             var now = performance.now(), dt = now - cursor.lt;
             if (dt > 0) {
