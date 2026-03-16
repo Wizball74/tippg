@@ -767,7 +767,7 @@ class KT
 				);
 				$colModel[] = array(
 					'label' => ' ', 'width' => 20, 'name' => 'p' . $row['sid'], 'align' => 'center', 'sortable' => false,  'resizable' => false,
-					'classes' => 'Pts1'
+					'classes' => 'Pts1', 'formatter' => 'html'
 				);
 			}
 
@@ -813,7 +813,16 @@ class KT
 				if (is_array($tips[$m['tnid']]['Tips']))
 					foreach ($tips[$m['tnid']]['Tips'] as $sid => $t) {
 						$data[$idx]["t$sid"] = $t['Tip'];
-						$data[$idx]["p$sid"] = $t['Points'];
+						$p = $t['Points'];
+						if ($p == $this->trrow['P1']) {
+							$data[$idx]["p$sid"] = '<span class="pts-exact">' . $p . '</span>';
+						} else if ($p == $this->trrow['P2']) {
+							$data[$idx]["p$sid"] = '<span class="pts-diff">' . $p . '</span>';
+						} else if ($p == $this->trrow['P3']) {
+							$data[$idx]["p$sid"] = '<span class="pts-tend">' . $p . '</span>';
+						} else {
+							$data[$idx]["p$sid"] = '<span class="pts-zero">' . $p . '</span>';
+						}
 					}
 				$idx++;
 			}
@@ -862,6 +871,13 @@ class KT
 				'editable' => true, 'editoptions' => array('size' => 5, 'maxlength' => 5, 'class' => 'gradient')
 			);
 
+			// Nach Deadline: Ergebnis und Punkte anzeigen
+			$deadlinePassed = $this->checkDeadline($_POST['trid'], $_POST['md']);
+			if ($deadlinePassed) {
+				$colModel[] = array('label' => "Erg.", 'width' => 55, 'name' => "Result", 'align' => 'center', 'classes' => 'Result tipSep');
+				$colModel[] = array('label' => "Pkt.", 'width' => 50, 'name' => "Pts", 'align' => 'center', 'formatter' => 'html', 'classes' => 'Pts');
+			}
+
 			$colModel[] = array('width' => 90, 'name' => "editable", 'hidden' => true);
 			$colModel[] = array('width' => 90, 'name' => "sid", 'key' => true, 'hidden' => true);
 			$colModel[] = array('width' => 90, 'name' => "id", 'key' => true, 'hidden' => true);
@@ -893,7 +909,7 @@ class KT
 			$ed = !$this->checkDeadline($trid, $md);
 			$dl = date('d.m.Y H:i', $this->getDeadline($trid, $md));
 			foreach ($data as $row) {
-				$tips[] = array(
+				$tipRow = array(
 					'sid' => $row['sid'],
 					'id' => $row['sid'],
 					'HTeam' => $teams[$row['tid1']]['Name'],
@@ -908,6 +924,22 @@ class KT
 					'tidH' => $row['tid1'],
 					'tidA' => $row['tid2']
 				);
+				if (!$ed) {
+					$tipRow['Result'] = $row['Ergebnis'];
+					$pts = ($row['Ergebnis'] != '-:-' && !empty($row['Tipp']))
+						? $this->evaluateTip($row['Tipp'], $row['Ergebnis'])
+						: '';
+					if ($pts == $this->trrow['P1']) {
+						$tipRow['Pts'] = '<span class="pts-exact">' . $pts . '</span>';
+					} else if ($pts == $this->trrow['P2']) {
+						$tipRow['Pts'] = '<span class="pts-diff">' . $pts . '</span>';
+					} else if ($pts == $this->trrow['P3']) {
+						$tipRow['Pts'] = '<span class="pts-tend">' . $pts . '</span>';
+					} else {
+						$tipRow['Pts'] = '<span class="pts-zero">' . $pts . '</span>';
+					}
+				}
+				$tips[] = $tipRow;
 			}
 		}
 

@@ -127,10 +127,11 @@
                     // tipMode hier lesen, damit nach Refresh der aktuelle Wert gilt
                     var tipMode = localStorage.getItem('kt_tip_mode') || 'modern';
 
-                    // Toggle-Button in obere Toolbar einfuegen (in die Tabellen-Zeile neben Drucken)
+                    // Toggle-Button in obere Toolbar einfuegen (nur wenn Tippeingabe moeglich)
                     (function() {
                         var tbar = $j("#t_grid" + id);
                         if (!tbar.length || tbar.find('.tipToggle').length) return;
+                        if (!$j(gridid + ' :input[id$="_Tip"]').length) return;
                         var activeClass = tipMode === 'modern' ? ' toggle-on' : '';
                         var td = $j('<td class="tipToggle"></td>').html(
                             '<div class="toggleContainer' + activeClass + '">' +
@@ -149,6 +150,16 @@
                             switchTipMode(newMode, gridid);
                         });
                     })();
+
+                    // Spieltag vorbei: Info-Panel ausblenden, Grid verbreitern
+                    var hasTipInputs = $j(gridid + ' :input[id$="_Tip"]').length > 0;
+                    if (!hasTipInputs) {
+                        $j('#' + idi).hide();
+                        $j(gridid).closest('.col-lg-7, .col-md-7').removeClass('col-lg-7 col-md-7').addClass('col-lg-12 col-md-12');
+                        // Speichern-Button ausblenden
+                        $j('#tb_grid' + id).find('.icon-disk').closest('td').hide();
+                        return;
+                    }
 
                     if (tipMode === 'modern') {
                         // Moderne Eingabe: zwei separate Felder, Auto-Doppelpunkt, Auto-Weiter
@@ -213,7 +224,12 @@
                                 if (e.keyCode === 40) { nextModernInput(this, gridid, 1); return false; }
                             });
                         });
-                        setTimeout(function() { _tipBuilding = false; }, 50);
+                        setTimeout(function() {
+                            _tipBuilding = false;
+                            // Erstes leeres Feld fokussieren
+                            var firstEmpty = $j(gridid + ' .tip-home').filter(function() { return !this.value; }).first();
+                            if (firstEmpty.length) firstEmpty.focus();
+                        }, 50);
                     } else {
                         // Klassische Eingabe
                         $j(gridid + ' :input').focus(function () {

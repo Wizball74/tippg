@@ -263,6 +263,25 @@
         ball = null; canvas = null; ctx = null;
     };
 
+    // TEST: kt.testCascade(0.7) - blendet 70% der Nicht-Pts1-Zellen aus
+    kt.testCascade = function (ratio) {
+        ratio = ratio || 0.7;
+        var tbody = document.querySelector('.ui-jqgrid-btable tbody');
+        if (!tbody) return;
+        var cells = tbody.querySelectorAll('td');
+        for (var i = 0; i < cells.length; i++) {
+            var cell = cells[i];
+            if (cell.classList.contains('Pts1')) continue;
+            if (cell.offsetWidth < 4) continue;
+            if (Math.random() < ratio) {
+                cell.textContent = '';
+                cell.style.cssText = 'border:none !important;pointer-events:none;';
+                cell.style.opacity = '0';
+                cell.classList.add('kt-ball-burned');
+            }
+        }
+    };
+
     kt.rescanBallObstacles = function () {
         if (!active) return;
         // Score pro Seitenansicht zurücksetzen (Highscores bleiben in localStorage)
@@ -451,6 +470,9 @@
             el.style.setProperty('--ember-d', Math.random().toFixed(3));
             el.classList.add('kt-ball-burned');
 
+            // Nachbarn prüfen: Cascade
+            checkCascade(el);
+
             // Alle Blöcke abgeräumt? → Konfetti!
             if (allBlocksCleared()) spawnConfetti();
         }, 400);
@@ -463,6 +485,118 @@
             if (val >= 1) return false;
         }
         return true;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Cascade: Zellen brechen weg wenn genug Nachbarn zerstört sind
+    // ═══════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════
+    //  Cascade: Zellen brechen weg wenn genug Umgebung zerstört ist
+    //  Radius 2 (5x5), Schwelle 65% der existierenden Nachbarn
+    // ═══════════════════════════════════════════════════════════════
+    var CASCADE_RATIO = 0.65;
+    var CASCADE_RADIUS = 2;
+    var _cascadePending = false;
+
+    function isCellDead(cell) {
+        return cell.classList.contains('kt-ball-burned') || cell.style.opacity === '0';
+    }
+
+    function getGridCells(el) {
+        var tbody = el.closest('tbody');
+        if (!tbody) return null;
+        var rows = tbody.querySelectorAll('tr');
+        var grid = [];
+        for (var r = 0; r < rows.length; r++) {
+            var cells = rows[r].querySelectorAll('td');
+            var row = [];
+            for (var c = 0; c < cells.length; c++) row.push(cells[c]);
+            grid.push(row);
+        }
+        return grid;
+    }
+
+    function checkCascade(srcEl) {
+        if (_cascadePending) return;
+        _cascadePending = true;
+        // Kurze Verzögerung: Zerstörung muss sich erst "setzen"
+        setTimeout(function() {
+            _cascadePending = false;
+            doCascadePass(srcEl);
+        }, 500);
+    }
+
+    function doCascadePass(srcEl) {
+        var grid = getGridCells(srcEl);
+        if (!grid) return;
+
+        var toDestroy = [];
+        for (var r = 0; r < grid.length; r++) {
+            for (var c = 0; c < grid[r].length; c++) {
+                var cell = grid[r][c];
+                if (isCellDead(cell)) continue;
+                if (cell.offsetWidth < 4) continue;
+
+                // Nachbarn im Radius zählen
+                var total = 0, dead = 0;
+                for (var dr = -CASCADE_RADIUS; dr <= CASCADE_RADIUS; dr++) {
+                    for (var dc = -CASCADE_RADIUS; dc <= CASCADE_RADIUS; dc++) {
+                        if (dr === 0 && dc === 0) continue;
+                        var nr = r + dr, nc = c + dc;
+                        if (nr < 0 || nr >= grid.length) continue;
+                        if (nc < 0 || nc >= grid[nr].length) continue;
+                        var neighbor = grid[nr][nc];
+                        if (neighbor.offsetWidth < 4) continue; // hidden
+                        total++;
+                        if (isCellDead(neighbor)) dead++;
+                    }
+                }
+                if (total > 0 && dead / total >= CASCADE_RATIO) {
+                    toDestroy.push(cell);
+                }
+            }
+        }
+
+        // Gestaffelt, maximal 3 pro Durchgang
+        var batch = toDestroy.slice(0, 3);
+        for (var i = 0; i < batch.length; i++) {
+            (function(cell, delay) {
+                setTimeout(function() {
+                    if (isCellDead(cell)) return;
+                    cascadeDestroy(cell);
+                }, delay);
+            })(batch[i], i * 150);
+        }
+    }
+
+    function cascadeDestroy(cell) {
+        var rect = cell.getBoundingClientRect();
+        if (rect.width < 4 || rect.height < 4) return;
+
+        // Pts1-Zellen geben Punkte
+        if (cell.classList.contains('Pts1')) {
+            var pts = parseInt(cell.textContent) || 0;
+            if (pts > 0) {
+                score += pts;
+                saveScore();
+                updateScorePanel();
+            }
+        }
+
+        spawnBorderParticles(rect, 1);
+
+        cell.style.transition = 'opacity 0.3s ease-out';
+        cell.style.opacity = '0';
+        setTimeout(function() {
+            cell.textContent = '';
+            cell.style.cssText = 'border:none !important;pointer-events:none;';
+            cell.classList.add('kt-ball-burned');
+
+            // Nächster Cascade-Check (gedrosselt durch _cascadePending)
+            checkCascade(cell);
+
+            if (allBlocksCleared()) spawnConfetti();
+        }, 300);
     }
 
     function spawnConfetti() {

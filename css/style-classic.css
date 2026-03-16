@@ -236,6 +236,45 @@ div.ui-jqgrid tr.ui-state-hover { background: 0 none; }
 .ui-jqgrid td.Pos { font-weight: bold;}
 .ui-jqgrid td.Pts { font-weight: bold;}
 .ui-jqgrid td.Pts1 { font-weight: bold; font-size: 0.9em;}
+
+/* Punkte-Highlighting Tippabgabe */
+.ui-jqgrid td.tipSep { border-left: 2px solid rgba(0,0,0,0.2); }
+.pts-zero { font-weight: normal; opacity: 0.5; }
+.ui-jqgrid td.Pts1 .pts-exact { animation: none; text-shadow: none; color: rgb(255, 115, 0); font-size: 1em; }
+.pts-tend { color: #2874a6; font-weight: bold; }
+.pts-diff { color: #1e8449; font-weight: bold; font-size: 1.1em; }
+.pts-exact {
+    display: inline-block;
+    font-weight: 800;
+    font-size: 1.5em;
+    line-height: 1;
+    color: rgb(255, 115, 0);
+    text-shadow:
+        0 0 3px red,
+        0 0 6px rgba(255,0,0,0.6),
+        0 -1px 3px orange,
+        1px -2px 2px yellow,
+        -1px -3px 4px yellow;
+    animation: Blazing 2s infinite alternate linear;
+}
+
+@keyframes Blazing {
+    0%   { text-shadow: 0 0 3px red, 0 0 6px rgba(255,0,0,0.6),
+        0 0 2px orange, 0 0 0 yellow,
+        -1px -1px 2px yellow, 1px -2px 3px yellow; }
+    25%  { text-shadow: 0 0 4px red, 0 0 8px rgba(255,0,0,0.6),
+        0 0 4px orange, 0 -1px 2px yellow,
+        -1px -2px 3px yellow, 1px -3px 4px yellow; }
+    50%  { text-shadow: 0 0 3px red, 0 -1px 3px orange,
+        -1px -1px 2px yellow, 1px -2px 3px yellow,
+        -1px -3px 5px yellow, 0 -4px 6px rgba(255,255,0,0.5); }
+    75%  { text-shadow: 0 0 4px red, 0 0 6px rgba(255,0,0,0.6),
+        0 -1px 3px orange, 1px -1px 2px yellow,
+        -1px -2px 3px yellow, 0 -4px 6px rgba(255,255,0,0.4); }
+    100% { text-shadow: 0 0 3px red, 0 0 6px rgba(255,0,0,0.6),
+        0 0 2px orange, 0 0 0 yellow,
+        -1px -1px 2px yellow, 1px -2px 3px yellow; }
+}
 .ui-jqgrid td.Bonus { font-weight: bold;}
 .ui-jqgrid td.Result { font-weight: bold;}
 .ui-jqgrid p.hdrRes{ font-weight: bold;}
@@ -320,6 +359,8 @@ div.ui-jqgrid tr.ui-state-hover { background: 0 none; }
 .l34 { background-position: -36px -522px; }
 .l35 { background-position: -36px -1458px; }
 .l36 { background-position: -36px -1602px; }
+.l37 { background: url("images/l37.png") no-repeat center/contain; }
+.l38 { background: url("images/l38.png") no-repeat center/contain; }
 
 body { overflow-x: hidden; }
 #content { overflow-x: hidden; }
