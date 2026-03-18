@@ -625,6 +625,7 @@ class KT
 			$trid,
 			$matchday
 		))->fetch_assoc();
+		if (!$row || empty($row['DatumF']) || empty($row['Uhrzeit'])) return 0;
 		$d = preg_split('/\./', $row['DatumF']);
 		$z = preg_split('/:/', $row['Uhrzeit']);
 

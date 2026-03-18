@@ -15,8 +15,8 @@
                 // letzten Menüpunkt aufrufen (nur wenn trid/md gesetzt)
                 if (kt.lastmenu && kt.trid && kt.md) exec(kt.lastmenu.smenu, kt.lastmenu.action);
 
-                // Fußball-Physik starten (nur Desktop)
-                if (kt.initBall) kt.initBall();
+                // Fußball-Physik starten (nur Desktop, wenn nicht deaktiviert)
+                if (kt.initBall && localStorage.getItem('kt_ball') !== 'off') kt.initBall();
 
                 // Nicht eingeloggt? Login-Dialog direkt anzeigen
                 if (!kt.loggedIn) showLogin();
@@ -271,6 +271,55 @@
                     menu.append(li);
                 })();
 
+                // Fußball-Toggle (neben der Sonne)
+                (function() {
+                    var ballOn = localStorage.getItem('kt_ball') !== 'off';
+                    var ballLi = $j('<li class="kt-ball-toggle"/>');
+                    var ballBtn = $j('<a href="#" role="button" title="Fußball an/aus"/>');
+                    ballBtn.html('<span class="kt-theme-icon" style="font-size:15px">&#9917;</span>');
+                    if (!ballOn) ballBtn.css('opacity', '0.3');
+                    ballBtn.click(function(e) {
+                        e.preventDefault();
+                        var isOn = localStorage.getItem('kt_ball') !== 'off';
+                        if (isOn) {
+                            localStorage.setItem('kt_ball', 'off');
+                            ballBtn.css('opacity', '0.3');
+                            if (kt.destroyBall) kt.destroyBall();
+                        } else {
+                            localStorage.setItem('kt_ball', 'on');
+                            ballBtn.css('opacity', '');
+                            if (kt.initBall) kt.initBall();
+                        }
+                    });
+                    ballLi.append(ballBtn);
+                    menu.append(ballLi);
+                })();
+
+                // Sound-Toggle (neben dem Fußball)
+                (function() {
+                    var sndOn = localStorage.getItem('kt_sound') !== 'off';
+                    var sndLi = $j('<li class="kt-sound-toggle"/>');
+                    var sndBtn = $j('<a href="#" role="button" title="Sound an/aus"/>');
+                    sndBtn.html('<span class="kt-theme-icon" style="font-size:14px">' + (sndOn ? '&#128266;' : '&#128264;') + '</span>');
+                    if (!sndOn) sndBtn.css('opacity', '0.3');
+                    sndBtn.click(function(e) {
+                        e.preventDefault();
+                        var isOn = localStorage.getItem('kt_sound') !== 'off';
+                        if (isOn) {
+                            localStorage.setItem('kt_sound', 'off');
+                            sndBtn.css('opacity', '0.3');
+                            sndBtn.find('.kt-theme-icon').html('&#128264;');
+                        } else {
+                            localStorage.setItem('kt_sound', 'on');
+                            sndBtn.css('opacity', '');
+                            sndBtn.find('.kt-theme-icon').html('&#128266;');
+                        }
+                        if (kt.setBallSound) kt.setBallSound(!isOn);
+                    });
+                    sndLi.append(sndBtn);
+                    menu.append(sndLi);
+                })();
+
                 // onClick-Handler
                 $j("#navbar a.mi").click(function () {
                     // id des Menüpunkts ermitteln
@@ -291,10 +340,10 @@
                 // Navbar ein-/ausblenden
                 if (kt.loggedIn) {
                     $j('.navtr').removeClass('navtr-hidden');
-                    $j('#mainmenu > li:not(.kt-theme-switch)').show();
+                    $j('#mainmenu > li:not(.kt-theme-switch):not(.kt-ball-toggle):not(.kt-sound-toggle)').show();
                 } else {
                     $j('.navtr').addClass('navtr-hidden');
-                    $j('#mainmenu > li:not(.kt-theme-switch)').hide();
+                    $j('#mainmenu > li:not(.kt-theme-switch):not(.kt-ball-toggle):not(.kt-sound-toggle)').hide();
                 }
 
                 return true;
@@ -383,9 +432,11 @@
 
                     if (!kt.trid && data.Rows[0]) {
                         kt.trid = data.Rows[0].trid;
-                        kt.curmd = data.Rows[0].curmd;
-                        kt.md = kt.curmd;
+                        kt.md = data.Rows[0].curmd;
                     }
+                    // curmd immer aus den Daten setzen
+                    if (d[kt.trid]) kt.curmd = d[kt.trid].curmd;
+                    if (!kt.md) kt.md = kt.curmd;
                     sel.val(kt.trid);
                 }
                 if (callback) callback();
@@ -542,6 +593,15 @@
         //$j("#dbg").html(verge.viewportW() + "x" + verge.viewportH());
     }
 
+    // Seiten die den Spieltag-Wähler brauchen
+    var MD_PAGES = { 'Tipps.Uebersicht':1, 'Tipps.Tippabgabe':1, 'Spielplan.Spielplan':1, 'Spielplan.Tabelle':1, 'Liga.Spielplan':1, 'Liga.Tabellen':1, 'Admin.Spielplan':1 };
+
+    function setNavMdEnabled(enabled) {
+        var $els = $j('#cbmd, #bprev, #bnext, #bcur');
+        $els.prop('disabled', !enabled);
+        $els.css('opacity', enabled ? '' : '0.35');
+    }
+
     function exec(smenu, action, param) {
         /// <summary>Menübefehl ausführen</summary>
         try {
@@ -549,6 +609,7 @@
             kt.lastmenu = { smenu: smenu, action: action };
             kt[smenu][action](param);
             updateSubnav(smenu, action);
+            setNavMdEnabled(!!MD_PAGES[smenu + '.' + action]);
         } catch (e) {
             console.log(e, smenu, action, param);
         }

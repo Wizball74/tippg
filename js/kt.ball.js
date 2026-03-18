@@ -36,6 +36,7 @@
     var particles = [];
     var scorePanel = null;
     var audioCtx = null;
+    var soundEnabled = localStorage.getItem('kt_sound') !== 'off';
 
     // ═══════════════════════════════════════════════════════════════
     //  Boost-System: Punkte laden den Ball auf
@@ -280,6 +281,11 @@
         return vorname + ' ' + nachname.charAt(0);
     }
 
+    kt.setBallSound = function (on) {
+        soundEnabled = on;
+        if (on) initAudio();
+    };
+
     // ═══════════════════════════════════════════════════════════════
     kt.initBall = function () {
         if (localStorage.getItem('kt_ball_off') === '1') return;
@@ -310,9 +316,18 @@
         if (canvas && canvas.parentNode) canvas.parentNode.removeChild(canvas);
         removeScorePanel();
         huntCleanup();
+        // Burned-Zellen zurücksetzen
+        var burned = document.querySelectorAll('.kt-ball-burned');
+        for (var i = 0; i < burned.length; i++) burned[i].classList.remove('kt-ball-burned');
+        // Ausgeblendete Zellen wiederherstellen
+        var faded = document.querySelectorAll('td.Tipps, td.Name, th.Tipps, th.Name, .ui-jqgrid-titlebar');
+        for (var i = 0; i < faded.length; i++) { faded[i].style.opacity = ''; faded[i].style.transition = ''; }
         removeStyles();
         document.body.classList.remove('kt-ball-active');
         document.body.classList.remove('kt-ball-game');
+        charge = 0;
+        score = 0;
+        revealed = false;
         ball = null; canvas = null; ctx = null;
     };
 
@@ -500,7 +515,7 @@
             showScorePanel();
         }
 
-        //playPling(pts);
+        if (soundEnabled) playPling(pts);
         score += pts;
         addCharge(pts);
         saveScore();
@@ -800,7 +815,7 @@
         }
         if (spd > 8 && !ghostMode) activateGhost();
         cursorFlash = 1;
-        //playKick(Math.min(spd / 25, 1));
+        if (soundEnabled) playKick(Math.min(spd / 25, 1));
 
         // Zahlen-Jagd: Berührungen zählen
         if (!hunt.active && !hunt.ready && !revealed) {
@@ -1272,7 +1287,7 @@
     // ═══════════════════════════════════════════════════════════════
     function bindEvents() {
         // AudioContext bei erster Interaktion initialisieren (Browser-Policy)
-        //document.addEventListener('click', function () { initAudio(); }, { once: true });
+        document.addEventListener('click', function () { if (soundEnabled) initAudio(); }, { once: true });
         document.addEventListener('mousemove', function (e) {
             var now = performance.now(), dt = now - cursor.lt;
             if (dt > 0) {
