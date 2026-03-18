@@ -37,6 +37,48 @@
     var scorePanel = null;
     var audioCtx = null;
 
+    // ═══════════════════════════════════════════════════════════════
+    //  Boost-System: Punkte laden den Ball auf
+    // ═══════════════════════════════════════════════════════════════
+    var charge = 0;              // Aufladung (jeder Punkt +1)
+    var chargeLastHit = 0;       // Zeitpunkt des letzten Punkt-Treffers
+    var CHARGE_HOLD = 1000;      // ms bevor Abbau startet
+    var CHARGE_DECAY = 4;        // Abbau pro Sekunde (nach ~6-7s fast weg)
+    var CHARGE_MAX = 25;         // Deckel
+
+    function chargePct() { return Math.min(charge / CHARGE_MAX, 1); }
+    function chargeR()   { return CFG.R * (1 + chargePct() * 0.5); }        // bis 50% größer
+    function chargeBounce() { return CFG.BOUNCE * (1 + chargePct() * 0.4); } // bis 40% mehr Bounce
+    function chargeGravity() { return CFG.GRAVITY * (1 - chargePct() * 0.45); } // bis 45% weniger Gravity
+
+    function addCharge(pts) {
+        charge = Math.min(charge + pts, CHARGE_MAX);
+        chargeLastHit = performance.now();
+    }
+
+    function decayCharge(dt) {
+        if (charge <= 0) return;
+        var elapsed = performance.now() - chargeLastHit;
+        if (elapsed < CHARGE_HOLD) return;
+        charge -= CHARGE_DECAY * dt / 1000;
+        if (charge < 0) charge = 0;
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Zahlen-Jagd: Mini-Game wenn Übersicht leer ist
+    // ═══════════════════════════════════════════════════════════════
+    var hunt = {
+        active: false,
+        ready: false,          // true wenn 15s + 10 Berührungen erreicht
+        touchCount: 0,
+        firstTouchTime: 0,
+        round: 0,
+        timer: 60,
+        timerEl: null,
+        targets: [],           // [{ el, num }]
+        intervalId: null
+    };
+
     // "Pfubb"-Sound: kurzer gedämpfter Tiefton, Lautstärke proportional zur Schuss-Stärke
     function initAudio() {
         if (audioCtx) return;
@@ -181,22 +223,29 @@
             '}' +
 
             // Glut-Animation: Inner Glow mit flackerndem box-shadow
+            // Zahlen-Jagd: blinkende Zahlen
+            '@keyframes kt-hunt-blink {' +
+            '  0%, 100% { opacity: 1; transform: scale(1); }' +
+            '  50% { opacity: 0.3; transform: scale(1.15); }' +
+            '}' +
+
             '@keyframes kt-ember {' +
-            '  0%   { box-shadow: inset 0 0 8px 2px rgba(200,80,20,0.25); }' +
-            '  15%  { box-shadow: inset 0 0 12px 3px rgba(220,100,15,0.4); }' +
-            '  30%  { box-shadow: inset 0 0 6px 1px rgba(180,60,10,0.15); }' +
-            '  50%  { box-shadow: inset 0 0 14px 4px rgba(230,110,20,0.45); }' +
-            '  65%  { box-shadow: inset 0 0 5px 1px rgba(170,70,15,0.12); }' +
-            '  80%  { box-shadow: inset 0 0 10px 3px rgba(210,90,20,0.35); }' +
-            '  100% { box-shadow: inset 0 0 8px 2px rgba(200,80,20,0.25); }' +
+            '  0%   { box-shadow: inset 0 0 12px 3px rgba(220,100,15,0.5); }' +
+            '  8%   { box-shadow: inset 0 0 16px 5px rgba(240,120,20,0.6); }' +
+            '  15%  { box-shadow: inset 0 0 8px 2px rgba(200,80,20,0.35); }' +
+            '  25%  { box-shadow: inset 0 0 14px 4px rgba(230,110,20,0.45); }' +
+            '  40%  { box-shadow: inset 0 0 6px 2px rgba(200,80,20,0.2); }' +
+            '  60%  { box-shadow: inset 0 0 4px 1px rgba(180,60,10,0.1); }' +
+            '  80%  { box-shadow: inset 0 0 2px 0px rgba(160,50,10,0.04); }' +
+            '  100% { box-shadow: none; }' +
             '}' +
 
             '.ui-jqgrid td.kt-ball-burned,' +
             '.ui-jqgrid tr.jqgrow td.kt-ball-burned,' +
             '.ui-jqgrid tr.ui-state-hover td.kt-ball-burned {' +
             '  background-color: transparent;' +
-            '  animation: kt-ember 3s ease-in-out infinite;' +
-            '  animation-delay: calc(-3s * var(--ember-d, 0));' +
+            '  animation: kt-ember 10s ease-out forwards;' +
+            '  animation-delay: calc(-0.5s * var(--ember-d, 0));' +
             '}';
         document.head.appendChild(styleEl);
     }
@@ -222,13 +271,13 @@
     }
 
     function shortName(fullName) {
-        // "Mueller, Thomas" → "Thomas M."
+        // "Mueller, Thomas" → "Thomas" (bei Duplikaten clientseitig nicht erkennbar → mit Initial)
         if (!fullName) return '?';
         var parts = fullName.split(',');
         if (parts.length < 2) return fullName;
         var nachname = parts[0].trim();
         var vorname = parts[1].trim();
-        return vorname + ' ' + nachname.charAt(0) + '.';
+        return vorname + ' ' + nachname.charAt(0);
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -249,6 +298,9 @@
         bindEvents();
         active = true;
         loadScores();
+        huntLoadBest();
+        // Ball sofort spawnen falls noch kein Grid da ist
+        setTimeout(function() { if (!ball) spawnBall(); }, 2000);
         loop();
     };
 
@@ -257,6 +309,7 @@
         if (animFrame) cancelAnimationFrame(animFrame);
         if (canvas && canvas.parentNode) canvas.parentNode.removeChild(canvas);
         removeScorePanel();
+        huntCleanup();
         removeStyles();
         document.body.classList.remove('kt-ball-active');
         document.body.classList.remove('kt-ball-game');
@@ -286,9 +339,14 @@
         if (!active) return;
         // Score pro Seitenansicht zurücksetzen (Highscores bleiben in localStorage)
         score = 0;
+        charge = 0;
         revealed = false;
+        huntCleanup();
         removeScorePanel();
         document.body.classList.remove('kt-ball-game');
+        // Ausgeblendete Zellen wiederherstellen
+        var faded = document.querySelectorAll('td.Tipps, td.Name, th.Tipps, th.Name, .ui-jqgrid-titlebar');
+        for (var i = 0; i < faded.length; i++) { faded[i].style.opacity = ''; faded[i].style.transition = ''; }
         setTimeout(function () {
             if (!ball) spawnBall();
         }, 1500);
@@ -330,10 +388,11 @@
     function resolveCollision(col) {
         ball.x += col.nx * col.overlap * 1.01;
         ball.y += col.ny * col.overlap * 1.01;
+        var bounce = chargeBounce();
         var dot = ball.vx * col.nx + ball.vy * col.ny;
         if (dot < 0) {
-            ball.vx -= (1 + CFG.BOUNCE) * dot * col.nx;
-            ball.vy -= (1 + CFG.BOUNCE) * dot * col.ny;
+            ball.vx -= (1 + bounce) * dot * col.nx;
+            ball.vy -= (1 + bounce) * dot * col.ny;
         }
         // Bodenkontakt: Normale zeigt nach oben (ny < -0.5)
         if (col.ny < -0.5) ball.onGround = true;
@@ -397,14 +456,15 @@
         for (var i = 0; i < platforms.length; i++) {
             var p = platforms[i];
             var rect = { left: p.left, right: p.right, top: p.y - T / 2, bottom: p.y + T / 2 };
-            var col = circleRectCollision(ball.x, ball.y, CFG.R, rect);
+            var cr = chargeR();
+            var col = circleRectCollision(ball.x, ball.y, cr, rect);
             if (col) { resolveCollision(col); continue; }
 
             // Anti-Tunneling: Ball hat Linie im letzten Frame überquert
             if (ball.x >= p.left && ball.x <= p.right && ball.vy > 0) {
                 var prevY = ball.y - ball.vy;
-                if (prevY + CFG.R <= p.y && ball.y + CFG.R > p.y) {
-                    ball.y = p.y - CFG.R;
+                if (prevY + cr <= p.y && ball.y + cr > p.y) {
+                    ball.y = p.y - cr;
                     ball.vy = -Math.abs(ball.vy) * CFG.BOUNCE;
                     ball.onGround = true;
                 }
@@ -419,11 +479,12 @@
         var cells = document.querySelectorAll(CFG.BLOCK_SEL);
         for (var i = 0; i < cells.length; i++) {
             var el = cells[i];
+            if (el.querySelector('.kt-hunt-num')) continue; // Zahlen-Jagd-Target, separat behandelt
             var val = parseInt(el.textContent);
             if (!val || val < 1) continue;
             var rect = el.getBoundingClientRect();
             if (rect.width < 4 || rect.height < 4) continue;
-            var col = circleRectCollision(ball.x, ball.y, CFG.R, rect);
+            var col = circleRectCollision(ball.x, ball.y, chargeR(), rect);
             if (col) {
                 resolveCollision(col);
                 destroyBlock(el, val, rect);
@@ -441,8 +502,19 @@
 
         //playPling(pts);
         score += pts;
+        addCharge(pts);
         saveScore();
         updateScorePanel();
+
+        // Explosions-Boost: Ball wird etwas weggeschleudert
+        if (ball) {
+            var boost = 0.3 + pts * 0.15 + chargePct() * 0.5;
+            var cx2 = rect.left + rect.width / 2, cy2 = rect.top + rect.height / 2;
+            var edx = ball.x - cx2, edy = ball.y - cy2;
+            var eDist = Math.sqrt(edx * edx + edy * edy) || 1;
+            ball.vx += (edx / eDist) * boost;
+            ball.vy += (edy / eDist) * boost;
+        }
 
         var cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
 
@@ -675,6 +747,14 @@
             jQuery(this).off('mouseover mouseout');
             jQuery(this).find('tr.ui-state-hover').removeClass('ui-state-hover');
         }); } catch (e) {}
+        // Tipp-/Ergebnis-Zellen ausblenden (außer User/Gegner-Reihe = Hindernisse)
+        var fade = document.querySelectorAll('td.Tipps, td.Name, th.Tipps, th.Name, .ui-jqgrid-titlebar');
+        for (var i = 0; i < fade.length; i++) {
+            var row = fade[i].closest('tr');
+            if (row && (row.classList.contains('rowUser') || row.classList.contains('rowOpponent'))) continue;
+            fade[i].style.transition = 'opacity 0.8s';
+            fade[i].style.opacity = '0.08';
+        }
         var cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
         floatingTexts.push({
             x: cx, y: cy - 20,
@@ -691,7 +771,7 @@
         if (!ball) return;
         var dx = ball.x - cursor.x, dy = ball.y - cursor.y;
         var dist = Math.sqrt(dx * dx + dy * dy);
-        var min = CFG.R + CFG.CURSOR_R;
+        var min = chargeR() + CFG.CURSOR_R;
         if (dist >= min || dist < 0.1) return;
 
         var nx = dx / dist, ny = dy / dist;
@@ -721,6 +801,13 @@
         if (spd > 8 && !ghostMode) activateGhost();
         cursorFlash = 1;
         //playKick(Math.min(spd / 25, 1));
+
+        // Zahlen-Jagd: Berührungen zählen
+        if (!hunt.active && !hunt.ready && !revealed) {
+            if (hunt.touchCount === 0) hunt.firstTouchTime = performance.now();
+            hunt.touchCount++;
+            huntCheck();
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -743,7 +830,7 @@
     //  Wand-Kollisionen
     // ═══════════════════════════════════════════════════════════════
     function collideWalls() {
-        var w = window.innerWidth, h = window.innerHeight - CFG.BOTTOM_M, r = CFG.R;
+        var w = window.innerWidth, h = window.innerHeight - CFG.BOTTOM_M, r = chargeR();
         if (ball.x - r < 0) { ball.x = r; ball.vx = Math.abs(ball.vx) * CFG.BOUNCE; }
         if (ball.x + r > w) { ball.x = w - r; ball.vx = -Math.abs(ball.vx) * CFG.BOUNCE; }
         if (ball.y + r > h) {
@@ -764,7 +851,7 @@
     // ═══════════════════════════════════════════════════════════════
     function step() {
         if (!ball) return;
-        ball.vy += CFG.GRAVITY;
+        ball.vy += chargeGravity();
         ball.x += ball.vx;
         ball.y += ball.vy;
         ball.vx *= CFG.FRICTION;
@@ -781,7 +868,7 @@
         // Rotation: Boden = exaktes Abrollen, Luft = Trudeln mit Dämpfung
         if (ball.onGround) {
             // Horizontale Fläche: nur vx erzeugt Rollbewegung (um Z-Achse)
-            ball.wz = ball.vx / CFG.R;
+            ball.wz = ball.vx / chargeR();
             ball.wx *= 0.9;             // vertikales Trudeln am Boden abdämpfen
         } else {
             // In der Luft: Trudeln langsam abdämpfen
@@ -807,13 +894,17 @@
     // ═══════════════════════════════════════════════════════════════
     function drawBall() {
         if (!ball) return;
-        var bx = ball.x, by = ball.y, r = CFG.R;
+        var bx = ball.x, by = ball.y, r = chargeR();
 
         ctx.save();
         ctx.translate(bx, by);
+        var cp = chargePct();
         if (ghostMode) {
             ctx.shadowColor = '#ff8800';
             ctx.shadowBlur = 12 + Math.sin(performance.now() * 0.015) * 6;
+        } else if (cp > 0.1) {
+            ctx.shadowColor = 'hsl(' + (200 + cp * 60) + ', 90%, 70%)';
+            ctx.shadowBlur = 4 + cp * 14 + Math.sin(performance.now() * 0.02) * cp * 4;
         }
         ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.clip();
 
@@ -866,23 +957,121 @@
     }
 
     function drawCursorRing(dt) {
-        if (cursorFlash <= 0) return;
+        if (cursorFlash <= 0 && charge <= 0) return;
+        var cp = chargePct();
         var r = CFG.CURSOR_R;
-        // Ring expandiert leicht beim Ausfaden
-        var expand = (1 - cursorFlash) * 8;
-        var cr = r + expand;
+        var expand = cursorFlash > 0 ? (1 - cursorFlash) * 8 : 0;
+        var cr = r + expand + cp * 12;
 
         ctx.save();
-        ctx.globalAlpha = cursorFlash * 0.4;
-        ctx.strokeStyle = ghostMode ? '#ff8800' : '#4a7c59';
-        ctx.lineWidth = 2 * cursorFlash;
-        ctx.beginPath();
-        ctx.arc(cursor.x, cursor.y, cr, 0, Math.PI * 2);
-        ctx.stroke();
+        var baseAlpha = cursorFlash > 0 ? cursorFlash * 0.4 : 0;
+        var chargeAlpha = cp * 0.6;
+        ctx.globalAlpha = Math.max(baseAlpha, chargeAlpha);
+
+        if (cp > 0.05) {
+            // Elektrifizierter Ring: gezackter Kreis mit Glow
+            var segments = 24 + Math.floor(cp * 20);
+            var jitter = 2 + cp * 10;
+            ctx.shadowColor = 'hsl(' + (200 + cp * 60) + ', 90%, 70%)';
+            ctx.shadowBlur = 4 + cp * 16;
+            ctx.strokeStyle = 'hsl(' + (200 + cp * 60) + ', 85%, ' + (60 + cp * 20) + '%)';
+            ctx.lineWidth = 1.5 + cp * 2;
+            ctx.beginPath();
+            for (var i = 0; i <= segments; i++) {
+                var a = (i / segments) * Math.PI * 2;
+                var j = (Math.random() - 0.5) * jitter;
+                var px = cursor.x + Math.cos(a) * (cr + j);
+                var py = cursor.y + Math.sin(a) * (cr + j);
+                i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+            ctx.stroke();
+
+            // Zusätzliche Mini-Blitze vom Ring
+            var arcCount = Math.floor(cp * 5);
+            for (var a = 0; a < arcCount; a++) {
+                var angle = Math.random() * Math.PI * 2;
+                var startR = cr + (Math.random() - 0.5) * 4;
+                var len = 8 + Math.random() * cp * 25;
+                drawLightningBolt(
+                    cursor.x + Math.cos(angle) * startR,
+                    cursor.y + Math.sin(angle) * startR,
+                    cursor.x + Math.cos(angle) * (startR + len),
+                    cursor.y + Math.sin(angle) * (startR + len),
+                    3 + cp * 4, cp * 0.7
+                );
+            }
+        } else {
+            ctx.strokeStyle = ghostMode ? '#ff8800' : '#4a7c59';
+            ctx.lineWidth = 2 * cursorFlash;
+            ctx.beginPath();
+            ctx.arc(cursor.x, cursor.y, cr, 0, Math.PI * 2);
+            ctx.stroke();
+        }
         ctx.restore();
 
-        cursorFlash -= dt * 0.003;
-        if (cursorFlash < 0) cursorFlash = 0;
+        if (cursorFlash > 0) {
+            cursorFlash -= dt * 0.003;
+            if (cursorFlash < 0) cursorFlash = 0;
+        }
+    }
+
+    // Blitz-Linie zeichnen (zickzack)
+    function drawLightningBolt(x1, y1, x2, y2, displacement, alpha) {
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.strokeStyle = 'hsl(210, 100%, 80%)';
+        ctx.lineWidth = 1;
+        ctx.shadowColor = 'hsl(210, 90%, 70%)';
+        ctx.shadowBlur = 6;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        var steps = 4 + Math.floor(Math.random() * 3);
+        for (var i = 1; i < steps; i++) {
+            var t = i / steps;
+            var mx = x1 + (x2 - x1) * t + (Math.random() - 0.5) * displacement;
+            var my = y1 + (y2 - y1) * t + (Math.random() - 0.5) * displacement;
+            ctx.lineTo(mx, my);
+        }
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+        ctx.restore();
+    }
+
+    // Entladungen: hauptsächlich zu nahegelegenen Hindernissen, selten frei
+    function drawElectricArcs() {
+        if (!ball) return;
+        var cp = chargePct();
+        if (cp < 0.15) return;
+        var br = chargeR();
+        var bx = ball.x, by = ball.y;
+
+        // Nahe Plattformen/Hindernisse finden und Blitze dorthin ziehen
+        var platforms = collectPlatforms();
+        for (var i = 0; i < platforms.length; i++) {
+            var p = platforms[i];
+            if (bx < p.left - 40 || bx > p.right + 40) continue;
+            var dy = Math.abs(by - p.y);
+            if (dy > br + 30 + cp * 40) continue; // zu weit weg
+            // Chance steigt je näher + je mehr Charge
+            if (Math.random() > cp * 0.4 + (1 - dy / (br + 70)) * 0.3) continue;
+            // Startpunkt am Ball, Endpunkt auf der Plattform
+            var tx = bx + (Math.random() - 0.5) * 20;
+            var clampX = Math.max(p.left, Math.min(tx, p.right));
+            drawLightningBolt(bx, by + (p.y > by ? br : -br), clampX, p.y, 5 + cp * 8, cp * 0.6);
+        }
+
+        // Ganz sporadisch eine freie Entladung (ca. 10% Chance pro Frame bei hoher Charge)
+        if (Math.random() < cp * 0.1) {
+            var angle = Math.random() * Math.PI * 2;
+            var dist = br + 5;
+            var len = 10 + Math.random() * cp * 25;
+            drawLightningBolt(
+                bx + Math.cos(angle) * dist, by + Math.sin(angle) * dist,
+                bx + Math.cos(angle) * (dist + len), by + Math.sin(angle) * (dist + len),
+                3 + cp * 5, cp * 0.35
+            );
+        }
     }
 
     function drawFloatingTexts(dt) {
@@ -988,54 +1177,50 @@
         updateScorePanel();
     }
 
-    function getTop10() {
-        // Immer frisch aus localStorage lesen (parallele Sessions!)
-        var fresh;
-        try { fresh = JSON.parse(localStorage.getItem(CFG.LS_KEY) || '{}'); }
-        catch (e) { fresh = {}; }
-        var trid = kt.trid || 0, md = kt.md || 0;
-        var entries = [];
-        for (var key in fresh) {
-            var e = fresh[key];
-            if (e.trid === trid && e.md === md) entries.push(e);
-        }
-        entries.sort(function (a, b) { return b.score - a.score; });
-        return entries.slice(0, 10);
-    }
-
     function updateScorePanel() {
         if (!scorePanel) return;
-        var top = getTop10();
-        var fullName = getFullName();
-        var myName = shortName(fullName);
+        var trid = kt.trid || 0, md = kt.md || 0;
+        $j.ajax({
+            url: 'php/GetGameScores.php',
+            method: 'POST',
+            data: { game: 'breakout', trid: trid, md: md },
+            dataType: 'json',
+            success: function(res) {
+                if (!scorePanel || !res || !res.ok) return;
+                var top = res.scores || [];
+                var fullName = getFullName();
+                var myName = shortName(fullName);
 
-        // Aktuelle Runde einfügen falls nicht schon als Highscore drin
-        var currentInList = false;
-        for (var i = 0; i < top.length; i++) {
-            if (top[i].fullName === fullName && top[i].score === score) {
-                currentInList = true;
-                top[i]._current = true;
-                break;
+                // Aktuelle Session einfügen falls höher als gespeichert
+                var found = false;
+                for (var i = 0; i < top.length; i++) {
+                    if (top[i].name === myName) {
+                        found = true;
+                        top[i]._current = true;
+                        if (score > parseInt(top[i].total || 0)) top[i].total = score;
+                        break;
+                    }
+                }
+                if (!found && score > 0) {
+                    top.push({ name: myName, total: score, _current: true });
+                    top.sort(function(a, b) { return parseInt(b.total) - parseInt(a.total); });
+                    top = top.slice(0, 10);
+                }
+
+                var html = '';
+                for (var i = 0; i < top.length; i++) {
+                    var e = top[i];
+                    var style = 'white-space:nowrap';
+                    if (e._current) style += ';color:#FFD700';
+                    html += '<div style="' + style + '">' +
+                        '<span style="display:inline-block;min-width:28px;text-align:right;font-weight:bold;margin-right:6px">' +
+                        e.total + '</span>' + e.name +
+                        (e._current ? ' \u25C0' : '') + '</div>';
+                }
+                if (!html) html = '<div style="opacity:0.5">Noch keine Scores</div>';
+                scorePanel.innerHTML = html;
             }
-        }
-        if (!currentInList && score > 0) {
-            top.push({ name: myName, fullName: fullName, score: score, _current: true });
-            top.sort(function (a, b) { return b.score - a.score; });
-            top = top.slice(0, 10);
-        }
-
-        var html = '';
-        for (var i = 0; i < top.length; i++) {
-            var e = top[i];
-            var style = 'white-space:nowrap';
-            if (e._current) style += ';color:#FFD700';
-            html += '<div style="' + style + '">' +
-                '<span style="display:inline-block;min-width:28px;text-align:right;font-weight:bold;margin-right:6px">' +
-                e.score + '</span>' + e.name +
-                (e._current ? ' \u25C0' : '') + '</div>';
-        }
-        if (!html) html = '<div style="opacity:0.5">Noch keine Scores</div>';
-        scorePanel.innerHTML = html;
+        });
     }
 
     function pulseScorePanel() {
@@ -1062,33 +1247,23 @@
     }
 
     // ═══════════════════════════════════════════════════════════════
-    //  Score-Persistenz: pro Spieler + Spieltag
+    //  Score-Persistenz: Server-API
     // ═══════════════════════════════════════════════════════════════
     function loadScores() {
-        try { allScores = JSON.parse(localStorage.getItem(CFG.LS_KEY) || '{}'); }
-        catch (e) { allScores = {}; }
+        // Nicht mehr nötig — Scores werden vom Server geladen
     }
 
     function saveScore() {
-        var fullName = getFullName();
-        if (!fullName || score <= 0) return;
+        if (score <= 0) return;
         var trid = kt.trid || 0;
         var md = kt.md || 0;
-        var key = trid + '_' + md + '_' + fullName;
-        // Frisch laden damit parallele Sessions nicht überschrieben werden
-        loadScores();
-        var existing = allScores[key];
-        if (!existing || score > existing.score) {
-            allScores[key] = {
-                name: shortName(fullName),
-                fullName: fullName,
-                trid: trid,
-                md: md,
-                score: score
-            };
-            try { localStorage.setItem(CFG.LS_KEY, JSON.stringify(allScores)); } catch (e) {}
-            register(); // Breakout-Seite freischalten sobald Score existiert
-        }
+        $j.ajax({
+            url: 'php/SaveGameScore.php',
+            method: 'POST',
+            data: { game: 'breakout', score: score, trid: trid, md: md },
+            dataType: 'json'
+        });
+        register();
         updateScorePanel();
     }
 
@@ -1121,6 +1296,279 @@
     }
 
     // ═══════════════════════════════════════════════════════════════
+    //  Zahlen-Jagd: Logik
+    // ═══════════════════════════════════════════════════════════════
+    function isOverviewEmpty() {
+        var cells = document.querySelectorAll(CFG.BLOCK_SEL);
+        if (cells.length === 0) return false;
+        for (var i = 0; i < cells.length; i++) {
+            var val = parseInt(cells[i].textContent);
+            if (val >= 1) return false; // mindestens 1 Zelle hat Punkte → nicht leer
+        }
+        return true;
+    }
+
+    function huntCheck() {
+        if (hunt.active || hunt.ready || revealed) return;
+        if (!isOverviewEmpty()) return;
+        var elapsed = performance.now() - hunt.firstTouchTime;
+        if (hunt.touchCount >= 5 && elapsed >= 7500) {
+            hunt.ready = true;
+            huntStart();
+        }
+    }
+
+    function huntStart() {
+        hunt.active = true;
+        hunt.round = 1;
+        hunt.timer = 60;
+        huntCreateTimer();
+        huntPlaceNumbers();
+    }
+
+    function huntCreateTimer() {
+        if (hunt.timerEl) return;
+        hunt.timerEl = document.createElement('div');
+        hunt.timerEl.id = 'kt-hunt-timer';
+        var s = hunt.timerEl.style;
+        // Neben die Tabelle positionieren
+        var grid = document.querySelector('.ui-jqgrid');
+        var gridRect = grid ? grid.getBoundingClientRect() : null;
+        var rightPos = gridRect ? (window.innerWidth - gridRect.right - 20) : 12;
+        if (rightPos < 12) rightPos = 12;
+        s.cssText = 'position:fixed;top:50%;right:' + rightPos + 'px;transform:translateY(-50%);z-index:10001;' +
+            'text-align:center;pointer-events:none;opacity:0;transition:opacity 0.5s';
+        document.body.appendChild(hunt.timerEl);
+        requestAnimationFrame(function() {
+            requestAnimationFrame(function() {
+                if (hunt.timerEl) hunt.timerEl.style.opacity = '1';
+            });
+        });
+        huntUpdateTimerDisplay();
+
+        hunt.intervalId = setInterval(function() {
+            if (!hunt.active) { huntCleanup(); return; }
+            hunt.timer--;
+            huntUpdateTimerDisplay();
+            if (hunt.timer <= 0) {
+                huntGameOver();
+            }
+        }, 1000);
+    }
+
+    function huntUpdateTimerDisplay() {
+        if (!hunt.timerEl) return;
+        var best = huntGetBest();
+        var timerColor, timerShadow;
+        if (hunt.timer <= 10) {
+            timerColor = '#e74c3c';
+            timerShadow = '0 0 12px rgba(231,76,60,0.6)';
+        } else if (hunt.timer <= 20) {
+            timerColor = '#e67e22';
+            timerShadow = '0 0 8px rgba(230,126,34,0.4)';
+        } else {
+            timerColor = '#4a7c59';
+            timerShadow = '0 0 8px rgba(74,124,89,0.4)';
+        }
+        hunt.timerEl.innerHTML =
+            '<div style="font-size:48px;font-weight:900;font-family:monospace;color:' + timerColor + ';text-shadow:' + timerShadow + ';line-height:1">' + hunt.timer + '</div>' +
+            '<div style="font-size:13px;color:#888;margin-top:6px;font-weight:600">Runde ' + hunt.round + '</div>' +
+            (best > 0 ? '<div style="font-size:11px;color:#aaa;margin-top:2px">Rekord: ' + best + '</div>' : '');
+    }
+
+    var _huntBestCache = 0;
+
+    function huntGetBest() {
+        return _huntBestCache;
+    }
+
+    function huntLoadBest() {
+        $j.ajax({
+            url: 'php/GetGameScores.php',
+            method: 'POST',
+            data: { game: 'hunt' },
+            dataType: 'json',
+            success: function(res) {
+                if (res && res.ok && res.scores) {
+                    var max = 0;
+                    for (var i = 0; i < res.scores.length; i++) {
+                        var r = parseInt(res.scores[i].best_round || 0);
+                        if (r > max) max = r;
+                    }
+                    _huntBestCache = max;
+                }
+            }
+        });
+    }
+
+    function huntSaveScore() {
+        if (hunt.round < 1) return;
+        if (hunt.round > _huntBestCache) _huntBestCache = hunt.round;
+        $j.ajax({
+            url: 'php/SaveGameScore.php',
+            method: 'POST',
+            data: { game: 'hunt', score: hunt.round, trid: 0, md: 0 },
+            dataType: 'json'
+        });
+    }
+
+    function huntPlaceNumbers() {
+        // Leere Pts1-Zellen sammeln
+        var cells = document.querySelectorAll(CFG.BLOCK_SEL);
+        var empty = [];
+        for (var i = 0; i < cells.length; i++) {
+            var el = cells[i];
+            var rect = el.getBoundingClientRect();
+            if (rect.width < 4 || rect.height < 4) continue;
+            if (el.classList.contains('kt-ball-burned')) continue;
+            if (el.querySelector('.kt-hunt-num')) continue;
+            var val = parseInt(el.textContent);
+            if (val >= 1) continue;
+            empty.push(el);
+        }
+        if (empty.length === 0) return;
+
+        // Zellen nahe der Mitte bevorzugen
+        var viewCY = window.innerHeight / 2;
+        empty.sort(function(a, b) {
+            var ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+            return Math.abs(ra.top + ra.height/2 - viewCY) - Math.abs(rb.top + rb.height/2 - viewCY);
+        });
+
+        // Aus den mittleren 60% zufällig wählen
+        var pool = empty.slice(0, Math.max(Math.ceil(empty.length * 0.6), hunt.round));
+
+        // Bestehende Targets behalten, nur neue Zahlen hinzufügen
+        var existingNums = {};
+        for (var i = 0; i < hunt.targets.length; i++) {
+            existingNums[hunt.targets[i].num] = true;
+        }
+
+        for (var n = 1; n <= hunt.round; n++) {
+            if (existingNums[n]) continue; // Zahl existiert bereits
+            if (pool.length === 0) break;
+            var idx = Math.floor(Math.random() * pool.length);
+            var cell = pool.splice(idx, 1)[0];
+            huntInjectNumber(cell, n);
+        }
+    }
+
+    function huntInjectNumber(cell, num) {
+        // Zelle leeren und Zahl einsetzen
+        cell.textContent = '';
+        var span = document.createElement('span');
+        span.className = 'kt-hunt-num';
+        span.textContent = num;
+        span.style.cssText = 'font-weight:900;font-size:1.4em;color:#c0392b;' +
+            'animation:kt-hunt-blink 0.8s ease-in-out infinite;cursor:default';
+        cell.appendChild(span);
+        hunt.targets.push({ el: cell, num: num });
+    }
+
+    function huntCollideBall() {
+        if (!hunt.active || !ball) return;
+        for (var i = hunt.targets.length - 1; i >= 0; i--) {
+            var t = hunt.targets[i];
+            var rect = t.el.getBoundingClientRect();
+            if (rect.width < 4 || rect.height < 4) continue;
+            var col = circleRectCollision(ball.x, ball.y, chargeR(), rect);
+            if (col) {
+                // Finde die niedrigste Zahl die getroffen werden muss
+                var lowestNum = hunt.round;
+                for (var j = 0; j < hunt.targets.length; j++) {
+                    if (hunt.targets[j].num < lowestNum) lowestNum = hunt.targets[j].num;
+                }
+                // Nur die richtige Zahl (die niedrigste) darf getroffen werden
+                if (t.num !== lowestNum) {
+                    resolveCollision(col);
+                    return;
+                }
+
+                resolveCollision(col);
+                // Treffer!
+                var cx = rect.left + rect.width/2, cy = rect.top + rect.height/2;
+                floatingTexts.push({
+                    x: cx, y: cy,
+                    text: '#' + t.num + '!',
+                    life: 1500, maxLife: 1500,
+                    color: '#27ae60', stroke: '#1a6e3c'
+                });
+                spawnBorderParticles(rect, 2);
+                t.el.textContent = '';
+                t.el.style.transition = 'background 0.3s';
+                t.el.style.background = 'rgba(39,174,96,0.15)';
+                setTimeout(function(el) { el.style.background = ''; }, 600, t.el);
+                hunt.targets.splice(i, 1);
+
+                // Alle Zahlen dieser Runde getroffen?
+                if (hunt.targets.length === 0) {
+                    huntNextRound();
+                }
+                return;
+            }
+        }
+    }
+
+    function huntNextRound() {
+        hunt.round++;
+        hunt.timer = 60;
+        huntSaveScore();
+        huntUpdateTimerDisplay();
+
+        floatingTexts.push({
+            x: window.innerWidth / 2, y: window.innerHeight / 2,
+            text: 'Runde ' + hunt.round + '!',
+            life: 2000, maxLife: 2000,
+            color: '#2980b9', stroke: '#1a5276', big: true
+        });
+
+        // Kurze Pause, dann neue Zahlen setzen
+        setTimeout(function() {
+            if (hunt.active) huntPlaceNumbers();
+        }, 800);
+    }
+
+    function huntGameOver() {
+        var finalRound = hunt.round;
+        huntSaveScore();
+        var best = huntGetBest();
+        var msg = 'Zeit abgelaufen! Runde ' + finalRound;
+        if (finalRound >= best && finalRound > 1) msg = 'Neuer Rekord! Runde ' + finalRound;
+        floatingTexts.push({
+            x: window.innerWidth / 2, y: window.innerHeight / 2,
+            text: msg,
+            life: 3500, maxLife: 3500,
+            color: finalRound >= best && finalRound > 1 ? '#FFD700' : '#e74c3c',
+            stroke: finalRound >= best && finalRound > 1 ? '#7A5B00' : '#7b1f1f',
+            big: true
+        });
+        huntCleanup();
+    }
+
+    function huntCleanup() {
+        hunt.active = false;
+        hunt.ready = false;
+        hunt.touchCount = 0;
+        hunt.firstTouchTime = 0;
+        if (hunt.intervalId) { clearInterval(hunt.intervalId); hunt.intervalId = null; }
+        // Targets aus Zellen entfernen
+        for (var i = 0; i < hunt.targets.length; i++) {
+            var el = hunt.targets[i].el;
+            var numSpan = el.querySelector('.kt-hunt-num');
+            if (numSpan) numSpan.remove();
+        }
+        hunt.targets = [];
+        hunt.round = 0;
+        // Timer-Element entfernen
+        if (hunt.timerEl) {
+            hunt.timerEl.style.opacity = '0';
+            var te = hunt.timerEl;
+            setTimeout(function() { if (te.parentNode) te.parentNode.removeChild(te); }, 500);
+            hunt.timerEl = null;
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
     //  Game Loop
     // ═══════════════════════════════════════════════════════════════
     var lastT = 0;
@@ -1133,8 +1581,11 @@
 
         pushBall();
         step();
+        huntCollideBall();
+        decayCharge(dt);
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if (charge > 0.5) drawElectricArcs();
         drawParticles(dt);
         drawBall();
         drawCursorRing(dt);
@@ -1148,76 +1599,101 @@
     // ═══════════════════════════════════════════════════════════════
     kt.Stat = kt.Stat || {};
 
-    // Breakout-Seite nur anbieten wenn mindestens 1 Score existiert
-    (function () {
-        try {
-            var d = JSON.parse(localStorage.getItem(CFG.LS_KEY) || '{}');
-            for (var k in d) { if (d[k].score >= 1) { register(); return; } }
-        } catch (e) {}
-    })();
-
+    // Breakout-Seite immer registrieren (Scores kommen vom Server)
     function register() { kt.Stat.Breakout = breakoutPage; }
+    register();
 
     function breakoutPage() {
-        var data;
-        try { data = JSON.parse(localStorage.getItem(CFG.LS_KEY) || '{}'); }
-        catch (e) { data = {}; }
-
-        // Pro Spieler summieren
-        var players = {};
-        for (var key in data) {
-            var entry = data[key];
-            if (!entry.fullName || entry.score < 1) continue;
-            if (!players[entry.fullName]) {
-                players[entry.fullName] = { name: entry.name, fullName: entry.fullName, total: 0, matchdays: 0, best: 0 };
-            }
-            var p = players[entry.fullName];
-            p.total += entry.score;
-            p.matchdays++;
-            if (entry.score > p.best) p.best = entry.score;
-        }
-
-        // In sortiertes Array
-        var rows = [];
-        for (var fn in players) rows.push(players[fn]);
-        rows.sort(function (a, b) { return b.total - a.total; });
-
-        // HTML-Tabelle bauen
         var dark = (localStorage.getItem('kt_theme') || '') === 'premium';
-        var html = '<div style="padding:16px 24px;max-width:600px">';
-        html += '<h4 style="margin-bottom:12px">Breakout-Rangliste</h4>';
+        var trid = kt.trid || 0;
 
-        if (rows.length === 0) {
-            html += '<p style="opacity:0.6">Noch keine Breakout-Punkte erzielt. ' +
-                'Stupse den Fussball auf der Tipp-Uebersicht in die Punkte-Zellen!</p>';
-        } else {
-            html += '<table class="table table-striped" style="width:100%">';
-            html += '<thead><tr>' +
-                '<th style="width:40px">#</th>' +
-                '<th>Spieler</th>' +
-                '<th style="text-align:right">Gesamt</th>' +
-                '<th style="text-align:right">Spieltage</th>' +
-                '<th style="text-align:right">Bester</th>' +
-                '</tr></thead><tbody>';
+        // Beide Ranglisten parallel vom Server laden
+        var breakoutDone = false, huntDone = false;
+        var breakoutRows = [], huntRows = [];
 
-            for (var i = 0; i < rows.length; i++) {
-                var r = rows[i];
-                var medal = i === 0 ? ' style="font-weight:bold;color:' + (dark ? '#ffe082' : '#b8860b') + '"' :
-                            i === 1 ? ' style="color:' + (dark ? '#e0e0e0' : '#808080') + '"' :
-                            i === 2 ? ' style="color:' + (dark ? '#dca06a' : '#8B5E3C') + '"' : '';
-                html += '<tr' + medal + '>' +
-                    '<td>' + (i + 1) + '</td>' +
-                    '<td>' + r.name + '</td>' +
-                    '<td style="text-align:right;font-weight:bold">' + r.total + '</td>' +
-                    '<td style="text-align:right">' + r.matchdays + '</td>' +
-                    '<td style="text-align:right">' + r.best + '</td>' +
-                    '</tr>';
+        function render() {
+            if (!breakoutDone || !huntDone) return;
+
+            var html = '<div style="padding:16px 24px;max-width:600px">';
+            html += '<h4 style="margin-bottom:12px">Breakout-Rangliste</h4>';
+
+            if (breakoutRows.length === 0) {
+                html += '<p style="opacity:0.6">Noch keine Breakout-Punkte erzielt. ' +
+                    'Stupse den Fussball auf der Tipp-Uebersicht in die Punkte-Zellen!</p>';
+            } else {
+                html += '<table class="table table-striped" style="width:100%">';
+                html += '<thead><tr>' +
+                    '<th style="width:40px">#</th>' +
+                    '<th>Spieler</th>' +
+                    '<th style="text-align:right">Gesamt</th>' +
+                    '<th style="text-align:right">Spieltage</th>' +
+                    '<th style="text-align:right">Bester</th>' +
+                    '</tr></thead><tbody>';
+
+                for (var i = 0; i < breakoutRows.length; i++) {
+                    var r = breakoutRows[i];
+                    var medal = i === 0 ? ' style="font-weight:bold;color:#8b6914"' :
+                                i === 1 ? ' style="color:#606060"' :
+                                i === 2 ? ' style="color:#7a4a2a"' : '';
+                    html += '<tr' + medal + '>' +
+                        '<td>' + (i + 1) + '</td>' +
+                        '<td>' + r.name + '</td>' +
+                        '<td style="text-align:right;font-weight:bold">' + r.total + '</td>' +
+                        '<td style="text-align:right">' + r.matchdays + '</td>' +
+                        '<td style="text-align:right">' + r.best + '</td>' +
+                        '</tr>';
+                }
+                html += '</tbody></table>';
             }
-            html += '</tbody></table>';
-        }
-        html += '</div>';
 
-        setContent(html);
+            if (huntRows.length > 0) {
+                html += '<h4 style="margin:24px 0 12px">Zahlen-Jagd</h4>';
+                html += '<table class="table table-striped" style="width:100%">';
+                html += '<thead><tr>' +
+                    '<th style="width:40px">#</th>' +
+                    '<th>Spieler</th>' +
+                    '<th style="text-align:right">Beste Runde</th>' +
+                    '</tr></thead><tbody>';
+                for (var h = 0; h < huntRows.length; h++) {
+                    var hr = huntRows[h];
+                    var hmedal = h === 0 ? ' style="font-weight:bold;color:#8b6914"' :
+                                 h === 1 ? ' style="color:#606060"' :
+                                 h === 2 ? ' style="color:#7a4a2a"' : '';
+                    html += '<tr' + hmedal + '>' +
+                        '<td>' + (h + 1) + '</td>' +
+                        '<td>' + hr.name + '</td>' +
+                        '<td style="text-align:right;font-weight:bold">' + hr.best_round + '</td>' +
+                        '</tr>';
+                }
+                html += '</tbody></table>';
+            }
+
+            html += '</div>';
+            setContent(html);
+        }
+
+        $j.ajax({
+            url: 'php/GetGameScores.php', method: 'POST',
+            data: { game: 'breakout', trid: trid }, dataType: 'json',
+            success: function(res) {
+                if (res && res.ok) breakoutRows = res.scores || [];
+                breakoutDone = true; render();
+            },
+            error: function() { breakoutDone = true; render(); }
+        });
+
+        $j.ajax({
+            url: 'php/GetGameScores.php', method: 'POST',
+            data: { game: 'hunt' }, dataType: 'json',
+            success: function(res) {
+                if (res && res.ok) huntRows = res.scores || [];
+                huntDone = true; render();
+            },
+            error: function() { huntDone = true; render(); }
+        });
+
+        // Sofort "Lade..." anzeigen
+        setContent('<div style="padding:16px 24px"><p style="opacity:0.6">Lade Rangliste...</p></div>');
     }
 
 }(window.kt = window.kt || {}, jQuery));

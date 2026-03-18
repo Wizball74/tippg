@@ -97,6 +97,7 @@
 			events,
 			init = true;
 
+		if (!kt.trid || !kt.md) { console.warn('autoGrid: trid/md nicht gesetzt, Abbruch'); return; }
 		$j.extend(postparam, { trid: kt.trid, md: kt.md, fn: id });
 		if (kt.lastmenu) $j.extend(postparam, { menu: kt.lastmenu.smenu, action: kt.lastmenu.action });
 		if (opt.addparam) $j.extend(postparam, opt.addparam);

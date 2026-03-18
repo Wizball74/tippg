@@ -12,11 +12,14 @@
                 kt.initJqGrid();
                 setTitle();
 
-                // letzten Menüpunkt aufrufen
-                if (kt.lastmenu) exec(kt.lastmenu.smenu, kt.lastmenu.action);
+                // letzten Menüpunkt aufrufen (nur wenn trid/md gesetzt)
+                if (kt.lastmenu && kt.trid && kt.md) exec(kt.lastmenu.smenu, kt.lastmenu.action);
 
                 // Fußball-Physik starten (nur Desktop)
                 if (kt.initBall) kt.initBall();
+
+                // Nicht eingeloggt? Login-Dialog direkt anzeigen
+                if (!kt.loggedIn) showLogin();
             });
         });
 
@@ -133,7 +136,14 @@
         }
         else {
             // Formular anzeigen
-            $j("#login").dialog({ modal: true, dialogClass: 'notitle', resizable: false });
+            $j("#login").dialog({ modal: true, dialogClass: 'notitle', resizable: false, closeOnEscape: false, position: { my: 'center', at: 'center', of: window } });
+            $j("#login").closest('.ui-dialog').find('.ui-dialog-titlebar').hide();
+            // Bei Resize zentriert halten
+            $j(window).off('resize.loginCenter').on('resize.loginCenter', function() {
+                if ($j("#login").closest('.ui-dialog').is(':visible')) {
+                    $j("#login").dialog('option', 'position', { my: 'center', at: 'center', of: window });
+                }
+            });
         }
     }
 
@@ -231,13 +241,35 @@
                     menu.append(menuitem);
 
                 });
-                
-                
-                /*
-                var h = $j('#mainmenu').height() + $j('#nav').height() + $j('#menu-icon').height() + 20;
-                $j('#page').css('min-height', h);*/
 
-                //console.log(action);
+                // Theme-Switcher in die Navbar
+                (function() {
+                    var themes = [
+                        { id: 'classic', label: 'Klassisch',  desc: 'Alles wie immer eigentlich' },
+                        { id: 'modern',  label: 'Modern',     desc: 'Wie klassisch, aber besser' },
+                        { id: 'premium', label: 'Dunkel',     desc: '\u201eIch bin der Schrecken, der die Nacht durchflattert\u201c' }
+                    ];
+                    var cur = localStorage.getItem('kt_theme') || 'classic';
+                    var li = $j('<li class="dropdown kt-theme-switch"/>');
+                    var toggle = $j('<a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false"/>');
+                    toggle.html('<span class="kt-theme-icon">&#9788;</span>');
+                    var ul = $j('<ul class="dropdown-menu dropdown-menu-right kt-theme-menu"/>');
+                    $j.each(themes, function(i, t) {
+                        var a = $j('<a href="#"/>').attr('data-theme', t.id)
+                            .append($j('<span class="kt-theme-label"/>').text(t.label))
+                            .append($j('<span class="kt-theme-desc"/>').text(t.desc));
+                        if (t.id === cur) a.addClass('kt-theme-active');
+                        a.click(function(e) {
+                            e.preventDefault();
+                            window.ktSetTheme(t.id);
+                            ul.find('a').removeClass('kt-theme-active');
+                            $j(this).addClass('kt-theme-active');
+                        });
+                        ul.append($j('<li/>').append(a));
+                    });
+                    li.append(toggle).append(ul);
+                    menu.append(li);
+                })();
 
                 // onClick-Handler
                 $j("#navbar a.mi").click(function () {
@@ -259,8 +291,10 @@
                 // Navbar ein-/ausblenden
                 if (kt.loggedIn) {
                     $j('.navtr').removeClass('navtr-hidden');
+                    $j('#mainmenu > li:not(.kt-theme-switch)').show();
                 } else {
                     $j('.navtr').addClass('navtr-hidden');
+                    $j('#mainmenu > li:not(.kt-theme-switch)').hide();
                 }
 
                 return true;

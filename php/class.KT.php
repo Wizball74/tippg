@@ -52,6 +52,21 @@ class KT
 		$this->TABLE['ligaergebnis']        = $prefix . 'ligaergebnis';
 		$this->TABLE['praemien']            = $prefix . 'praemien';
 		$this->TABLE['remind']				= $prefix . 'remind'; // MA 03.10.2017
+		$this->TABLE['gamescores']          = $prefix . 'gamescores';
+
+		// Gamescores-Tabelle einmalig anlegen (pro Session)
+		if (empty($_SESSION['_kt_gamescores_ok'])) {
+			$this->db->Query("CREATE TABLE IF NOT EXISTS {$this->TABLE['gamescores']} (
+				tnid INT(10) UNSIGNED NOT NULL,
+				game VARCHAR(20) NOT NULL,
+				trid INT(10) UNSIGNED NOT NULL DEFAULT 0,
+				md INT(10) UNSIGNED NOT NULL DEFAULT 0,
+				score INT(11) NOT NULL DEFAULT 0,
+				created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+				PRIMARY KEY (tnid, game, trid, md)
+			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+			$_SESSION['_kt_gamescores_ok'] = true;
+		}
 	}
 
 	/*****************************************************************************************************************************
@@ -583,6 +598,7 @@ class KT
 				$ret[$row['tnid']]['Tips'][$row['sid']]['Tip'] = $row['Tipp'];
 				if ($row['Ergebnis'] <> '-:-') {
 					$ret[$row['tnid']]['Tips'][$row['sid']]['Points'] =  $this->evaluateTip($row['Tipp'], $row['Ergebnis']);
+					if (!isset($ret[$row['tnid']]['Points'])) $ret[$row['tnid']]['Points'] = 0;
 					$ret[$row['tnid']]['Points'] += $ret[$row['tnid']]['Tips'][$row['sid']]['Points'];
 				} // if
 			} else {
@@ -779,6 +795,12 @@ class KT
 			$colModel[] = array('name' => "id", 'key' => true, 'hidden' => true);
 			$colModel[] = array('name' => "cls", 'hidden' => true);
 
+			// Spiel-IDs sammeln für Standardwerte
+			$gameIds = array();
+			foreach ($data as $row) {
+				$gameIds[] = $row['sid'];
+			}
+
 			// Daten
 			$tnid = $this->user['tnid'];
 			$tnidop = $this->getLeagueOpponent($trid, $md);
@@ -805,12 +827,18 @@ class KT
 				$data[$idx] = array(
 					'Name' => $m['name'],
 					'id' => $m['tnid'],
-					'Pts' => $tips[$m['tnid']]['Points'],
+					'Pts' => isset($tips[$m['tnid']]['Points']) ? $tips[$m['tnid']]['Points'] : '',
 					'Bonus' => isset($bonus[$m['tnid']]) ? sprintf("%3.2f", $bonus[$m['tnid']]) : '',
-					'cls' => $cls[$m['tnid']]
+					'cls' => isset($cls[$m['tnid']]) ? $cls[$m['tnid']] : ''
 				);
 
-				if (is_array($tips[$m['tnid']]['Tips']))
+				// Standardwerte für alle Spiel-Spalten setzen (verhindert "undefined" in jqGrid)
+				foreach ($gameIds as $sid) {
+					$data[$idx]["t$sid"] = '';
+					$data[$idx]["p$sid"] = '';
+				}
+
+				if (isset($tips[$m['tnid']]['Tips']) && is_array($tips[$m['tnid']]['Tips']))
 					foreach ($tips[$m['tnid']]['Tips'] as $sid => $t) {
 						$data[$idx]["t$sid"] = $t['Tip'];
 						$p = $t['Points'];
@@ -1108,7 +1136,7 @@ class KT
 				$tips[$i] = $this->matchdaySummary($trid, $i);
 
 				foreach ($member[$rnd] as $m) {
-					$pts[$m['tnid']] += $tips[$i][$m['tnid']]['Points'];
+					$pts[$m['tnid']] += isset($tips[$i][$m['tnid']]['Points']) ? $tips[$i][$m['tnid']]['Points'] : 0;
 				}
 			}
 
@@ -1125,10 +1153,10 @@ class KT
 					'id' => $m['tnid'],
 					'Pts' => $p,
 					'Bonus' => isset($bonus[$tnid]) ? sprintf("%3.2f", $bonus[$tnid]) : '',
-					'cls' => $cls[$m['tnid']]
+					'cls' => isset($cls[$m['tnid']]) ? $cls[$m['tnid']] : ''
 				);
 				for ($i = $start; $i <= $end; $i++) {
-					$data[$idx]["s$i"] = $tips[$i][$tnid]['Points'];
+					$data[$idx]["s$i"] = isset($tips[$i][$tnid]['Points']) ? $tips[$i][$tnid]['Points'] : '';
 				}
 				$idx++;
 			}
@@ -1176,7 +1204,7 @@ class KT
 					'M1' => $member[$rnd][$row['tnid1']]['name'],
 					'M2' => $member[$rnd][$row['tnid2']]['name'],
 					'Result' => $row['Ergebnis'],
-					'cls' => $cls[$row['tnid1']] . $cls[$row['tnid2']],
+					'cls' => (isset($cls[$row['tnid1']]) ? $cls[$row['tnid1']] : '') . (isset($cls[$row['tnid2']]) ? $cls[$row['tnid2']] : ''),
 					'id' => $id++
 				);
 			}
@@ -1334,7 +1362,7 @@ class KT
 					'Draw' => $s['Draw'],
 					'Loss' => $s['Loss'],
 					'tnid' => $s['tnid'],
-					'cls' => $cls[$s['tnid']]
+					'cls' => isset($cls[$s['tnid']]) ? $cls[$s['tnid']] : ''
 				);
 				$idx++;
 			} // foreach
@@ -1359,7 +1387,7 @@ class KT
 			$tips[$i] = $this->matchdaySummary($trid, $i);
 
 			foreach ($league as $l) {
-				$pts[$l['tnid']] += $tips[$i][$l['tnid']]['Points'];
+				$pts[$l['tnid']] += isset($tips[$i][$l['tnid']]['Points']) ? $tips[$i][$l['tnid']]['Points'] : 0;
 			}
 		}
 
@@ -1374,7 +1402,7 @@ class KT
 				'Name' => $m['name'],
 				'Pts' => $p,
 				'tnid' => $tnid,
-				'cls' => $cls[$m['tnid']]
+				'cls' => isset($cls[$m['tnid']]) ? $cls[$m['tnid']] : ''
 			);
 			$idx++;
 		}
@@ -1471,7 +1499,7 @@ class KT
 					'Draw' => $s['Draw'],
 					'Loss' => $s['Loss'],
 					'tnid' => $s['tnid'],
-					'cls' => $cls[$s['tnid']]
+					'cls' => isset($cls[$s['tnid']]) ? $cls[$s['tnid']] : ''
 				);
 				$idx++;
 			} // foreach
@@ -1579,7 +1607,7 @@ class KT
 				$bonus[] = array(
 					'Name'  => $m['name'],
 					'id' => $m['tnid'],
-					'cls' => $cls[$m['tnid']],
+					'cls' => isset($cls[$m['tnid']]) ? $cls[$m['tnid']] : '',
 					'Matches' => isset($matches[$m['tnid']]) ? sprintf("%3.2f", $matches[$m['tnid']]) : '',
 					'Total' => isset($total[$m['tnid']]) ? sprintf("%3.2f", $total[$m['tnid']]) : '',
 					'League' => isset($league[$m['tnid']]) ? sprintf("%3.2f", $league[$m['tnid']]) : '',
@@ -2037,7 +2065,7 @@ class KT
 
 			$out .= "<dataset seriesName='Punkte'>";
 			foreach ($place[$tnid] as $s => $pl)
-				$out .= sprintf("<set value='%d' />", $pt1[$s][$tnid]);
+				$out .= sprintf("<set value='%d' />", isset($pt1[$s][$tnid]) ? $pt1[$s][$tnid] : 0);
 			$out .= "</dataset>";
 
 
@@ -2079,7 +2107,7 @@ class KT
 			$tnid = $this->user['tnid'];
 
 
-			if ($member[$rnd][$tnid]['Liga'] == '1') {
+			if (isset($member[$rnd][$tnid]['Liga']) && $member[$rnd][$tnid]['Liga'] == '1') {
 				$sql = sprintf("SELECT * FROM %s sp WHERE sp.trid=%d AND Liga=1 AND sptag BETWEEN %d AND %d", $this->TABLE['ligaergebnis'], $trid, $start, $end);
 				$data = $this->db->getData($sql);
 
@@ -2091,25 +2119,25 @@ class KT
 					$res = preg_split('/:/', $row['Ergebnis']);
 					$sp = $row['sptag'];
 					if ($res[0] <> '-') { {
-							$_sp[$sp][$t1]['gf'] = $_sp[$sp - 1][$t1]['gf'] + $res[0];
-							$_sp[$sp][$t1]['ga'] = $_sp[$sp - 1][$t1]['ga'] + $res[1];
+							$_sp[$sp][$t1]['gf'] = (isset($_sp[$sp - 1][$t1]['gf']) ? $_sp[$sp - 1][$t1]['gf'] : 0) + $res[0];
+							$_sp[$sp][$t1]['ga'] = (isset($_sp[$sp - 1][$t1]['ga']) ? $_sp[$sp - 1][$t1]['ga'] : 0) + $res[1];
 							$_diff[$sp][$t1] = $res[0] - $res[1];
 						} {
-							$_sp[$sp][$t2]['gf'] = $_sp[$sp - 1][$t2]['gf'] + $res[1];
-							$_sp[$sp][$t2]['ga'] = $_sp[$sp - 1][$t2]['ga'] + $res[0];
+							$_sp[$sp][$t2]['gf'] = (isset($_sp[$sp - 1][$t2]['gf']) ? $_sp[$sp - 1][$t2]['gf'] : 0) + $res[1];
+							$_sp[$sp][$t2]['ga'] = (isset($_sp[$sp - 1][$t2]['ga']) ? $_sp[$sp - 1][$t2]['ga'] : 0) + $res[0];
 							$_diff[$sp][$t2] = $res[1] - $res[0];
 						}
 
 						if ($res[0] > $res[1]) {
-							$_sp[$sp][$t1]['Pts'] = $_sp[$sp - 1][$t1]['Pts'] + 3;
-							$_sp[$sp][$t2]['Pts'] = $_sp[$sp - 1][$t2]['Pts'] + 0;
+							$_sp[$sp][$t1]['Pts'] = (isset($_sp[$sp - 1][$t1]['Pts']) ? $_sp[$sp - 1][$t1]['Pts'] : 0) + 3;
+							$_sp[$sp][$t2]['Pts'] = (isset($_sp[$sp - 1][$t2]['Pts']) ? $_sp[$sp - 1][$t2]['Pts'] : 0) + 0;
 						} else
 								if ($res[0] < $res[1]) {
-							$_sp[$sp][$t1]['Pts'] = $_sp[$sp - 1][$t1]['Pts'] + 0;
-							$_sp[$sp][$t2]['Pts'] = $_sp[$sp - 1][$t2]['Pts'] + 3;
+							$_sp[$sp][$t1]['Pts'] = (isset($_sp[$sp - 1][$t1]['Pts']) ? $_sp[$sp - 1][$t1]['Pts'] : 0) + 0;
+							$_sp[$sp][$t2]['Pts'] = (isset($_sp[$sp - 1][$t2]['Pts']) ? $_sp[$sp - 1][$t2]['Pts'] : 0) + 3;
 						} else {
-							$_sp[$sp][$t1]['Pts'] = $_sp[$sp - 1][$t1]['Pts'] + 1;
-							$_sp[$sp][$t2]['Pts'] = $_sp[$sp - 1][$t2]['Pts'] + 1;
+							$_sp[$sp][$t1]['Pts'] = (isset($_sp[$sp - 1][$t1]['Pts']) ? $_sp[$sp - 1][$t1]['Pts'] : 0) + 1;
+							$_sp[$sp][$t2]['Pts'] = (isset($_sp[$sp - 1][$t2]['Pts']) ? $_sp[$sp - 1][$t2]['Pts'] : 0) + 1;
 						}
 						$_sp[$sp][$t1]['Diff']  = $_sp[$sp][$t1]['gf'] - $_sp[$sp][$t1]['ga'];
 						$_sp[$sp][$t2]['Diff']  = $_sp[$sp][$t2]['gf'] - $_sp[$sp][$t2]['ga'];
@@ -2294,7 +2322,7 @@ class KT
 				'3er' => $pts[$m][3],
 				'2er' => $pts[$m][2],
 				'PPR' => sprintf("%.2f", $pts[$m]['sum'] / $cnt[$m]['sum']),
-				'cls' => $cls[$m]
+				'cls' => isset($cls[$m]) ? $cls[$m] : ''
 			);
 		}
 
@@ -3143,5 +3171,116 @@ class KT
 
 			//echo "<br/>";
 		}
+	}
+
+	/*****************************************************************************************************************************
+	 * Game-Scores (Breakout + Zahlen-Jagd)
+	 *****************************************************************************************************************************/
+	function SaveGameScore()
+	{
+		if (!$this->user) { $this->jsonResult2(false, Status::Error, 'Nicht eingeloggt.'); return; }
+
+		$game  = $_POST['game'] ?? '';
+		$score = intval($_POST['score'] ?? 0);
+		$trid  = intval($_POST['trid'] ?? 0);
+		$md    = intval($_POST['md'] ?? 0);
+
+		if (!in_array($game, ['breakout', 'hunt'])) {
+			$this->jsonResult2(false, Status::Error, 'Ungültiges Spiel.'); return;
+		}
+		if ($score < 1) {
+			$this->jsonResult2(false, Status::Error, 'Ungültiger Score.'); return;
+		}
+
+		$tnid = $this->user['tnid'];
+		$table = $this->TABLE['gamescores'];
+
+		// Bestehenden Score laden
+		$existing = $this->db->prepareGetData(
+			"SELECT score FROM $table WHERE tnid = ? AND game = ? AND trid = ? AND md = ?",
+			'isii', [$tnid, $game, $trid, $md]
+		);
+
+		if (empty($existing)) {
+			// Neuer Eintrag
+			$this->db->prepareExecute(
+				"INSERT INTO $table (tnid, game, trid, md, score) VALUES (?, ?, ?, ?, ?)",
+				'isiii', [$tnid, $game, $trid, $md, $score]
+			);
+		} elseif ($score > intval($existing[0]['score'])) {
+			// Nur updaten wenn neuer Score höher
+			$this->db->prepareExecute(
+				"UPDATE $table SET score = ? WHERE tnid = ? AND game = ? AND trid = ? AND md = ?",
+				'iisii', [$score, $tnid, $game, $trid, $md]
+			);
+		}
+
+		$this->jsonout(array('ok' => true));
+	}
+
+	/**
+	 * Formatiert "Nachname, Vorname" → "Vorname" (bei Duplikaten: "Vorname N")
+	 */
+	static function formatNames(&$rows, $nameCol = 'name')
+	{
+		// Vornamen extrahieren
+		$firstNames = [];
+		foreach ($rows as &$row) {
+			$parts = explode(',', $row[$nameCol] ?? '');
+			$nachname = trim($parts[0] ?? '');
+			$vorname = trim($parts[1] ?? $nachname);
+			$row['_vorname'] = $vorname;
+			$row['_nachname'] = $nachname;
+			$firstNames[] = $vorname;
+		}
+		unset($row);
+
+		// Duplikate finden
+		$counts = array_count_values($firstNames);
+
+		foreach ($rows as &$row) {
+			if ($counts[$row['_vorname']] > 1) {
+				$row[$nameCol] = $row['_vorname'] . ' ' . mb_substr($row['_nachname'], 0, 1);
+			} else {
+				$row[$nameCol] = $row['_vorname'];
+			}
+			unset($row['_vorname'], $row['_nachname']);
+		}
+		unset($row);
+	}
+
+	function GetGameScores()
+	{
+		$game = $_POST['game'] ?? ($_GET['game'] ?? '');
+		$trid = intval($_POST['trid'] ?? ($_GET['trid'] ?? 0));
+		$md   = intval($_POST['md'] ?? ($_GET['md'] ?? 0));
+		$table = $this->TABLE['gamescores'];
+		$tnTable = $this->TABLE['teilnehmer'];
+
+		if ($game === 'breakout') {
+			// Pro Spieler: Gesamtscore, Spieltage, Bester Einzelscore für trid+md
+			$sql = "SELECT t.name, SUM(g.score) AS total, COUNT(g.score) AS matchdays, MAX(g.score) AS best
+			        FROM $table g
+			        JOIN $tnTable t ON t.tnid = g.tnid
+			        WHERE g.game = 'breakout' AND g.trid = ? AND g.md > 0
+			        GROUP BY g.tnid, t.name
+			        ORDER BY total DESC
+			        LIMIT 20";
+			$rows = $this->db->prepareGetData($sql, 'i', [$trid]);
+		} elseif ($game === 'hunt') {
+			// Zahlen-Jagd: globale Bestleistung pro Spieler (trid=0, md=0)
+			$sql = "SELECT t.name, g.score AS best_round
+			        FROM $table g
+			        JOIN $tnTable t ON t.tnid = g.tnid
+			        WHERE g.game = 'hunt'
+			        ORDER BY g.score DESC
+			        LIMIT 20";
+			$rows = $this->db->getData($sql);
+		} else {
+			$rows = [];
+		}
+
+		self::formatNames($rows);
+		$this->jsonout(array('ok' => true, 'scores' => $rows));
 	}
 }

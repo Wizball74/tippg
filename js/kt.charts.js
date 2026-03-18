@@ -154,9 +154,11 @@
         sorted.sort(function(a,b) { return b.count - a.count; });
         sorted = sorted.slice(0, 10);
 
-        var labels = [], data = [], bgColors = [];
+        var rawNames = [];
+        $j.each(sorted, function(i, s) { rawNames.push(s.name); });
+        var labels = kt.formatNames(rawNames);
+        var data = [], bgColors = [];
         $j.each(sorted, function(i, s) {
-            labels.push(s.name.split(',')[0]); // Nur Nachname
             data.push(s.count);
             bgColors.push(colorAlpha(colors[i % colors.length], 0.7));
         });
@@ -310,10 +312,13 @@
             if (c.name && c.name.match(/^p\d+$/)) ptsCols.push(c.name);
         });
 
-        var labels = [], exact = [], tend = [], miss = [];
+        var rawNames = [];
         $j.each(rows, function(ri, r) {
-            var name = r.Name.replace(/^\uD83D\uDC51\s*/, '');
-            labels.push(name.split(',')[0]);
+            rawNames.push(r.Name.replace(/^\uD83D\uDC51\s*/, ''));
+        });
+        var labels = kt.formatNames(rawNames);
+        var exact = [], tend = [], miss = [];
+        $j.each(rows, function(ri, r) {
             var e = 0, t = 0, m = 0;
             $j.each(ptsCols, function(pi, col) {
                 var p = parseInt(r[col]) || 0;

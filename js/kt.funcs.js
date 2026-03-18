@@ -841,7 +841,7 @@
             var themes = [
                     { id: 'classic', label: 'Klassisch' },
                     { id: 'modern',  label: 'Modern' },
-                    { id: 'premium', label: 'Dark' }
+                    { id: 'premium', label: 'Dunkel' }
                 ],
                 current = localStorage.getItem('kt_theme') || 'classic',
                 html = '<div class="settings-page"><h3>Einstellungen</h3>'
@@ -1228,5 +1228,27 @@
 
         return true;
     }
+
+    /**
+     * "Nachname, Vorname" → "Vorname" (bei Duplikaten: "Vorname N")
+     * names: Array von "Nachname, Vorname" Strings
+     * Gibt Array von formatierten Namen zurück
+     */
+    kt.formatNames = function(names) {
+        var parsed = [], firstCounts = {};
+        for (var i = 0; i < names.length; i++) {
+            var parts = (names[i] || '').split(',');
+            var nachname = (parts[0] || '').trim();
+            var vorname = parts.length > 1 ? parts[1].trim() : nachname;
+            parsed.push({ vorname: vorname, nachname: nachname });
+            firstCounts[vorname] = (firstCounts[vorname] || 0) + 1;
+        }
+        var result = [];
+        for (var i = 0; i < parsed.length; i++) {
+            var p = parsed[i];
+            result.push(firstCounts[p.vorname] > 1 ? p.vorname + ' ' + p.nachname.charAt(0) : p.vorname);
+        }
+        return result;
+    };
 
 } (window.kt = window.kt || {}, jQuery));
