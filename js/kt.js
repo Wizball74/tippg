@@ -13,7 +13,14 @@
                 setTitle();
 
                 // letzten Menüpunkt aufrufen (nur wenn trid/md gesetzt)
-                if (kt.lastmenu && kt.trid && kt.md) exec(kt.lastmenu.smenu, kt.lastmenu.action);
+                if (kt.loggedIn && kt.trid && kt.md) {
+                    var lm = kt.lastmenu;
+                    if (lm && kt[lm.smenu] && typeof kt[lm.smenu][lm.action] === 'function') {
+                        exec(lm.smenu, lm.action);
+                    } else {
+                        exec('Tipps', 'Uebersicht');
+                    }
+                }
 
                 // Fußball-Physik starten (nur Desktop, wenn nicht deaktiviert)
                 if (kt.initBall && localStorage.getItem('kt_ball') !== 'off') kt.initBall();
@@ -59,7 +66,7 @@
                     kt.loggedIn = res.loggedIn;
                     if (res.trid) kt.trid = res.trid;
                     if (res.md) kt.md = res.md;
-                    if (res.username) $j("#username").text(res.username);
+                    if (res.username) { kt.username = res.username; $j("#username").text(res.username); }
                     if (res.menu && res.action) kt.lastmenu = { smenu: res.menu, action: res.action };
                     //console.log(res.menu, res.action);
                 }
@@ -106,7 +113,7 @@
                             // Menü aktualisieren
                             makeMenu();
                             // Benutzername anzeigen
-                            $j("#username").text(res.username);
+                            kt.username = res.username; $j("#username").text(res.username);
                             // Navigation laden, dann Übersicht aufrufen
                             initNav(true, function () {
                                 exec('Tipps', 'Uebersicht');
@@ -504,7 +511,7 @@
     */
 
     this.showMessage = function (data, d) {
-        if (data.type == Status.NoMsg) return;
+        if (!data || data.type == Status.NoMsg || !data.message) return;
 
         var cls = 'kt-toast';
         switch(data.type) {

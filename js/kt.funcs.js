@@ -1251,4 +1251,246 @@
         return result;
     };
 
+    /**********************************************************************************************
+    * Pinnwand
+    */
+    kt.Pinnwand = kt.Pinnwand || {};
+    $j.extend(kt.Pinnwand, {
+        _uploadedImage: null,
+
+        Anzeigen: function () {
+            var fullname = kt.username || $j('#username').text().trim() || '',
+                parts = fullname.split(','),
+                nick = parts.length > 1 ? parts[1].trim() : parts[0].trim(),
+                initial = nick ? nick.charAt(0).toUpperCase() : '?';
+
+            var html = '<div class="pinnwand-container">'
+                + '<div class="pinnwand-header">'
+                + '  <div class="pinnwand-header-icon">&#128204;</div>'
+                + '  <div><h3 class="pinnwand-title">Pinnwand</h3>'
+                + '  <p class="pinnwand-subtitle">Neuigkeiten und Diskussionen</p></div>'
+                + '</div>'
+                + '<div class="pinnwand-form">'
+                + '  <div class="pinnwand-form-row">'
+                + '    <div class="pinnwand-avatar">' + initial + '</div>'
+                + '    <div class="pinnwand-form-content">'
+                + '      <textarea id="pwText" class="pinnwand-input" placeholder="Was gibt\'s Neues, ' + kt.Pinnwand._esc(nick) + '?" maxlength="2000" rows="2"></textarea>'
+                + '      <div id="pwPreview" class="pinnwand-preview" style="display:none"></div>'
+                + '      <div class="pinnwand-form-actions">'
+                + '        <label class="pinnwand-upload-btn" title="Bild anhaengen">'
+                + '          <input type="file" id="pwFile" accept="image/*" style="display:none">'
+                + '          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>'
+                + '          <span>Bild</span>'
+                + '        </label>'
+                + '        <span id="pwFileName" class="pinnwand-filename"></span>'
+                + '        <button id="pwSend" class="pinnwand-send">Posten</button>'
+                + '      </div>'
+                + '    </div>'
+                + '  </div>'
+                + '</div>'
+                + '<div id="pwPosts" class="pinnwand-posts"><div class="pinnwand-loading">Lade Beitraege...</div></div>'
+                + '</div>';
+
+            setContent(html);
+            kt.Pinnwand._uploadedImage = null;
+            kt.Pinnwand._bindEvents();
+            kt.Pinnwand._load();
+        },
+
+        _bindEvents: function () {
+            $j('#pwFile').on('change', function () {
+                var file = this.files[0];
+                if (!file) return;
+
+                if (file.size > 5 * 1024 * 1024) {
+                    showError('Bild zu groß (max. 5 MB).', 5);
+                    this.value = '';
+                    return;
+                }
+
+                $j('#pwFileName').text(file.name);
+
+                // Vorschau
+                var reader = new FileReader();
+                reader.onload = function (e) {
+                    $j('#pwPreview').html('<img src="' + e.target.result + '" class="pinnwand-preview-img">').show();
+                };
+                reader.readAsDataURL(file);
+
+                // Hochladen
+                var fd = new FormData();
+                fd.append('action', 'upload');
+                fd.append('image', file);
+
+                $j.ajax({
+                    url: 'php/Pinnwand.php',
+                    type: 'POST',
+                    data: fd,
+                    processData: false,
+                    contentType: false,
+                    success: function (data) {
+                        var res = data.d || data;
+                        if (res.ok) {
+                            kt.Pinnwand._uploadedImage = res.image;
+                        } else {
+                            showError(res.message, 5);
+                        }
+                    }
+                });
+            });
+
+            $j('#pwSend').on('click', function () {
+                var text = $j('#pwText').val().trim();
+                if (!text) {
+                    showError('Bitte Text eingeben.', 3);
+                    return;
+                }
+
+                $j(this).prop('disabled', true);
+
+                $j.ajax({
+                    url: 'php/Pinnwand.php',
+                    type: 'POST',
+                    data: { action: 'save', text: text },
+                    success: function (data) {
+                        var res = data.d || data;
+                        $j('#pwSend').prop('disabled', false);
+                        if (res.ok) {
+                            $j('#pwText').val('');
+                            $j('#pwFile').val('');
+                            $j('#pwFileName').text('');
+                            $j('#pwPreview').hide().empty();
+                            kt.Pinnwand._uploadedImage = null;
+                            kt.Pinnwand._render(res);
+                        } else {
+                            showError(res.message, 5);
+                        }
+                    }
+                });
+            });
+
+            // Enter + Ctrl = Absenden
+            $j('#pwText').on('keydown', function (e) {
+                if (e.ctrlKey && e.keyCode === 13) {
+                    $j('#pwSend').click();
+                }
+            });
+        },
+
+        _load: function () {
+            $j.ajax({
+                url: 'php/Pinnwand.php',
+                type: 'POST',
+                data: { action: 'load' },
+                success: function (data) {
+                    var res = data.d || data;
+                    if (res.ok) {
+                        kt.Pinnwand._render(res);
+                    }
+                }
+            });
+        },
+
+        _render: function (res) {
+            var posts = res.posts || [],
+                isAdmin = res.isAdmin,
+                myTnid = res.tnid,
+                html = '';
+
+            if (!posts.length) {
+                html = '<div class="pinnwand-empty">'
+                    + '<div class="pinnwand-empty-icon">&#128172;</div>'
+                    + '<p>Noch keine Beiträge.</p><p class="pinnwand-empty-sub">Schreib den ersten!</p></div>';
+            }
+
+            $j.each(posts, function (i, post) {
+                var isMine = (post.tnid == myTnid),
+                    stickyClass = post.sticky == 1 ? ' pinnwand-post-sticky' : '',
+                    nick = kt.Pinnwand._esc(post.nick),
+                    initial = nick ? nick.charAt(0).toUpperCase() : '?',
+                    avatarClass = 'pinnwand-avatar' + (isMine ? ' pinnwand-avatar-me' : '');
+
+                html += '<div class="pinnwand-post' + stickyClass + '" data-id="' + post.id + '">';
+
+                if (post.sticky == 1) {
+                    html += '<div class="pinnwand-sticky-badge">&#128204; Angepinnt</div>';
+                }
+
+                html += '  <div class="pinnwand-post-header">';
+                html += '    <div class="' + avatarClass + '">' + initial + '</div>';
+                html += '    <div class="pinnwand-post-meta">';
+                html += '      <span class="pinnwand-nick">' + nick + '</span>';
+                html += '      <span class="pinnwand-date">' + post.created_fmt + '</span>';
+                html += '    </div>';
+                html += '  </div>';
+                html += '  <div class="pinnwand-post-body">' + kt.Pinnwand._formatText(post.text) + '</div>';
+
+                if (post.image) {
+                    html += '  <div class="pinnwand-post-image"><img src="' + kt.Pinnwand._esc(post.image) + '" alt="Bild" loading="lazy"></div>';
+                }
+
+                var hasActions = isAdmin || isMine;
+                if (hasActions) {
+                    html += '<div class="pinnwand-post-actions">';
+                    if (isAdmin) {
+                        var pinLabel = post.sticky == 1 ? 'Loesen' : 'Anpinnen';
+                        var pinIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 17v5"/><path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z"/></svg>';
+                        html += '<button class="pinnwand-action pw-sticky" data-id="' + post.id + '">' + pinIcon + ' ' + pinLabel + '</button>';
+                    }
+                    if (isMine || isAdmin) {
+                        var delIcon = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>';
+                        html += '<button class="pinnwand-action pw-delete" data-id="' + post.id + '">' + delIcon + ' Loeschen</button>';
+                    }
+                    html += '</div>';
+                }
+
+                html += '</div>';
+            });
+
+            $j('#pwPosts').html(html);
+
+            // Event-Handler für Aktionen
+            $j('.pw-delete').off('click').on('click', function () {
+                var id = $j(this).data('id');
+                if (!confirm('Beitrag wirklich löschen?')) return;
+                $j.ajax({
+                    url: 'php/Pinnwand.php',
+                    type: 'POST',
+                    data: { action: 'delete', id: id },
+                    success: function (data) {
+                        var res = data.d || data;
+                        if (res.ok) kt.Pinnwand._render(res);
+                        else showError(res.message, 5);
+                    }
+                });
+            });
+
+            $j('.pw-sticky').off('click').on('click', function () {
+                var id = $j(this).data('id');
+                $j.ajax({
+                    url: 'php/Pinnwand.php',
+                    type: 'POST',
+                    data: { action: 'sticky', id: id },
+                    success: function (data) {
+                        var res = data.d || data;
+                        if (res.ok) kt.Pinnwand._render(res);
+                        else showError(res.message, 5);
+                    }
+                });
+            });
+        },
+
+        _esc: function (s) {
+            var div = document.createElement('div');
+            div.appendChild(document.createTextNode(s || ''));
+            return div.innerHTML;
+        },
+
+        _formatText: function (text) {
+            // Escape HTML, dann Zeilenumbrüche
+            var safe = kt.Pinnwand._esc(text);
+            return safe.replace(/\n/g, '<br>');
+        }
+    });
+
 } (window.kt = window.kt || {}, jQuery));

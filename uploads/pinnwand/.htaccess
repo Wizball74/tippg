@@ -1,0 +1,12 @@
+# Nur Bilder erlauben
+<FilesMatch "\.(?i:jpg|jpeg|png|gif|webp)$">
+    Require all granted
+</FilesMatch>
+
+# PHP-Ausfuehrung verhindern
+<FilesMatch "\.php$">
+    Require all denied
+</FilesMatch>
+
+# Kein Directory Listing
+Options -Indexes

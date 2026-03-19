@@ -1,4 +1,93 @@
-﻿/* Toast */
+﻿/* ===== Pinnwand ===== */
+.pinnwand-container { max-width: 640px; margin: 0 auto; }
+.pinnwand-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+.pinnwand-header-icon { font-size: 28px; line-height: 1; }
+.pinnwand-title { margin: 0; font-size: 20px; font-weight: 700; color: #333; }
+.pinnwand-subtitle { margin: 2px 0 0; font-size: 13px; color: #888; }
+.pinnwand-avatar {
+    width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
+    background: linear-gradient(135deg, #4a7c59, #6ba37a);
+    color: #fff; font-weight: 700; font-size: 16px;
+    display: flex; align-items: center; justify-content: center; text-transform: uppercase;
+}
+.pinnwand-avatar-me { background: linear-gradient(135deg, #2a5aa5, #5b8fd9); }
+.pinnwand-form {
+    background: #fff; border: 1px solid #e0e0e0; border-radius: 12px;
+    padding: 16px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.pinnwand-form-row { display: flex; gap: 12px; align-items: flex-start; }
+.pinnwand-form-content { flex: 1; min-width: 0; }
+.pinnwand-input {
+    width: 100%; border: none; border-bottom: 2px solid #e8e8e8; border-radius: 0;
+    padding: 8px 0; font-size: 15px; resize: none; font-family: inherit;
+    box-sizing: border-box; background: transparent; color: #333; transition: border-color 0.2s;
+}
+.pinnwand-input:focus { border-bottom-color: #4a7c59; outline: none; }
+.pinnwand-input::placeholder { color: #aaa; }
+.pinnwand-form-actions { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.pinnwand-upload-btn {
+    cursor: pointer; display: flex; align-items: center; gap: 5px;
+    padding: 6px 12px; border: 1px solid #e0e0e0; border-radius: 20px;
+    font-size: 13px; color: #666; background: #fafafa; transition: all 0.2s;
+}
+.pinnwand-upload-btn:hover { background: #f0f5f2; border-color: #4a7c59; color: #4a7c59; }
+.pinnwand-upload-btn svg { color: #888; }
+.pinnwand-upload-btn:hover svg { color: #4a7c59; }
+.pinnwand-filename { font-size: 12px; color: #888; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pinnwand-send {
+    margin-left: auto; padding: 7px 20px; border: none; border-radius: 20px;
+    background: #4a7c59; color: #fff; font-size: 13px; font-weight: 600;
+    cursor: pointer; transition: all 0.2s;
+}
+.pinnwand-send:hover { background: #3d6a4b; transform: translateY(-1px); box-shadow: 0 2px 8px rgba(74,124,89,0.3); }
+.pinnwand-send:active { transform: translateY(0); }
+.pinnwand-send[disabled] { background: #b0b0b0; cursor: default; transform: none; box-shadow: none; }
+.pinnwand-preview { margin-top: 10px; }
+.pinnwand-preview-img { max-width: 180px; max-height: 120px; border-radius: 8px; border: 1px solid #e8e8e8; }
+.pinnwand-posts { display: flex; flex-direction: column; gap: 0; }
+.pinnwand-post {
+    background: #fff; border: 1px solid #e8e8e8; border-radius: 12px;
+    padding: 16px 18px; margin-bottom: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.03); transition: box-shadow 0.2s;
+}
+.pinnwand-post:hover { box-shadow: 0 3px 12px rgba(0,0,0,0.06); }
+.pinnwand-post-sticky { border: 1px solid #e6d48e; background: linear-gradient(135deg, #fffef7, #fff9e6); }
+.pinnwand-sticky-badge { font-size: 11px; font-weight: 600; color: #b8860b; margin-bottom: 8px; letter-spacing: 0.3px; }
+.pinnwand-post-header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.pinnwand-post-meta { display: flex; flex-direction: column; }
+.pinnwand-nick { font-weight: 600; font-size: 14px; color: #333; line-height: 1.2; }
+.pinnwand-date { font-size: 12px; color: #999; line-height: 1.2; margin-top: 1px; }
+.pinnwand-post-body { font-size: 15px; line-height: 1.6; color: #333; word-wrap: break-word; overflow-wrap: break-word; }
+.pinnwand-post-image { margin-top: 12px; }
+.pinnwand-post-image img { max-width: 100%; max-height: 400px; border-radius: 10px; cursor: pointer; transition: transform 0.2s; }
+.pinnwand-post-image img:hover { transform: scale(1.01); }
+.pinnwand-post-actions {
+    margin-top: 10px; padding-top: 10px; border-top: 1px solid #f0f0f0;
+    display: flex; gap: 6px;
+}
+.pinnwand-action {
+    background: none; border: 1px solid transparent; color: #888; font-size: 12px;
+    cursor: pointer; padding: 4px 10px; border-radius: 16px;
+    transition: all 0.2s; display: flex; align-items: center; gap: 4px;
+}
+.pinnwand-action:hover { background: #f5f5f5; border-color: #e0e0e0; color: #555; }
+.pinnwand-action svg { flex-shrink: 0; }
+.pinnwand-empty { text-align: center; color: #999; padding: 48px 0; }
+.pinnwand-empty-icon { font-size: 48px; margin-bottom: 12px; opacity: 0.4; }
+.pinnwand-empty p { margin: 4px 0; font-size: 15px; }
+.pinnwand-empty-sub { font-size: 13px; color: #aaa; }
+.pinnwand-loading { text-align: center; color: #aaa; padding: 32px 0; font-size: 14px; }
+@media (max-width: 767px) {
+    .pinnwand-container { padding: 0 4px; }
+    .pinnwand-form { padding: 12px; }
+    .pinnwand-avatar { width: 32px; height: 32px; font-size: 14px; }
+    .pinnwand-post { padding: 12px 14px; border-radius: 10px; }
+    .pinnwand-post-body { font-size: 14px; }
+    .pinnwand-form-actions { flex-wrap: wrap; }
+    .pinnwand-send { width: 100%; text-align: center; padding: 10px; border-radius: 8px; }
+}
+
+/* Toast */
 .kt-toast {
     position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-80px);
     padding: 12px 28px; border-radius: 8px; font-size: 14px; font-weight: 500;

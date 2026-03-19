@@ -1,3 +1,33 @@
+/* Pinnwand (Dark-Overrides) */
+.pinnwand-title { color: #e0e0e0; }
+.pinnwand-subtitle { color: #666; }
+.pinnwand-form { background: #252525; border-color: #3a3a3a; box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
+.pinnwand-input, textarea.pinnwand-input { color: #d0d0d0 !important; background: transparent !important; border-bottom-color: #444; }
+.pinnwand-input:focus { border-bottom-color: #6ba37a; }
+.pinnwand-input::placeholder { color: #666; }
+.pinnwand-upload-btn { background: #2a2a2a; border-color: #444; color: #aaa; }
+.pinnwand-upload-btn:hover { background: #333; border-color: #6ba37a; color: #6ba37a; }
+.pinnwand-upload-btn svg { color: #777; }
+.pinnwand-upload-btn:hover svg { color: #6ba37a; }
+.pinnwand-send { background: #4a7c59; }
+.pinnwand-send:hover { background: #5a9a6a; box-shadow: 0 2px 8px rgba(74,124,89,0.4); }
+.pinnwand-send[disabled] { background: #555; }
+.pinnwand-filename { color: #666; }
+.pinnwand-preview-img { border-color: #444; }
+.pinnwand-post { background: #252525; border-color: #3a3a3a; box-shadow: 0 1px 3px rgba(0,0,0,0.15); }
+.pinnwand-post:hover { box-shadow: 0 3px 12px rgba(0,0,0,0.25); }
+.pinnwand-post-sticky { border-color: #5a4f2a; background: linear-gradient(135deg, #2a2820, #2e2b1f); }
+.pinnwand-sticky-badge { color: #d4a017; }
+.pinnwand-nick { color: #e0e0e0; }
+.pinnwand-date { color: #666; }
+.pinnwand-post-body { color: #ccc; }
+.pinnwand-post-actions { border-top-color: #333; }
+.pinnwand-action { color: #777; }
+.pinnwand-action:hover { background: #333; border-color: #444; color: #bbb; }
+.pinnwand-empty { color: #666; }
+.pinnwand-empty-sub { color: #555; }
+.pinnwand-loading { color: #555; }
+
 /* Toast */
 .kt-toast {
     position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-80px);

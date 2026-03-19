@@ -53,20 +53,9 @@ class KT
 		$this->TABLE['praemien']            = $prefix . 'praemien';
 		$this->TABLE['remind']				= $prefix . 'remind'; // MA 03.10.2017
 		$this->TABLE['gamescores']          = $prefix . 'gamescores';
+		$this->TABLE['pinnwand']            = $prefix . 'pinnwand';
 
-		// Gamescores-Tabelle einmalig anlegen (pro Session)
-		if (empty($_SESSION['_kt_gamescores_ok'])) {
-			$this->db->Query("CREATE TABLE IF NOT EXISTS {$this->TABLE['gamescores']} (
-				tnid INT(10) UNSIGNED NOT NULL,
-				game VARCHAR(20) NOT NULL,
-				trid INT(10) UNSIGNED NOT NULL DEFAULT 0,
-				md INT(10) UNSIGNED NOT NULL DEFAULT 0,
-				score INT(11) NOT NULL DEFAULT 0,
-				created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-				PRIMARY KEY (tnid, game, trid, md)
-			) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-			$_SESSION['_kt_gamescores_ok'] = true;
-		}
+		// Tabellen gamescores und pinnwand muessen manuell in der DB angelegt werden (siehe db/setup.sql)
 	}
 
 	/*****************************************************************************************************************************
@@ -251,7 +240,7 @@ class KT
 			$menu['main'][] =   array('title' => 'Prämien',	            'smenu' => 'Praemien',    'action' => 'Uebersicht', 'cls' => 'left');
 			$menu['main'][] =   array('title' => 'Statistiken',         'smenu' => 'Stat',        'action' => 'Dashboard', 'cls' => 'left');
 			$menu['main'][] =   array('title' => 'Admin',	            'smenu' => 'Admin',       'action' => 'Profil',     'cls' => 'right');
-			//$menu['main'][] = array('title' => 'Forum'; $link['main'][] = "http://www.foren.de/system/index.php?id=thomash";  $target['main'][]="_new";
+			$menu['main'][] =   array('title' => 'Pinnwand',            'smenu' => 'Pinnwand',    'action' => 'Anzeigen',   'cls' => 'left');
 			$menu['main'][] =   array('title' => 'Abmelden',            'smenu' => 'login',       'action' => 'logout',    'cls' => 'full');
 
 
@@ -3283,5 +3272,149 @@ class KT
 
 		self::formatNames($rows);
 		$this->jsonout(array('ok' => true, 'scores' => $rows));
+	}
+
+	/*****************************************************************************************************************************
+	 * Pinnwand
+	 *****************************************************************************************************************************/
+
+	function GetPinnwand()
+	{
+		$sql = sprintf("SELECT p.id, p.tnid, p.nick, p.`text`, p.image, p.sticky,
+				DATE_FORMAT(p.created, '%%d.%%m.%%Y %%H:%%i') AS created_fmt
+				FROM %s p
+				ORDER BY p.sticky DESC, p.created DESC
+				LIMIT 100",
+			$this->TABLE['pinnwand']);
+
+		$rows = $this->db->getData($sql);
+
+		$this->jsonout(array(
+			'ok' => true,
+			'posts' => $rows,
+			'isAdmin' => ($this->user['userlevel'] == 100),
+			'tnid' => $this->user['tnid']
+		));
+	}
+
+	function SavePinnwandPost($text)
+	{
+		if (empty($text)) {
+			$this->jsonout(array('ok' => false, 'message' => 'Text darf nicht leer sein.'));
+			return;
+		}
+
+		// Bild verarbeiten (falls in Session zwischengespeichert)
+		$image = null;
+		if (!empty($_SESSION['_pinnwand_upload'])) {
+			$image = $_SESSION['_pinnwand_upload'];
+			unset($_SESSION['_pinnwand_upload']);
+		}
+
+		$nick = $this->user['name'];
+		$tnid = $this->user['tnid'];
+
+		$sql = sprintf("INSERT INTO %s (tnid, nick, `text`, image) VALUES (?, ?, ?, ?)", $this->TABLE['pinnwand']);
+		$image = $image ?: '';
+		$this->db->prepareExecute($sql, 'isss', [$tnid, $nick, $text, $image]);
+
+		$this->GetPinnwand();
+	}
+
+	function DeletePinnwandPost($id)
+	{
+		if ($id <= 0) {
+			$this->jsonout(array('ok' => false, 'message' => 'Ungültige ID.'));
+			return;
+		}
+
+		// Nur eigene Posts oder Admin
+		$sql = sprintf("SELECT tnid, image FROM %s WHERE id = ?", $this->TABLE['pinnwand']);
+		$result = $this->db->prepare($sql, 'i', [$id]);
+		$row = $result ? $result->fetch_assoc() : null;
+
+		if (!$row) {
+			$this->jsonout(array('ok' => false, 'message' => 'Post nicht gefunden.'));
+			return;
+		}
+
+		if ($row['tnid'] != $this->user['tnid'] && $this->user['userlevel'] != 100) {
+			$this->jsonout(array('ok' => false, 'message' => 'Keine Berechtigung.'));
+			return;
+		}
+
+		// Bild-Datei löschen falls vorhanden
+		if ($row['image']) {
+			$filepath = dirname(__DIR__) . '/' . $row['image'];
+			if (file_exists($filepath)) unlink($filepath);
+		}
+
+		$sql = sprintf("DELETE FROM %s WHERE id = ?", $this->TABLE['pinnwand']);
+		$this->db->prepareExecute($sql, 'i', [$id]);
+
+		$this->GetPinnwand();
+	}
+
+	function TogglePinnwandSticky($id)
+	{
+		// Nur Admin
+		if ($this->user['userlevel'] != 100) {
+			$this->jsonout(array('ok' => false, 'message' => 'Keine Berechtigung.'));
+			return;
+		}
+
+		if ($id <= 0) {
+			$this->jsonout(array('ok' => false, 'message' => 'Ungültige ID.'));
+			return;
+		}
+
+		$sql = sprintf("UPDATE %s SET sticky = NOT sticky WHERE id = ?", $this->TABLE['pinnwand']);
+		$this->db->prepareExecute($sql, 'i', [$id]);
+
+		$this->GetPinnwand();
+	}
+
+	function UploadPinnwandImage()
+	{
+		if (!isset($_FILES['image']) || $_FILES['image']['error'] !== UPLOAD_ERR_OK) {
+			$this->jsonout(array('ok' => false, 'message' => 'Kein Bild hochgeladen.'));
+			return;
+		}
+
+		$file = $_FILES['image'];
+		$maxSize = 5 * 1024 * 1024; // 5 MB
+		if ($file['size'] > $maxSize) {
+			$this->jsonout(array('ok' => false, 'message' => 'Bild zu groß (max. 5 MB).'));
+			return;
+		}
+
+		$allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+		$finfo = finfo_open(FILEINFO_MIME_TYPE);
+		$mime = finfo_file($finfo, $file['tmp_name']);
+		finfo_close($finfo);
+
+		if (!in_array($mime, $allowed)) {
+			$this->jsonout(array('ok' => false, 'message' => 'Ungültiges Bildformat.'));
+			return;
+		}
+
+		$ext = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/gif' => 'gif', 'image/webp' => 'webp'];
+		$uploadDir = dirname(__DIR__) . '/uploads/pinnwand/';
+		if (!is_dir($uploadDir)) {
+			mkdir($uploadDir, 0755, true);
+		}
+
+		$filename = uniqid('pw_') . '.' . $ext[$mime];
+		$dest = $uploadDir . $filename;
+
+		if (!move_uploaded_file($file['tmp_name'], $dest)) {
+			$this->jsonout(array('ok' => false, 'message' => 'Fehler beim Speichern.'));
+			return;
+		}
+
+		$relativePath = 'uploads/pinnwand/' . $filename;
+		$_SESSION['_pinnwand_upload'] = $relativePath;
+
+		$this->jsonout(array('ok' => true, 'image' => $relativePath));
 	}
 }
