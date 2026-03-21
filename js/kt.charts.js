@@ -341,6 +341,13 @@
             exact.push(e); tend.push(t); miss.push(m);
         });
 
+        // Trefferquote pro Spieler (Exakt+Tendenz / Gesamt)
+        var totals = [];
+        for (var i = 0; i < exact.length; i++) {
+            var sum = exact[i] + tend[i] + miss[i];
+            totals.push(sum ? Math.round((exact[i] + tend[i]) / sum * 100) : 0);
+        }
+
         destroyChart('chartTreffer');
         charts['chartTreffer'] = new Chart(document.getElementById('chartTreffer'), {
             type: 'bar',
@@ -358,8 +365,28 @@
                     x: { stacked: true, ticks: { color: def.color, maxRotation: 45 }, grid: { display: false } },
                     y: { stacked: true, ticks: { color: def.color, stepSize: 1 }, grid: { color: def.gridColor } }
                 },
-                plugins: { legend: { labels: { color: def.color } } }
-            }
+                plugins: {
+                    legend: { labels: { color: def.color } },
+                    // Trefferquote als % oben auf jeder Säule
+                    trefferLabel: {}
+                }
+            },
+            plugins: [{
+                id: 'trefferLabel',
+                afterDraw: function(chart) {
+                    var ctx = chart.ctx;
+                    var meta = chart.getDatasetMeta(2); // Daneben = oberstes Dataset im Stack
+                    ctx.save();
+                    ctx.font = '11px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillStyle = def.color;
+                    for (var i = 0; i < meta.data.length; i++) {
+                        var bar = meta.data[i];
+                        ctx.fillText(totals[i] + '%', bar.x, bar.y - 4);
+                    }
+                    ctx.restore();
+                }
+            }]
         });
     }
 
