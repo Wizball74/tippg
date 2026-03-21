@@ -104,10 +104,11 @@ class Web
 				$t1 = $team1["teamName"] ?? $team1["TeamName"] ?? '?';
 				$t2 = $team2["teamName"] ?? $team2["TeamName"] ?? '?';
 
-				// Ergebnis
+				// Ergebnis – nur bei beendeten Partien übernehmen
 				$result = "-:-";
+				$finished = $m["matchIsFinished"] ?? $m["MatchIsFinished"] ?? false;
 				$matchResults = $m["matchResults"] ?? $m["MatchResults"] ?? array();
-				if (is_array($matchResults) && count($matchResults) > 0) {
+				if ($finished && is_array($matchResults) && count($matchResults) > 0) {
 					$res = $matchResults[0] ?? null;
 					$resType = is_array($res) ? ($res["resultTypeID"] ?? $res["ResultTypeID"] ?? 0) : 0;
 					if ($resType != 2 && count($matchResults) > 1) {

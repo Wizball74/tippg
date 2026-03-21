@@ -575,7 +575,9 @@
 
         $j.each(id, function (idx, val) { table += kt.makeTable(val, { fl: 'left', cls: 'col-lg-6 col-md-6 col-xs-12' }); });
 
-        table += '<div class="clr" style="margin-bottom:16px"></div>';
+        table += '<div class="clr"></div>'
+            + '<svg id="tabellenLinks" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:50"></svg>'
+            + '<div class="clr" style="margin-bottom:16px"></div>';
 
         // Ewige Ligatabelle
         var ligaId = 'LigaTabelleGesamt';
@@ -591,9 +593,9 @@
         $j.each(id, function (idx, val) {
             var gridid = "#grid" + val;
             btn = [
-                { caption: "Gesamt", buttonicon: "none", onClickButton: function () { $j(gridid).trigger('refresh', { mode: 't' }); }, position: "last", tbar: "tb_" },
-                { caption: "Heim", buttonicon: "none", onClickButton: function () { $j(gridid).trigger('refresh', { mode: 'h' }); }, position: "last", tbar: "tb_" },
-                { caption: "Auswaerts", buttonicon: "none", onClickButton: function () { $j(gridid).trigger('refresh', { mode: 'a' }); }, position: "last", tbar: "tb_" }
+                { caption: "Gesamt", buttonicon: "none", onClickButton: function () { $j(gridid).trigger('refresh', { mode: 't' }); setTimeout(drawTabellenLinks, 800); }, position: "last", tbar: "tb_" },
+                { caption: "Heim", buttonicon: "none", onClickButton: function () { $j(gridid).trigger('refresh', { mode: 'h' }); setTimeout(drawTabellenLinks, 800); }, position: "last", tbar: "tb_" },
+                { caption: "Auswaerts", buttonicon: "none", onClickButton: function () { $j(gridid).trigger('refresh', { mode: 'a' }); setTimeout(drawTabellenLinks, 800); }, position: "last", tbar: "tb_" }
             ];
             kt.autoGrid(val, lbl[idx], { toolbar: [true, 'both'], btn: btn });
         });
@@ -603,6 +605,141 @@
 
         // Ewiger Gesamtstand
         kt.autoGrid(ewigId, 'Ewiger Gesamtstand');
+
+        // Querverbindungen zwischen TippTabelle und realer Tabelle zeichnen
+        (function waitAndDraw() {
+            var tries = 0;
+            var timer = setInterval(function() {
+                var left = $j('#gridTippTabelle tbody tr');
+                var right = $j('#gridTabelle tbody tr');
+                if (left.length > 1 && right.length > 1) {
+                    clearInterval(timer);
+                    drawTabellenLinks();
+                } else if (++tries > 50) {
+                    clearInterval(timer);
+                }
+            }, 200);
+        })();
     };
+
+    function drawTabellenLinks() {
+        var svg = document.getElementById('tabellenLinks');
+        if (!svg) return;
+        var container = svg.parentElement;
+        if (!container) return;
+        container.style.position = 'relative';
+
+        // Team-Positionen aus beiden Grids auslesen
+        var leftTeams = {}, rightTeams = {};
+        $j('#gridTippTabelle tbody tr').each(function() {
+            var team = $j(this).find('td[aria-describedby$="_Team"]').text().trim();
+            if (team) leftTeams[team] = this;
+        });
+        $j('#gridTabelle tbody tr').each(function() {
+            var team = $j(this).find('td[aria-describedby$="_Team"]').text().trim();
+            if (team) rightTeams[team] = this;
+        });
+
+        // Container-Offset für relative Positionierung
+        var cRect = container.getBoundingClientRect();
+
+        // SVG-Größe setzen
+        svg.setAttribute('width', cRect.width);
+        svg.setAttribute('height', cRect.height);
+        svg.style.height = cRect.height + 'px';
+        svg.innerHTML = '';
+
+        // Positionen (Rang) aus Zeilen-Index ermitteln
+        var leftPos = {}, rightPos = {};
+        var idx = 0;
+        $j('#gridTippTabelle tbody tr').each(function() {
+            var team = $j(this).find('td[aria-describedby$="_Team"]').text().trim();
+            if (team) leftPos[team] = idx++;
+        });
+        idx = 0;
+        $j('#gridTabelle tbody tr').each(function() {
+            var team = $j(this).find('td[aria-describedby$="_Team"]').text().trim();
+            if (team) rightPos[team] = idx++;
+        });
+
+        var lineColors = { up: '#D4920A', down: '#3498db', same: '#DAA520' };
+        var sameCount = 0;
+
+        for (var team in leftTeams) {
+            if (!rightTeams[team]) continue;
+            var lRow = leftTeams[team];
+            var rRow = rightTeams[team];
+            var lRect = lRow.getBoundingClientRect();
+            var rRect = rRow.getBoundingClientRect();
+
+            var y1 = lRect.top + lRect.height / 2 - cRect.top;
+            var y2 = rRect.top + rRect.height / 2 - cRect.top;
+            var x1 = lRect.right - cRect.left;
+            var x2 = rRect.left - cRect.left;
+
+            var lp = leftPos[team], rp = rightPos[team];
+            var type = lp === rp ? 'same' : (rp < lp ? 'up' : 'down');
+
+            var line = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            var mx = (x1 + x2) / 2;
+            line.setAttribute('d', 'M' + x1 + ',' + y1 + ' C' + mx + ',' + y1 + ' ' + mx + ',' + y2 + ' ' + x2 + ',' + y2);
+            line.setAttribute('stroke', lineColors[type]);
+            line.setAttribute('stroke-width', type === 'same' ? '4' : '2');
+            line.setAttribute('fill', 'none');
+            line.setAttribute('opacity', '0.6');
+            line.setAttribute('class', 'tl-line tl-' + type);
+
+            // Goldene Linien funkeln lassen
+            if (type === 'same') {
+                sameCount++;
+                var anim = document.createElementNS('http://www.w3.org/2000/svg', 'animate');
+                anim.setAttribute('attributeName', 'stroke-opacity');
+                anim.setAttribute('values', '1;0.4;1');
+                anim.setAttribute('dur', '2s');
+                anim.setAttribute('repeatCount', 'indefinite');
+                line.appendChild(anim);
+            }
+
+            svg.appendChild(line);
+        }
+
+        // Anzahl korrekte Vorhersagen mittig zwischen den Tabellen
+        if (sameCount > 0) {
+            // Mitte = Durchschnitt aller x1/x2-Werte der Linien
+            var firstLeft = $j('#gridTippTabelle').closest('.ui-jqgrid')[0];
+            var firstRight = $j('#gridTabelle').closest('.ui-jqgrid')[0];
+            var tx = cRect.width / 2;
+            if (firstLeft && firstRight) {
+                var lr = firstLeft.getBoundingClientRect();
+                var rr = firstRight.getBoundingClientRect();
+                tx = ((lr.right - cRect.left) + (rr.left - cRect.left)) / 2;
+            }
+            var text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            text.setAttribute('x', tx);
+            text.setAttribute('y', 20);
+            text.setAttribute('text-anchor', 'middle');
+            text.setAttribute('font-size', '28');
+            text.setAttribute('font-weight', '900');
+            text.setAttribute('fill', '#DAA520');
+            text.setAttribute('stroke', '#7A5B00');
+            text.setAttribute('stroke-width', '0.5');
+            text.textContent = sameCount + ' \u2714';
+            text.style.cursor = 'pointer';
+            text.style.pointerEvents = 'all';
+            var goldOnly = false;
+            text.addEventListener('click', function() {
+                goldOnly = !goldOnly;
+                var lines = svg.querySelectorAll('.tl-line');
+                for (var i = 0; i < lines.length; i++) {
+                    if (lines[i].classList.contains('tl-same')) {
+                        lines[i].setAttribute('opacity', '0.6');
+                    } else {
+                        lines[i].setAttribute('opacity', goldOnly ? '0' : '0.6');
+                    }
+                }
+            });
+            svg.appendChild(text);
+        }
+    }
 
 }(window.kt = window.kt || {}, jQuery));

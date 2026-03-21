@@ -18,6 +18,34 @@
     // Fuer kt.charts.js verfuegbar machen
     kt.makeTable = makeTable;
 
+    // Admin: Ergebnisse-abrufen-Button (wiederverwendbar)
+    function fetchResultsBtn(afterFetch) {
+        return {
+            caption: "Ergebnisse abrufen",
+            buttonicon: "none",
+            tbar: "tb_",
+            onClickButton: function () {
+                $j.ajax({
+                    url: "php/getDFBErgebnisse.php",
+                    data: { trid: kt.trid, md: kt.md },
+                    contentType: "application/x-www-form-urlencoded",
+                    success: function (data) {
+                        var res = data.d || data;
+                        if (res.ok) {
+                            var count = res.data ? res.data.length : 0;
+                            showMessage({ ok: true, message: count + ' Ergebnis(se) abgerufen' }, 3);
+                            if (afterFetch) afterFetch(res);
+                        } else {
+                            showMessage(res, 5);
+                        }
+                    }
+                });
+            },
+            position: "last"
+        };
+    }
+    function isAdmin() { return $j('#mainmenu a[id*="Admin"]').length > 0; }
+
     function getGridData(gridid, idcol) {
         var grid = $j(gridid),
             gdata = grid.jqGrid('getRowData');
@@ -66,7 +94,12 @@
                 }
             };
 
-            kt.autoGrid(id, 'Tipp-Übersicht', { events: events });
+            var opt = { events: events };
+            if (isAdmin()) {
+                opt.btn = [fetchResultsBtn(function() { $j('#grid' + id).trigger('refresh'); })];
+                opt.toolbar = [true, 'top'];
+            }
+            kt.autoGrid(id, 'Tipp-Übersicht', opt);
         },
         Tippabgabe: function () {
             var id = 'TippsTippabgabe',
@@ -108,6 +141,10 @@
                 },
                 position: "last"
             }];
+
+            if (isAdmin()) {
+                btn.push(fetchResultsBtn(function() { $j(gridid).trigger('refresh'); }));
+            }
 
             events = {
                 afterLoadComplete: function (data) {

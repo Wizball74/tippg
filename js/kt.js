@@ -287,8 +287,9 @@
                     menu.append(li);
                 })();
 
-                // Fußball-Toggle (neben der Sonne)
+                // Fußball-Toggle (neben der Sonne) – nur auf Desktop
                 (function() {
+                    if (window.innerWidth < 992) return;
                     var ballOn = localStorage.getItem('kt_ball') !== 'off';
                     var ballLi = $j('<li class="kt-ball-toggle"/>');
                     var ballBtn = $j('<a href="#" role="button" title="Fußball an/aus"/>');
@@ -301,18 +302,23 @@
                             localStorage.setItem('kt_ball', 'off');
                             ballBtn.css('opacity', '0.3');
                             if (kt.destroyBall) kt.destroyBall();
+                            $j('.kt-sound-toggle').hide();
                         } else {
                             localStorage.setItem('kt_ball', 'on');
                             ballBtn.css('opacity', '');
                             if (kt.initBall) kt.initBall();
+                            $j('.kt-sound-toggle').show();
                         }
                     });
                     ballLi.append(ballBtn);
                     menu.append(ballLi);
                 })();
 
-                // Sound-Toggle (neben dem Fußball)
+                // Sound-Toggle (neben dem Fußball) – nur wenn Ball sichtbar
                 (function() {
+                    if (window.innerWidth < 992) return;
+                    var ballActive = localStorage.getItem('kt_ball') !== 'off';
+                    if (!ballActive) return;
                     var sndOn = localStorage.getItem('kt_sound') !== 'off';
                     var sndLi = $j('<li class="kt-sound-toggle"/>');
                     var sndBtn = $j('<a href="#" role="button" title="Sound an/aus"/>');
