@@ -214,11 +214,10 @@
             labels.push(c.replace('s', ''));
         });
 
-        // Top 8 Spieler + eigener User
+        // Alle Spieler – Top 8 + eigener User sichtbar, Rest per Legende zuschaltbar
         var datasets = [];
-        var top = rows.slice(0, 8);
 
-        $j.each(top, function(ri, r) {
+        $j.each(rows, function(ri, r) {
             var cumData = [], cum = 0, hasData = true;
             $j.each(mdCols, function(mi, col) {
                 var val = r[col];
@@ -232,6 +231,7 @@
             });
             var name = r.Name.replace(/^\uD83D\uDC51\s*/, '');
             var isUser = r.cls === 'rowUser';
+            var visible = ri < 8 || isUser;
             datasets.push({
                 label: name,
                 data: cumData,
@@ -239,7 +239,8 @@
                 backgroundColor: 'transparent',
                 borderWidth: isUser ? 3 : 1.5,
                 pointRadius: 0,
-                tension: 0.3
+                tension: 0.3,
+                hidden: !visible
             });
         });
 
@@ -321,7 +322,10 @@
         $j.each(rows, function(ri, r) {
             var e = 0, t = 0, m = 0;
             $j.each(ptsCols, function(pi, col) {
-                var p = parseInt(r[col]) || 0;
+                var raw = r[col];
+                if (raw === '' || raw === null || raw === undefined) return;
+                // Wert kann HTML sein (<span class="pts-exact">3</span>), Zahl extrahieren
+                var p = parseInt(String(raw).replace(/<[^>]*>/g, '')) || 0;
                 if (p >= 3) e++;
                 else if (p >= 1) t++;
                 else m++;

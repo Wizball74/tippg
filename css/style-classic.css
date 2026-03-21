@@ -574,12 +574,12 @@ body { overflow-x: hidden; }
     .ktcontent { padding: 4px 2px; }
     #content { overflow-x: visible; }
 
-    .navbar-brand { display: none; }
+    .navbar-brand { padding-left: 10px !important; font-size: 14px !important; }
     .navbar { margin-bottom: 0; min-height: 0; }
 
     #subnav { overflow-x: auto; white-space: nowrap; padding: 4px 4px; }
     .subnav-item { flex-shrink: 0; }
-    .navbar-header { padding: 4px 0; }
+    .navbar-header { padding: 4px 0; display: block !important; width: 100%; }
 
     .ktgrid { padding: 0; }
 
@@ -618,7 +618,7 @@ body { overflow-x: hidden; }
     /* Grid mobile: scrollable wrapper, grid keeps natural width */
     .ktgrid { overflow-x: auto; -webkit-overflow-scrolling: touch; }
     .ui-jqgrid { overflow: visible !important; }
-    .ui-jqgrid .ui-jqgrid-bdiv { overflow: visible !important; }
+    .ui-jqgrid .ui-jqgrid-bdiv { overflow: visible !important; height: auto !important; }
     .ui-jqgrid .ui-jqgrid-hdiv { overflow: visible !important; }
 
     /* Toolbar: horizontal scroll if buttons overflow */

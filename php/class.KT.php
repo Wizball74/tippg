@@ -467,7 +467,7 @@ class KT
 			$data[] = array('tnid' => 0, 'Name' => 'Bitte wählen.');
 
 			if (is_array($member))
-				foreach ($member as $m) $data[] = array('tnid' => $m['tnid'], 'Name' => $m['name']);
+				foreach ($member as $m) $data[] = array('tnid' => $m['tnid'], 'Name' => self::formatName($m['name']));
 
 			$rows = $data;
 		}
@@ -510,8 +510,8 @@ class KT
 		// Auf Mobile: Name-Spalte verkleinern
 		if ($vw < 768) {
 			foreach ($colModel as $i => $c) {
-				if (isset($c['classes']) && $c['classes'] == 'Name' && $c['width'] > 170)
-					$colModel[$i]['width'] = 170;
+				if (isset($c['classes']) && $c['classes'] == 'Name' && $c['width'] > 128)
+					$colModel[$i]['width'] = 128;
 			}
 		}
 		// Auf Tablet/Desktop verkleinern wenn noetig
@@ -815,7 +815,7 @@ class KT
 
 			foreach ($member[$rnd] as $m) {
 				$data[$idx] = array(
-					'Name' => $m['name'],
+					'Name' => self::formatName($m['name']),
 					'id' => $m['tnid'],
 					'Pts' => isset($tips[$m['tnid']]['Points']) ? $tips[$m['tnid']]['Points'] : '',
 					'Bonus' => isset($bonus[$m['tnid']]) ? sprintf("%3.2f", $bonus[$m['tnid']]) : '',
@@ -1139,7 +1139,7 @@ class KT
 				$m = $member[$rnd][$tnid];
 				$data[$idx] = array(
 					'Pos' => $idx + 1,
-					'Name' => $m['name'],
+					'Name' => self::formatName($m['name']),
 					'id' => $m['tnid'],
 					'Pts' => $p,
 					'Bonus' => isset($bonus[$tnid]) ? sprintf("%3.2f", $bonus[$tnid]) : '',
@@ -1191,8 +1191,8 @@ class KT
 					'trid' => $row['trid'],
 					'md' => $row['sptag'],
 					'League' => $row['Liga'],
-					'M1' => $member[$rnd][$row['tnid1']]['name'],
-					'M2' => $member[$rnd][$row['tnid2']]['name'],
+					'M1' => self::formatName($member[$rnd][$row['tnid1']]['name']),
+					'M2' => self::formatName($member[$rnd][$row['tnid2']]['name']),
 					'Result' => $row['Ergebnis'],
 					'cls' => (isset($cls[$row['tnid1']]) ? $cls[$row['tnid1']] : '') . (isset($cls[$row['tnid2']]) ? $cls[$row['tnid2']] : ''),
 					'id' => $id++
@@ -1343,7 +1343,7 @@ class KT
 
 				$data[$idx] = array(
 					'Pos' => $idx + 1,
-					'Name' => $m['name'],
+					'Name' => self::formatName($m['name']),
 					'Pts' => $s['Pts'],
 					'Diff' => $s['Diff'],
 					'Goals' => $s['Goals'],
@@ -1389,7 +1389,7 @@ class KT
 			$m = $member[$tnid];
 			$data[$idx] = array(
 				'Pos' => $idx + 1,
-				'Name' => $m['name'],
+				'Name' => self::formatName($m['name']),
 				'Pts' => $p,
 				'tnid' => $tnid,
 				'cls' => isset($cls[$m['tnid']]) ? $cls[$m['tnid']] : ''
@@ -1480,7 +1480,7 @@ class KT
 
 				$data[$idx] = array(
 					'Pos' => $idx + 1,
-					'Name' => $m['name'],
+					'Name' => self::formatName($m['name']),
 					'Pts' => $s['Pts'],
 					'Diff' => $s['Diff'],
 					'Goals' => $s['Goals'],
@@ -1595,7 +1595,7 @@ class KT
 				$stakesLeague[$m['tnid']] = $bon[$m['Liga']][0];
 
 				$bonus[] = array(
-					'Name'  => $m['name'],
+					'Name'  => self::formatName($m['name']),
 					'id' => $m['tnid'],
 					'cls' => isset($cls[$m['tnid']]) ? $cls[$m['tnid']] : '',
 					'Matches' => isset($matches[$m['tnid']]) ? sprintf("%3.2f", $matches[$m['tnid']]) : '',
@@ -2306,7 +2306,7 @@ class KT
 			$data[] = array(
 				//'Pos' => $pos++,
 				'tnid' => $m,
-				'Name' => $member[$m]['name'],
+				'Name' => self::formatName($member[$m]['name']),
 				'Pts' => $pts[$m]['sum'],
 				'Runden' => $cnt[$m]['sum'],
 				'3er' => $pts[$m][3],
@@ -2825,7 +2825,7 @@ class KT
 			foreach ($data as $row) {
 				$member[] = array(
 					'tnid' => $row['tnid1'],
-					'Name' => $row['name'],
+					'Name' => self::formatName($row['name']),
 					'trid' => $trid,
 					'League' => $row['Liga'],
 					'LRnd' => $row['LRnd'],
@@ -3211,34 +3211,26 @@ class KT
 	}
 
 	/**
-	 * Formatiert "Nachname, Vorname" → "Vorname" (bei Duplikaten: "Vorname N")
+	 * Formatiert "Nachname, Vorname" → "Vorname N" (immer Vorname + erster Buchstabe Nachname)
 	 */
 	static function formatNames(&$rows, $nameCol = 'name')
 	{
-		// Vornamen extrahieren
-		$firstNames = [];
 		foreach ($rows as &$row) {
-			$parts = explode(',', $row[$nameCol] ?? '');
-			$nachname = trim($parts[0] ?? '');
-			$vorname = trim($parts[1] ?? $nachname);
-			$row['_vorname'] = $vorname;
-			$row['_nachname'] = $nachname;
-			$firstNames[] = $vorname;
+			$row[$nameCol] = self::formatName($row[$nameCol] ?? '');
 		}
 		unset($row);
+	}
 
-		// Duplikate finden
-		$counts = array_count_values($firstNames);
-
-		foreach ($rows as &$row) {
-			if ($counts[$row['_vorname']] > 1) {
-				$row[$nameCol] = $row['_vorname'] . ' ' . mb_substr($row['_nachname'], 0, 1);
-			} else {
-				$row[$nameCol] = $row['_vorname'];
-			}
-			unset($row['_vorname'], $row['_nachname']);
-		}
-		unset($row);
+	/**
+	 * Einzelnen Namen formatieren: "Nachname, Vorname" → "Vorname N"
+	 */
+	static function formatName($name)
+	{
+		$parts = explode(',', $name);
+		$nachname = trim($parts[0] ?? '');
+		$vorname  = trim($parts[1] ?? $nachname);
+		$initial  = mb_substr($nachname, 0, 1);
+		return $vorname . ($initial ? ' ' . $initial : '');
 	}
 
 	function GetGameScores()

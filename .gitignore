@@ -23,8 +23,8 @@ Thumbs.db
 node_modules/
 dist/
 .angular/
-<<<<<<< HEAD
+
 /ktsvc/env
-=======
 /_tmp
->>>>>>> a3513afbf0c07a7968ab599306f058feefa35aa1
+/_private/
+/.ssh/

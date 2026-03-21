@@ -130,11 +130,11 @@
     };
 
     var demoNames = [
-        'Mueller, Thomas', 'Schmidt, Andreas', 'Weber, Michael', 'Fischer, Stefan',
-        'Wagner, Markus', 'Becker, Juergen', 'Hoffmann, Peter', 'Schneider, Klaus',
-        'Koch, Helmut', 'Braun, Oliver', 'Richter, Frank', 'Wolf, Manfred',
-        'Klein, Sascha', 'Schroeder, Marc', 'Neumann, Kerstin', 'Schwarz, Theo',
-        'Zimmermann, Tom', 'Krueger, Matthias'
+        'Thomas M', 'Andreas S', 'Michael W', 'Stefan F',
+        'Markus W', 'Juergen B', 'Peter H', 'Klaus S',
+        'Helmut K', 'Oliver B', 'Frank R', 'Manfred W',
+        'Sascha K', 'Marc S', 'Kerstin N', 'Theo S',
+        'Tom Z', 'Matthias K'
     ];
 
     var demoMatches = [
@@ -166,7 +166,7 @@
 
     function buildDemoOverview() {
         var colModel = [];
-        colModel.push({ label: 'Name', width: (window.innerWidth < 768 ? 110 : 200), name: 'Name', classes: 'Name' });
+        colModel.push({ label: 'Name', width: (window.innerWidth < 768 ? 82 : 200), name: 'Name', classes: 'Name' });
 
         for (var m = 0; m < demoMatches.length; m++) {
             var match = demoMatches[m];
@@ -258,7 +258,7 @@
     function buildDemoGesamtstand() {
         var colModel = [];
         colModel.push({ label: 'Pos', width: 25, name: 'Pos', align: 'center', classes: 'Pos' });
-        colModel.push({ label: 'Name', width: (window.innerWidth < 768 ? 110 : 200), name: 'Name', classes: 'Name' });
+        colModel.push({ label: 'Name', width: (window.innerWidth < 768 ? 82 : 200), name: 'Name', classes: 'Name' });
         var numMd = 25;
         for (var s = 1; s <= numMd; s++) {
             colModel.push({ label: '' + s, width: 28, name: 's' + s, align: 'center', sortable: false, classes: 'Pts1' });

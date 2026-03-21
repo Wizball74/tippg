@@ -550,11 +550,11 @@
         // Partikel entlang der Zellenränder erzeugen
         spawnBorderParticles(rect, pts);
 
-        // Zelle: Inhalt ausblenden, dann Rand entfernen + Glut-Effekt
+        // Zelle: sofort Text leeren (verhindert Doppeltreffer), dann ausblenden
+        el.textContent = '';
         el.style.transition = 'opacity 0.4s ease-out';
         el.style.opacity = '0';
         setTimeout(function () {
-            el.textContent = '';
             el.style.cssText = 'border:none !important;pointer-events:none;';
             el.style.setProperty('--ember-d', Math.random().toFixed(3));
             el.classList.add('kt-ball-burned');
@@ -745,6 +745,7 @@
 
         // Alle burned-Zellen wiederherstellen
         var cells = document.querySelectorAll(CFG.BLOCK_SEL);
+        // Grid nur aus Pts1-Zellen aufbauen (nicht Name/Team/etc.)
         var grid = [];
         var tbody = cells[0] ? cells[0].closest('tbody') : null;
         if (tbody) {
@@ -752,8 +753,10 @@
             for (var r = 0; r < rows.length; r++) {
                 var tds = rows[r].querySelectorAll('td');
                 var row = [];
-                for (var c = 0; c < tds.length; c++) row.push(tds[c]);
-                grid.push(row);
+                for (var c = 0; c < tds.length; c++) {
+                    if (tds[c].classList.contains('Pts1')) row.push(tds[c]);
+                }
+                if (row.length) grid.push(row);
             }
         }
 
@@ -816,8 +819,8 @@
                 var nc = m.col + dirs[d][1];
                 if (nr >= 0 && nr < m.grid.length && nc >= 0 && nc < m.grid[nr].length) {
                     var target = m.grid[nr][nc];
-                    // Nur in leere Zellen springen (keine anderen 5er, keine Pts-Zellen)
-                    if (!target.querySelector('.kt-level2-num') && !parseInt(target.textContent)) {
+                    // Nur in leere Pts1-Zellen springen (keine anderen 5er, keine Pts-Zellen)
+                    if (target.classList.contains('Pts1') && !target.querySelector('.kt-level2-num') && !parseInt(target.textContent)) {
                         neighbors.push({ r: nr, c: nc, el: target });
                     }
                 }
