@@ -28,6 +28,32 @@
         };
     }
 
+    // Plugin: Zahl in jeden Balkenabschnitt schreiben
+    var barLabelPlugin = {
+        id: 'barLabels',
+        afterDraw: function(chart) {
+            var ctx = chart.ctx;
+            ctx.save();
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            chart.data.datasets.forEach(function(ds, di) {
+                var meta = chart.getDatasetMeta(di);
+                if (meta.hidden) return;
+                var dark = ds.backgroundColor === '#F0E442';
+                ctx.fillStyle = dark ? '#333' : '#fff';
+                ctx.font = '10px sans-serif';
+                meta.data.forEach(function(bar, i) {
+                    var val = ds.data[i];
+                    if (!val) return;
+                    var h = Math.abs(bar.base - bar.y);
+                    if (h < 14) return; // zu klein zum Beschriften
+                    ctx.fillText(val, bar.x, bar.y + h / 2);
+                });
+            });
+            ctx.restore();
+        }
+    };
+
     // Bestehende Chart-Instanzen verwalten
     var charts = {};
     function destroyChart(id) {
@@ -280,16 +306,12 @@
             opts += '<option value="' + this.value + '">' + $j(this).text().trim() + '</option>';
         });
         var html = '<div style="padding:8px 16px">'
-            + '<h4>Trefferquote Gesamt</h4>'
-            + '</div>'
-            + '<div style="padding:0 16px"><canvas id="chartTrefferGesamt" style="max-height:450px"></canvas></div>'
-            + '<div style="padding:8px 16px;margin-top:24px">'
             + '<h4 style="display:inline-block;margin-right:12px">Trefferquote Spieltag</h4>'
             + '<select id="cbTrefferMd" style="font-size:13px;padding:2px 6px;border-radius:4px;border:1px solid #888;color:#222;background:#fff">' + opts + '</select>'
             + '</div>'
             + '<div style="padding:0 16px"><canvas id="chartTreffer" style="max-height:450px"></canvas></div>'
-            + '<div style="padding:8px 16px;margin-top:16px"><h4>Punkteverteilung pro Spieltag</h4>'
-            + '<canvas id="chartSchwierigkeit" style="max-height:350px"></canvas></div>';
+            + '<div style="padding:8px 16px;margin-top:24px"><h4>Trefferquote Gesamt</h4></div>'
+            + '<div style="padding:0 16px"><canvas id="chartTrefferGesamt" style="max-height:450px"></canvas></div>';
         setContent(html);
         $j('#cbTrefferMd').val(kt.md).on('change', function() { loadTreffer(parseInt(this.value)); });
         loadTreffer(kt.md);
@@ -302,8 +324,26 @@
                 var res = result.d || result;
                 if (res && res.data && res.data.Rows) {
                     buildTrefferGesamt(res.data.Rows, res.colModel);
-                    buildSchwierigkeit(res.data.Rows, res.colModel);
                 }
+            }
+        });
+    };
+
+    // ==================================================================================
+    // 4. PUNKTEVERTEILUNG: Min/Max/Durchschnitt pro Spieltag
+    // ==================================================================================
+    kt.Stat.Punkteverteilung = function() {
+        var html = '<div style="padding:8px 16px"><h4>Punkteverteilung pro Spieltag</h4>'
+            + '<canvas id="chartSchwierigkeit" style="max-height:450px"></canvas></div>';
+        setContent(html);
+
+        $j.ajax({
+            type: 'POST', url: 'php/GetData.php',
+            data: { trid: kt.trid, md: kt.md, fn: 'TippsGesamtstand' },
+            contentType: 'application/x-www-form-urlencoded',
+            success: function(result) {
+                var res = result.d || result;
+                if (res && res.data && res.data.Rows) buildSchwierigkeit(res.data.Rows, res.colModel);
             }
         });
     };
@@ -366,7 +406,8 @@
                     y: { stacked: true, ticks: { color: def.color, stepSize: 1 }, grid: { color: def.gridColor } }
                 },
                 plugins: { legend: { labels: { color: def.color } } }
-            }
+            },
+            plugins: [barLabelPlugin]
         });
     }
 
@@ -460,7 +501,8 @@
                     y: { stacked: true, ticks: { color: def.color, stepSize: 1 }, grid: { color: def.gridColor } }
                 },
                 plugins: { legend: { labels: { color: def.color } } }
-            }
+            },
+            plugins: [barLabelPlugin]
         });
     }
 

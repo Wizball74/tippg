@@ -260,6 +260,7 @@ class KT
 			$menu['Stat'][] =   array('title' => 'Dashboard',           'smenu' => 'Stat',        'action' => 'Dashboard');
 			$menu['Stat'][] =   array('title' => 'Punkteverlauf',       'smenu' => 'Stat',        'action' => 'Punkteverlauf');
 			$menu['Stat'][] =   array('title' => 'Trefferquote',        'smenu' => 'Stat',        'action' => 'Trefferquote');
+			$menu['Stat'][] =   array('title' => 'Punkteverteilung',   'smenu' => 'Stat',        'action' => 'Punkteverteilung');
 			$menu['Stat'][] =   array('title' => 'Tabellen',            'smenu' => 'Stat',        'action' => 'Tabellen');
 			$menu['Stat'][] =   array('title' => 'Breakout',            'smenu' => 'Stat',        'action' => 'Breakout');
 

@@ -93,6 +93,7 @@
 
                 // -- Start AJAX Call --
                 $j.ajax({
+                    type: "POST",
                     beforeSend: null,
                     url: "php/login.php",
                     data: arForm,
@@ -124,7 +125,15 @@
                             $j('#login_response').show();
                         }
                         return false;
-                    } // end success
+                    }, // end success
+                    error: function(xhr) {
+                        $j('#bLogin').show();
+                        $j('#login_loading').hide();
+                        var msg = 'Anmeldung fehlgeschlagen.';
+                        try { var r = JSON.parse(xhr.responseText); if (r.message) msg = r.message; } catch(e) {}
+                        $j('#login_response').text(msg);
+                        $j('#login_response').show();
+                    }
                 }); // -- End AJAX Call --
                 return false;
             }); // end submit event
