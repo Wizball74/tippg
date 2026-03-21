@@ -280,7 +280,11 @@
             opts += '<option value="' + this.value + '">' + $j(this).text().trim() + '</option>';
         });
         var html = '<div style="padding:8px 16px">'
-            + '<h4 style="display:inline-block;margin-right:12px">Trefferquote</h4>'
+            + '<h4>Trefferquote Gesamt</h4>'
+            + '</div>'
+            + '<div style="padding:0 16px"><canvas id="chartTrefferGesamt" style="max-height:450px"></canvas></div>'
+            + '<div style="padding:8px 16px;margin-top:24px">'
+            + '<h4 style="display:inline-block;margin-right:12px">Trefferquote Spieltag</h4>'
             + '<select id="cbTrefferMd" style="font-size:13px;padding:2px 6px;border-radius:4px;border:1px solid #888;color:#222;background:#fff">' + opts + '</select>'
             + '</div>'
             + '<div style="padding:0 16px"><canvas id="chartTreffer" style="max-height:450px"></canvas></div>'
@@ -296,7 +300,10 @@
             contentType: 'application/x-www-form-urlencoded',
             success: function(result) {
                 var res = result.d || result;
-                if (res && res.data && res.data.Rows) buildSchwierigkeit(res.data.Rows, res.colModel);
+                if (res && res.data && res.data.Rows) {
+                    buildTrefferGesamt(res.data.Rows, res.colModel);
+                    buildSchwierigkeit(res.data.Rows, res.colModel);
+                }
             }
         });
     };
@@ -341,13 +348,6 @@
             exact.push(e); tend.push(t); miss.push(m);
         });
 
-        // Trefferquote pro Spieler (Exakt+Tendenz / Gesamt)
-        var totals = [];
-        for (var i = 0; i < exact.length; i++) {
-            var sum = exact[i] + tend[i] + miss[i];
-            totals.push(sum ? Math.round((exact[i] + tend[i]) / sum * 100) : 0);
-        }
-
         destroyChart('chartTreffer');
         charts['chartTreffer'] = new Chart(document.getElementById('chartTreffer'), {
             type: 'bar',
@@ -365,28 +365,102 @@
                     x: { stacked: true, ticks: { color: def.color, maxRotation: 45 }, grid: { display: false } },
                     y: { stacked: true, ticks: { color: def.color, stepSize: 1 }, grid: { color: def.gridColor } }
                 },
-                plugins: {
-                    legend: { labels: { color: def.color } },
-                    // Trefferquote als % oben auf jeder Säule
-                    trefferLabel: {}
-                }
-            },
-            plugins: [{
-                id: 'trefferLabel',
-                afterDraw: function(chart) {
-                    var ctx = chart.ctx;
-                    var meta = chart.getDatasetMeta(2); // Daneben = oberstes Dataset im Stack
-                    ctx.save();
-                    ctx.font = '11px sans-serif';
-                    ctx.textAlign = 'center';
-                    ctx.fillStyle = def.color;
-                    for (var i = 0; i < meta.data.length; i++) {
-                        var bar = meta.data[i];
-                        ctx.fillText(totals[i] + '%', bar.x, bar.y - 4);
+                plugins: { legend: { labels: { color: def.color } } }
+            }
+        });
+    }
+
+    // Gesamt-Trefferquote über alle Spieltage (aus Gesamtstand-Daten)
+    function buildTrefferGesamt(rows, colModel) {
+        var def = chartDefaults();
+        // Alle Spieltag-Spalten mit Daten finden
+        var sCols = [];
+        $j.each(colModel, function(i, c) {
+            if (c.name && c.name.match(/^s\d+$/)) sCols.push(c.name);
+        });
+
+        // Einzelne Spieltage laden und Punkte pro Spieler summieren
+        var rawNames = [];
+        var exact = [], tend = [], miss = [];
+        $j.each(rows, function(ri, r) {
+            rawNames.push(r.Name.replace(/^\uD83D\uDC51\s*/, ''));
+            exact.push(0); tend.push(0); miss.push(0);
+        });
+        var labels = kt.formatNames(rawNames);
+
+        // Anzahl Spiele pro Spieltag aus dem colModel (Tipp-Spalten zählen)
+        // Wir nutzen die s-Spalten: jeder Wert ist die Spieltag-Punktzahl
+        // Um Exakt/Tendenz/Daneben zu zählen, brauchen wir die Einzelergebnisse
+        // → Alle Spieltage parallel laden
+        var loaded = 0, totalMd = 0;
+        // Letzten Spieltag mit Daten finden
+        var lastMd = 0;
+        $j.each(sCols, function(mi, col) {
+            for (var ri = 0; ri < rows.length; ri++) {
+                var v = rows[ri][col];
+                if (v !== '' && v !== null && v !== undefined) { lastMd = mi + 1; break; }
+            }
+        });
+        totalMd = lastMd;
+        if (totalMd === 0) return;
+
+        for (var md = 1; md <= totalMd; md++) {
+            (function(md) {
+                $j.ajax({
+                    type: 'POST', url: 'php/GetData.php',
+                    data: { trid: kt.trid, md: md, fn: 'TippsUebersicht' },
+                    contentType: 'application/x-www-form-urlencoded',
+                    success: function(result) {
+                        var res = result.d || result;
+                        if (res && res.data && res.data.Rows) {
+                            var ptsCols = [];
+                            $j.each(res.colModel, function(i, c) {
+                                if (c.name && c.name.match(/^p\d+$/)) ptsCols.push(c.name);
+                            });
+                            // Spieler per ID zuordnen
+                            $j.each(res.data.Rows, function(ri, r) {
+                                // Spieler im Gesamt-Array finden (gleiche Reihenfolge nicht garantiert)
+                                var name = r.Name.replace(/^\uD83D\uDC51\s*/, '');
+                                var idx = rawNames.indexOf(name);
+                                if (idx === -1) return;
+                                $j.each(ptsCols, function(pi, col) {
+                                    var raw = r[col];
+                                    if (raw === '' || raw === null || raw === undefined) return;
+                                    var p = parseInt(String(raw).replace(/<[^>]*>/g, '')) || 0;
+                                    if (p >= 3) exact[idx]++;
+                                    else if (p >= 1) tend[idx]++;
+                                    else miss[idx]++;
+                                });
+                            });
+                        }
+                        loaded++;
+                        if (loaded >= totalMd) renderTrefferGesamt(def, labels, exact, tend, miss);
                     }
-                    ctx.restore();
-                }
-            }]
+                });
+            })(md);
+        }
+    }
+
+    function renderTrefferGesamt(def, labels, exact, tend, miss) {
+        destroyChart('chartTrefferGesamt');
+        charts['chartTrefferGesamt'] = new Chart(document.getElementById('chartTrefferGesamt'), {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    { label: 'Exakt', data: exact, backgroundColor: '#0072B2' },
+                    { label: 'Tendenz', data: tend, backgroundColor: '#F0E442' },
+                    { label: 'Daneben', data: miss, backgroundColor: '#D55E00' }
+                ]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    x: { stacked: true, ticks: { color: def.color, maxRotation: 45 }, grid: { display: false } },
+                    y: { stacked: true, ticks: { color: def.color, stepSize: 1 }, grid: { color: def.gridColor } }
+                },
+                plugins: { legend: { labels: { color: def.color } } }
+            }
         });
     }
 
