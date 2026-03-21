@@ -203,11 +203,19 @@
 
     function buildVerlauf(rows, colModel) {
         var def = chartDefaults();
-        // Spieltag-Spalten ermitteln
-        var mdCols = [];
+        // Spieltag-Spalten ermitteln – nur bis zum letzten Spieltag mit Daten
+        var allCols = [];
         $j.each(colModel, function(i, c) {
-            if (c.name && c.name.match(/^s\d+$/)) mdCols.push(c.name);
+            if (c.name && c.name.match(/^s\d+$/)) allCols.push(c.name);
         });
+        var lastWithData = 0;
+        $j.each(allCols, function(mi, col) {
+            for (var ri = 0; ri < rows.length; ri++) {
+                var v = rows[ri][col];
+                if (v !== '' && v !== null && v !== undefined) { lastWithData = mi; break; }
+            }
+        });
+        var mdCols = allCols.slice(0, lastWithData + 1);
 
         var labels = [];
         $j.each(mdCols, function(i, c) {
