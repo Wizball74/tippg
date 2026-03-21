@@ -2984,29 +2984,31 @@ class KT
 		$this->jsonout($json);
 	}
 
+	// Claude 21.03.2026 PHP 8.x Deprecated-Fixes
 	function parseResults($trid, $md)
 	{
 		$wt = new Web($this);
 
 		$sched = $wt->parseSchedule($trid, $md);
-		// print_r($sched);
 
 		// Spieltage laden
-		unset($_sid);
+		$_sid = array();
 		$sql = sprintf("SELECT * FROM %s where trid=%d AND sptag=%d", $this->TABLE['spielplan'], $trid, $md);
 		$data = $this->db->getData($sql);
 		foreach ($data as $row) {
 			$_sid[$row['tid1']][$row['tid2']] = $row['sid'];
 		}
 
-		foreach ($sched[$md] as $s) {
-			// print_r($s);
+		$results = array();
+		$matches = $sched[$md] ?? array();
+		foreach ($matches as $s) {
 			$erg = explode(chr(160), $s['Result']);
+			$sid = $_sid[$s['T1']][$s['T2']] ?? null;
 			$results[] = array(
 				'T1' => $s['T1'],
 				'T2' => $s['T2'],
 				'Res' => $erg[0],
-				'sid' => $_sid[$s['T1']][$s['T2']]
+				'sid' => $sid
 			);
 		}
 
@@ -3248,15 +3250,32 @@ class KT
 		$tnTable = $this->TABLE['teilnehmer'];
 
 		if ($game === 'breakout') {
-			// Pro Spieler: Gesamtscore, Spieltage, Bester Einzelscore für trid+md
+			// All-Time: Gesamtscore über alle Spieltage
 			$sql = "SELECT t.name, SUM(g.score) AS total, COUNT(g.score) AS matchdays, MAX(g.score) AS best
 			        FROM $table g
 			        JOIN $tnTable t ON t.tnid = g.tnid
 			        WHERE g.game = 'breakout' AND g.trid = ? AND g.md > 0
 			        GROUP BY g.tnid, t.name
 			        ORDER BY total DESC
-			        LIMIT 20";
-			$rows = $this->db->prepareGetData($sql, 'i', [$trid]);
+			        LIMIT 10";
+			$alltime = $this->db->prepareGetData($sql, 'i', [$trid]);
+			self::formatNames($alltime);
+
+			// Spieltag: Nur aktueller Spieltag
+			$mdRows = [];
+			if ($md > 0) {
+				$sql = "SELECT t.name, g.score AS total
+				        FROM $table g
+				        JOIN $tnTable t ON t.tnid = g.tnid
+				        WHERE g.game = 'breakout' AND g.trid = ? AND g.md = ?
+				        ORDER BY g.score DESC
+				        LIMIT 10";
+				$mdRows = $this->db->prepareGetData($sql, 'ii', [$trid, $md]);
+				self::formatNames($mdRows);
+			}
+
+			$this->jsonout(array('ok' => true, 'scores' => $alltime, 'matchday' => $mdRows));
+			return;
 		} elseif ($game === 'hunt') {
 			// Zahlen-Jagd: globale Bestleistung pro Spieler (trid=0, md=0)
 			$sql = "SELECT t.name, g.score AS best_round

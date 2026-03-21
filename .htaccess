@@ -1,1 +1,8 @@
-php_value request_order gp 
+php_value request_order gp
+
+# Cache-Control: CSS, JS, HTML nicht aus dem Browser-Cache liefern
+<IfModule mod_headers.c>
+    <FilesMatch "\.(css|js|html)$">
+        Header set Cache-Control "no-cache, must-revalidate"
+    </FilesMatch>
+</IfModule>

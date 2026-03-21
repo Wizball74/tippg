@@ -316,6 +316,7 @@
         if (canvas && canvas.parentNode) canvas.parentNode.removeChild(canvas);
         removeScorePanel();
         huntCleanup();
+        level2Cleanup();
         // Burned-Zellen zurücksetzen
         var burned = document.querySelectorAll('.kt-ball-burned');
         for (var i = 0; i < burned.length; i++) burned[i].classList.remove('kt-ball-burned');
@@ -357,6 +358,7 @@
         charge = 0;
         revealed = false;
         huntCleanup();
+        level2Cleanup();
         removeScorePanel();
         document.body.classList.remove('kt-ball-game');
         // Ausgeblendete Zellen wiederherstellen
@@ -715,6 +717,188 @@
                     });
                 }, delay);
             })(x, delay);
+        }
+
+        // Level 2 starten nach Konfetti
+        setTimeout(function() { if (active) level2Start(); }, 4500);
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Level 2: Bewegliche 5er
+    // ═══════════════════════════════════════════════════════════════
+    var level2 = {
+        active: false,
+        movers: [],    // [{ el, grid, row, col, moveInterval }]
+        moveTimer: null
+    };
+
+    function level2Start() {
+        if (!active || level2.active) return;
+        level2.active = true;
+
+        floatingTexts.push({
+            x: window.innerWidth / 2, y: window.innerHeight / 2,
+            text: 'LEVEL 2',
+            life: 3000, maxLife: 3000,
+            color: '#FF4136', stroke: '#7b1f1f', big: true
+        });
+
+        // Alle burned-Zellen wiederherstellen
+        var cells = document.querySelectorAll(CFG.BLOCK_SEL);
+        var grid = [];
+        var tbody = cells[0] ? cells[0].closest('tbody') : null;
+        if (tbody) {
+            var rows = tbody.querySelectorAll('tr');
+            for (var r = 0; r < rows.length; r++) {
+                var tds = rows[r].querySelectorAll('td');
+                var row = [];
+                for (var c = 0; c < tds.length; c++) row.push(tds[c]);
+                grid.push(row);
+            }
+        }
+
+        // Zellen zurücksetzen (leer, sichtbar)
+        for (var i = 0; i < cells.length; i++) {
+            var el = cells[i];
+            el.classList.remove('kt-ball-burned');
+            el.textContent = '';
+            el.style.cssText = '';
+            el.style.pointerEvents = '';
+        }
+
+        // Bewegliche 5er platzieren
+        var count = Math.min(8, Math.floor(cells.length * 0.08));
+        var placed = [];
+        for (var n = 0; n < count; n++) {
+            var attempts = 0;
+            while (attempts < 50) {
+                var r = Math.floor(Math.random() * grid.length);
+                var c = Math.floor(Math.random() * grid[r].length);
+                var key = r + ',' + c;
+                if (placed.indexOf(key) === -1) {
+                    placed.push(key);
+                    var cell = grid[r][c];
+                    level2InjectFiver(cell);
+                    level2.movers.push({ el: cell, grid: grid, row: r, col: c });
+                    break;
+                }
+                attempts++;
+            }
+        }
+
+        // Bewegungs-Timer: alle 2s springen die 5er
+        level2.moveTimer = setInterval(function() {
+            if (!active || !level2.active) { level2Cleanup(); return; }
+            level2MoveAll();
+        }, 2000);
+    }
+
+    function level2InjectFiver(cell) {
+        cell.textContent = '';
+        cell.classList.remove('kt-ball-burned');
+        cell.style.cssText = '';
+        var span = document.createElement('span');
+        span.className = 'kt-level2-num';
+        span.textContent = '5';
+        span.style.cssText = 'font-weight:900;font-size:1.4em;color:#FF4136;' +
+            'text-shadow:0 0 8px rgba(255,65,54,0.6);transition:transform 0.3s';
+        cell.appendChild(span);
+    }
+
+    function level2MoveAll() {
+        for (var i = 0; i < level2.movers.length; i++) {
+            var m = level2.movers[i];
+            // Nachbarzellen finden (oben, unten, links, rechts)
+            var neighbors = [];
+            var dirs = [[-1,0],[1,0],[0,-1],[0,1]];
+            for (var d = 0; d < dirs.length; d++) {
+                var nr = m.row + dirs[d][0];
+                var nc = m.col + dirs[d][1];
+                if (nr >= 0 && nr < m.grid.length && nc >= 0 && nc < m.grid[nr].length) {
+                    var target = m.grid[nr][nc];
+                    // Nur in leere Zellen springen (keine anderen 5er, keine Pts-Zellen)
+                    if (!target.querySelector('.kt-level2-num') && !parseInt(target.textContent)) {
+                        neighbors.push({ r: nr, c: nc, el: target });
+                    }
+                }
+            }
+            if (neighbors.length === 0) continue;
+
+            // Zufällige Nachbarzelle wählen
+            var pick = neighbors[Math.floor(Math.random() * neighbors.length)];
+
+            // Alte Zelle leeren
+            var oldSpan = m.el.querySelector('.kt-level2-num');
+            if (oldSpan) oldSpan.remove();
+            m.el.textContent = '';
+
+            // Neue Zelle füllen
+            level2InjectFiver(pick.el);
+            m.el = pick.el;
+            m.row = pick.r;
+            m.col = pick.c;
+
+            // Kurzer Animations-Pulse
+            pick.el.style.transition = 'background 0.3s';
+            pick.el.style.background = 'rgba(255,65,54,0.1)';
+            setTimeout(function(el) { el.style.background = ''; }, 400, pick.el);
+        }
+    }
+
+    function level2Cleanup() {
+        level2.active = false;
+        if (level2.moveTimer) { clearInterval(level2.moveTimer); level2.moveTimer = null; }
+        for (var i = 0; i < level2.movers.length; i++) {
+            var span = level2.movers[i].el.querySelector('.kt-level2-num');
+            if (span) span.remove();
+        }
+        level2.movers = [];
+    }
+
+    function level2CollideBall() {
+        if (!level2.active || !ball) return;
+        for (var i = level2.movers.length - 1; i >= 0; i--) {
+            var m = level2.movers[i];
+            var rect = m.el.getBoundingClientRect();
+            if (rect.width < 4 || rect.height < 4) continue;
+            var col = circleRectCollision(ball.x, ball.y, chargeR(), rect);
+            if (col) {
+                resolveCollision(col);
+
+                // Treffer! 5 Punkte
+                var pts = 5;
+                if (soundEnabled) playPling(pts);
+                score += pts;
+                addCharge(pts);
+                saveScore();
+                updateScorePanel();
+
+                var cx = rect.left + rect.width/2, cy = rect.top + rect.height/2;
+                floatingTexts.push({
+                    x: cx, y: cy, text: '+5',
+                    life: 2200, maxLife: 2200,
+                    color: '#FF4136', stroke: '#7b1f1f'
+                });
+                spawnBorderParticles(rect, pts);
+
+                // Zelle leeren
+                var span = m.el.querySelector('.kt-level2-num');
+                if (span) span.remove();
+                m.el.textContent = '';
+                m.el.style.cssText = 'border:none !important;pointer-events:none;';
+                m.el.style.opacity = '0';
+                m.el.classList.add('kt-ball-burned');
+
+                level2.movers.splice(i, 1);
+
+                // Alle 5er erwischt? → nochmal!
+                if (level2.movers.length === 0) {
+                    level2.active = false;
+                    if (level2.moveTimer) { clearInterval(level2.moveTimer); level2.moveTimer = null; }
+                    spawnConfetti();
+                }
+                return;
+            }
         }
     }
 
@@ -1192,6 +1376,42 @@
         updateScorePanel();
     }
 
+    function renderScoreTable(title, rows, myName) {
+        var html = '<div style="font-size:11px;font-weight:bold;margin-bottom:2px;opacity:0.7;text-transform:uppercase;letter-spacing:1px">' + title + '</div>';
+        if (!rows || rows.length === 0) {
+            html += '<div style="opacity:0.5;font-size:12px">Noch keine Scores</div>';
+            return html;
+        }
+        for (var i = 0; i < rows.length; i++) {
+            var e = rows[i];
+            var style = 'white-space:nowrap';
+            if (e._current) style += ';color:#FFD700';
+            html += '<div style="' + style + '">' +
+                '<span style="display:inline-block;min-width:28px;text-align:right;font-weight:bold;margin-right:6px">' +
+                e.total + '</span>' + e.name +
+                (e._current ? ' \u25C0' : '') + '</div>';
+        }
+        return html;
+    }
+
+    function injectCurrentScore(rows, myName, currentScore) {
+        var found = false;
+        for (var i = 0; i < rows.length; i++) {
+            if (rows[i].name === myName) {
+                found = true;
+                rows[i]._current = true;
+                if (currentScore > parseInt(rows[i].total || 0)) rows[i].total = currentScore;
+                break;
+            }
+        }
+        if (!found && currentScore > 0) {
+            rows.push({ name: myName, total: currentScore, _current: true });
+            rows.sort(function(a, b) { return parseInt(b.total) - parseInt(a.total); });
+            rows = rows.slice(0, 10);
+        }
+        return rows;
+    }
+
     function updateScorePanel() {
         if (!scorePanel) return;
         var trid = kt.trid || 0, md = kt.md || 0;
@@ -1202,37 +1422,15 @@
             dataType: 'json',
             success: function(res) {
                 if (!scorePanel || !res || !res.ok) return;
-                var top = res.scores || [];
-                var fullName = getFullName();
-                var myName = shortName(fullName);
+                var myName = shortName(getFullName());
 
-                // Aktuelle Session einfügen falls höher als gespeichert
-                var found = false;
-                for (var i = 0; i < top.length; i++) {
-                    if (top[i].name === myName) {
-                        found = true;
-                        top[i]._current = true;
-                        if (score > parseInt(top[i].total || 0)) top[i].total = score;
-                        break;
-                    }
-                }
-                if (!found && score > 0) {
-                    top.push({ name: myName, total: score, _current: true });
-                    top.sort(function(a, b) { return parseInt(b.total) - parseInt(a.total); });
-                    top = top.slice(0, 10);
-                }
+                var alltime = injectCurrentScore(res.scores || [], myName, score);
+                var mdRows = injectCurrentScore(res.matchday || [], myName, score);
 
-                var html = '';
-                for (var i = 0; i < top.length; i++) {
-                    var e = top[i];
-                    var style = 'white-space:nowrap';
-                    if (e._current) style += ';color:#FFD700';
-                    html += '<div style="' + style + '">' +
-                        '<span style="display:inline-block;min-width:28px;text-align:right;font-weight:bold;margin-right:6px">' +
-                        e.total + '</span>' + e.name +
-                        (e._current ? ' \u25C0' : '') + '</div>';
-                }
-                if (!html) html = '<div style="opacity:0.5">Noch keine Scores</div>';
+                var html = renderScoreTable('Spieltag', mdRows, myName);
+                html += '<div style="border-top:1px solid rgba(255,255,255,0.2);margin:6px 0"></div>';
+                html += renderScoreTable('All-Time', alltime, myName);
+
                 scorePanel.innerHTML = html;
             }
         });
@@ -1597,6 +1795,7 @@
         pushBall();
         step();
         huntCollideBall();
+        level2CollideBall();
         decayCharge(dt);
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);

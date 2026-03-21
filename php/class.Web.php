@@ -28,7 +28,7 @@ class Web
 		curl_setopt_array($ch, $curlopt);
 		$response = curl_exec($ch);
 		if ($response === false) trigger_error(curl_error($ch));
-		curl_close($ch);
+		unset($ch); // curl_close() deprecated seit PHP 8.5
 		return $response;
 	}
 
@@ -63,80 +63,60 @@ class Web
 	}
 
 	// MA 11.08.2019 OpenLigaDB-Anpassungen
+	// MA 21.03.2026 PHP 8.x Deprecated-Fixes (null-safe Array-Zugriffe)
 	function parseSchedule($trid, $md)
 	{
-		// echo "<PRE>";
-
 		// Teams laden
-		unset($_teams);
+		$_teams = array();
 		$data = $this->kt->db->getData(sprintf("SELECT * FROM %s", $this->kt->TABLE['teams'])); // MA 14.03.2026
-		//echo "----<br>";
-		//print_r($data);
-		//echo "----<br>";
 		foreach ($data as $row) {
 			$_teams[$row['Name']] = intval($row['tid']);
-			$_teams[$row['alias']] = intval($row['tid']); // MA 03.10.2014
-			//$_teams[$row['alias2']]=intval($row['tid']); // MA 26.01.2016
-
-			//$_teams[utf8_decode($row['Name'])]=intval($row['tid']); // MA 06.01.2017
-			$_teams[$row['Name']] = intval($row['tid']); // MA 06.01.2017
-			$_teams[$row['alias']] = intval($row['tid']); // MA 06.01.2017
+			if (!empty($row['alias'])) {
+				$_teams[$row['alias']] = intval($row['tid']);
+			}
 		}
 
-		// print_r($_teams);
-		//while ($row=$res->fetch_assoc()) { $_teams[($row['Name'])]=$row['tid']; }
-		//echo "<pre>";print_r($_teams);
-
-		$year = $this->getSeasonYear($trid);
 		$schedule = $this->getSchedule($trid, $md);
-
-		// echo "<pre>";
-		// print_r($schedule);
 
 		// Parser
 		$matches = json_decode($schedule, true);
-		// console_log($matches);
-		// print_r($matches);
+		if (!is_array($matches)) return array();
 
 		$_nr = 1;
 		foreach ($matches as $m) {
-			//  print_r($m);
-			// ["GroupName"]=>
-			$_sptag = $m["group"]["groupOrderID"] ?? $m["Group"]["GroupOrderID"];
-			//console_log($_sptag . " - ". $_nr ." : ". $m["MatchID"]);
-			// echo $_sptag. "<br>";
-			// echo "--------------------";
+			$group = $m["group"] ?? $m["Group"] ?? null;
+			$_sptag = 0;
+			if (is_array($group)) {
+				$_sptag = $group["groupOrderID"] ?? $group["GroupOrderID"] ?? 0;
+			}
 
-			if ($_sptag == 0 && $md > 0) $_sptag = $md; // Für Einzelspieltag-Abruf (z.B. Ergebnisse)
+			if ($_sptag == 0 && $md > 0) $_sptag = $md;
 			if ($_sptag > 0) {
-				$isodate = new DateTime($m["matchDateTime"] ?? $m["MatchDateTime"]);
+				$matchDateTime = $m["matchDateTime"] ?? $m["MatchDateTime"] ?? null;
+				if ($matchDateTime === null) continue;
+				$isodate = new DateTime($matchDateTime);
 				$datum = $isodate->format('d.m.Y');
 				$zeit = $isodate->format('H:i:s');
 
 				// Teams
-				$t1 = $m["team1"]["teamName"] ?? $m["Team1"]["TeamName"];
-				$t2 = $m["team2"]["teamName"] ?? $m["Team2"]["TeamName"];
+				$team1 = $m["team1"] ?? $m["Team1"] ?? array();
+				$team2 = $m["team2"] ?? $m["Team2"] ?? array();
+				$t1 = $team1["teamName"] ?? $team1["TeamName"] ?? '?';
+				$t2 = $team2["teamName"] ?? $team2["TeamName"] ?? '?';
 
 				// Ergebnis
 				$result = "-:-";
-				$res = $m["matchResults"][0] ?? $m["MatchResults"][0];
-				// echo "-------->". $res;
-				// print_r($res);
-				$resType = $res["resultTypeID"] ?? $res["ResultTypeID"];
-				// echo "-------->". $resType;
-				if ($resType != 2)
-				{
-					$res = $m["matchResults"][1] ?? $m["MatchResults"][1];
-					// MA 31.08.2023
-					$resType = $res["resultTypeID"] ?? $res["ResultTypeID"];
-				} 			
-				//  print_r($res);
-				// echo "-------->". $resType;
-				if ($resType == 2) // 2 == Endergebnis
-				{
-					// echo "--------1>". $result;
-					$result = sprintf('%d:%d', $res["pointsTeam1"] ?? $res["PointsTeam1"], $res["pointsTeam2"] ?? $res["PointsTeam2"]);
-					// echo "--------2>". $result;
+				$matchResults = $m["matchResults"] ?? $m["MatchResults"] ?? array();
+				if (is_array($matchResults) && count($matchResults) > 0) {
+					$res = $matchResults[0] ?? null;
+					$resType = is_array($res) ? ($res["resultTypeID"] ?? $res["ResultTypeID"] ?? 0) : 0;
+					if ($resType != 2 && count($matchResults) > 1) {
+						$res = $matchResults[1] ?? null;
+						$resType = is_array($res) ? ($res["resultTypeID"] ?? $res["ResultTypeID"] ?? 0) : 0;
+					}
+					if ($resType == 2 && is_array($res)) {
+						$result = sprintf('%d:%d', $res["pointsTeam1"] ?? $res["PointsTeam1"] ?? 0, $res["pointsTeam2"] ?? $res["PointsTeam2"] ?? 0);
+					}
 				}
 
 				$sched[$_sptag][$_nr++] = array(
@@ -148,12 +128,10 @@ class Web
 					'T2' => $this->findTeam($_teams, $t2),
 					'Result' => $result
 				);
-			} // $_sptag > 0
+			}
 		}
-		//  print_r($sched);
-		// echo "</PRE>";
 
-		return $sched;
+		return $sched ?? array();
 	}
 
 	// MA 26.01.2016
