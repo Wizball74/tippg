@@ -816,7 +816,7 @@ class KT
 
 			foreach ($member[$rnd] as $m) {
 				$data[$idx] = array(
-					'Name' => self::formatName($m['name']),
+					'Name' => $m['name'],
 					'id' => $m['tnid'],
 					'Pts' => isset($tips[$m['tnid']]['Points']) ? $tips[$m['tnid']]['Points'] : '',
 					'Bonus' => isset($bonus[$m['tnid']]) ? sprintf("%3.2f", $bonus[$m['tnid']]) : '',
