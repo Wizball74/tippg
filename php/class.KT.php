@@ -468,7 +468,7 @@ class KT
 			$data[] = array('tnid' => 0, 'Name' => 'Bitte wählen.');
 
 			if (is_array($member))
-				foreach ($member as $m) $data[] = array('tnid' => $m['tnid'], 'Name' => self::formatName($m['name']));
+				foreach ($member as $m) $data[] = array('tnid' => $m['tnid'], 'Name' => $m['name']);
 
 			$rows = $data;
 		}
@@ -1140,7 +1140,7 @@ class KT
 				$m = $member[$rnd][$tnid];
 				$data[$idx] = array(
 					'Pos' => $idx + 1,
-					'Name' => self::formatName($m['name']),
+					'Name' => $m['name'],
 					'id' => $m['tnid'],
 					'Pts' => $p,
 					'Bonus' => isset($bonus[$tnid]) ? sprintf("%3.2f", $bonus[$tnid]) : '',
@@ -1192,8 +1192,8 @@ class KT
 					'trid' => $row['trid'],
 					'md' => $row['sptag'],
 					'League' => $row['Liga'],
-					'M1' => self::formatName($member[$rnd][$row['tnid1']]['name']),
-					'M2' => self::formatName($member[$rnd][$row['tnid2']]['name']),
+					'M1' => $member[$rnd][$row['tnid1']]['name'],
+					'M2' => $member[$rnd][$row['tnid2']]['name'],
 					'Result' => $row['Ergebnis'],
 					'cls' => (isset($cls[$row['tnid1']]) ? $cls[$row['tnid1']] : '') . (isset($cls[$row['tnid2']]) ? $cls[$row['tnid2']] : ''),
 					'id' => $id++
@@ -1344,7 +1344,7 @@ class KT
 
 				$data[$idx] = array(
 					'Pos' => $idx + 1,
-					'Name' => self::formatName($m['name']),
+					'Name' => $m['name'],
 					'Pts' => $s['Pts'],
 					'Diff' => $s['Diff'],
 					'Goals' => $s['Goals'],
@@ -1390,7 +1390,7 @@ class KT
 			$m = $member[$tnid];
 			$data[$idx] = array(
 				'Pos' => $idx + 1,
-				'Name' => self::formatName($m['name']),
+				'Name' => $m['name'],
 				'Pts' => $p,
 				'tnid' => $tnid,
 				'cls' => isset($cls[$m['tnid']]) ? $cls[$m['tnid']] : ''
@@ -1481,7 +1481,7 @@ class KT
 
 				$data[$idx] = array(
 					'Pos' => $idx + 1,
-					'Name' => self::formatName($m['name']),
+					'Name' => $m['name'],
 					'Pts' => $s['Pts'],
 					'Diff' => $s['Diff'],
 					'Goals' => $s['Goals'],
@@ -1596,7 +1596,7 @@ class KT
 				$stakesLeague[$m['tnid']] = $bon[$m['Liga']][0];
 
 				$bonus[] = array(
-					'Name'  => self::formatName($m['name']),
+					'Name'  => $m['name'],
 					'id' => $m['tnid'],
 					'cls' => isset($cls[$m['tnid']]) ? $cls[$m['tnid']] : '',
 					'Matches' => isset($matches[$m['tnid']]) ? sprintf("%3.2f", $matches[$m['tnid']]) : '',
@@ -2307,7 +2307,7 @@ class KT
 			$data[] = array(
 				//'Pos' => $pos++,
 				'tnid' => $m,
-				'Name' => self::formatName($member[$m]['name']),
+				'Name' => $member[$m]['name'],
 				'Pts' => $pts[$m]['sum'],
 				'Runden' => $cnt[$m]['sum'],
 				'3er' => $pts[$m][3],
@@ -2826,7 +2826,7 @@ class KT
 			foreach ($data as $row) {
 				$member[] = array(
 					'tnid' => $row['tnid1'],
-					'Name' => self::formatName($row['name']),
+					'Name' => $row['name'],
 					'trid' => $trid,
 					'League' => $row['Liga'],
 					'LRnd' => $row['LRnd'],
@@ -3211,29 +3211,6 @@ class KT
 		$this->jsonout(array('ok' => true));
 	}
 
-	/**
-	 * Formatiert "Nachname, Vorname" → "Vorname N" (immer Vorname + erster Buchstabe Nachname)
-	 */
-	static function formatNames(&$rows, $nameCol = 'name')
-	{
-		foreach ($rows as &$row) {
-			$row[$nameCol] = self::formatName($row[$nameCol] ?? '');
-		}
-		unset($row);
-	}
-
-	/**
-	 * Einzelnen Namen formatieren: "Nachname, Vorname" → "Vorname N"
-	 */
-	static function formatName($name)
-	{
-		$parts = explode(',', $name);
-		$nachname = trim($parts[0] ?? '');
-		$vorname  = trim($parts[1] ?? $nachname);
-		$initial  = mb_substr($nachname, 0, 1);
-		return $vorname . ($initial ? ' ' . $initial : '');
-	}
-
 	function GetGameScores()
 	{
 		$game = $_POST['game'] ?? ($_GET['game'] ?? '');
@@ -3252,7 +3229,7 @@ class KT
 			        ORDER BY total DESC
 			        LIMIT 10";
 			$alltime = $this->db->prepareGetData($sql, 'i', [$trid]);
-			self::formatNames($alltime);
+	
 
 			// Spieltag: Nur aktueller Spieltag
 			$mdRows = [];
@@ -3264,7 +3241,7 @@ class KT
 				        ORDER BY g.score DESC
 				        LIMIT 10";
 				$mdRows = $this->db->prepareGetData($sql, 'ii', [$trid, $md]);
-				self::formatNames($mdRows);
+	
 			}
 
 			$this->jsonout(array('ok' => true, 'scores' => $alltime, 'matchday' => $mdRows));
@@ -3282,7 +3259,7 @@ class KT
 			$rows = [];
 		}
 
-		self::formatNames($rows);
+	
 		$this->jsonout(array('ok' => true, 'scores' => $rows));
 	}
 
