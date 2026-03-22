@@ -7,6 +7,10 @@
 		public $database;
 		private $db = null;
 
+		public function __sleep() {
+			return ['host', 'userid', 'pw', 'database'];
+		}
+
 		function __construct($host, $userid, $pw, $database) {
 			$this->host = $host;
 			$this->userid = $userid;
