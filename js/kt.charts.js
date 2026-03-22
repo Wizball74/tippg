@@ -182,7 +182,7 @@
 
         var rawNames = [];
         $j.each(sorted, function(i, s) { rawNames.push(s.name); });
-        var labels = kt.formatNames(rawNames);
+        var labels = rawNames;
         var data = [], bgColors = [];
         $j.each(sorted, function(i, s) {
             data.push(s.count);
@@ -372,7 +372,7 @@
         $j.each(rows, function(ri, r) {
             rawNames.push(r.Name.replace(/^\uD83D\uDC51\s*/, ''));
         });
-        var labels = kt.formatNames(rawNames);
+        var labels = rawNames;
         var exact = [], tend = [], miss = [];
         $j.each(rows, function(ri, r) {
             var e = 0, t = 0, m = 0;
@@ -427,7 +427,7 @@
             rawNames.push(r.Name.replace(/^\uD83D\uDC51\s*/, ''));
             exact.push(0); tend.push(0); miss.push(0);
         });
-        var labels = kt.formatNames(rawNames);
+        var labels = rawNames;
 
         // Anzahl Spiele pro Spieltag aus dem colModel (Tipp-Spalten zählen)
         // Wir nutzen die s-Spalten: jeder Wert ist die Spieltag-Punktzahl
