@@ -23,7 +23,20 @@ switch ($action) {
 		break;
 	case 'save':
 		$text = isset($_POST['text']) ? trim($_POST['text']) : '';
-		$kt->SavePinnwandPost($text);
+		$color = isset($_POST['color']) ? trim($_POST['color']) : '#fff9c4';
+		$kt->SavePinnwandPost($text, $color);
+		break;
+	case 'savePosition':
+		$id = isset($_POST['id']) ? intval($_POST['id']) : 0;
+		$posX = isset($_POST['posX']) ? floatval($_POST['posX']) : 0;
+		$posY = isset($_POST['posY']) ? floatval($_POST['posY']) : 0;
+		$rotation = isset($_POST['rotation']) ? floatval($_POST['rotation']) : 0;
+		$kt->SavePinnwandPosition($id, $posX, $posY, $rotation);
+		break;
+	case 'saveStyle':
+		$id = isset($_POST['id']) ? intval($_POST['id']) : 0;
+		$style = isset($_POST['style']) ? trim($_POST['style']) : '';
+		$kt->SavePinnwandStyle($id, $style);
 		break;
 	case 'delete':
 		$id = isset($_POST['id']) ? intval($_POST['id']) : 0;

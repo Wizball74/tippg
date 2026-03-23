@@ -1,3 +1,4 @@
+/* global jQuery, setContent, webkitAudioContext */
 /**
  * kt.ball.js – Fußball-Easter-Egg auf der Tipp-Übersicht
  *
@@ -9,13 +10,13 @@
  */
 (function (kt, $j) {
 
-    var CFG = {
+    const CFG = {
         R:          10,       // Ball-Radius
-        GRAVITY:    0.09,     // Schwerkraft pro Frame
-        BOUNCE:     0.69,     // Rückprall-Faktor
+        GRAVITY:    0.2,     // Schwerkraft pro Frame
+        BOUNCE:     0.8,     // Rückprall-Faktor
         FRICTION:   0.997,    // Luftwiderstand (multipliziert pro Frame)
-        CURSOR_R:   20,       // Cursor-Kollisionsradius
-        MAX_V:      14,       // Maximalgeschwindigkeit
+        CURSOR_R:   28,       // Cursor-Kollisionsradius (Schuh-Trefferfläche)
+        MAX_V:      15,       // Maximalgeschwindigkeit
         MIN_VP:     992,      // Minimum-Viewport-Breite
         GHOST_MS:   2500,     // Max Ghost-Mode-Dauer
         BOTTOM_M:   50,       // Abstand zum unteren Fensterrand (Taskleiste)
@@ -24,42 +25,223 @@
     };
 
     // State
-    var ball, canvas, ctx;
-    var active = false, animFrame;
-    var cursor = { x: -999, y: -999, vx: 0, vy: 0, lx: 0, ly: 0, lt: 0 };
-    var cursorFlash = 0;  // Aufleuchten bei Kontakt (0..1)
-    var ghostMode = false, ghostStart = 0;
-    var revealed = false;
-    var score = 0;
-    var allScores = {};  // { "trid_md_fullName": { name, fullName, trid, md, score } }
-    var floatingTexts = [];
-    var particles = [];
-    var scorePanel = null;
-    var audioCtx = null;
-    var soundEnabled = localStorage.getItem('kt_sound') !== 'off';
+    let ball, canvas, ctx;
+    let active = false, animFrame;
+    let cursor = { x: -999, y: -999, vx: 0, vy: 0, lx: 0, ly: 0, lt: 0 };
+    let cursorFlash = 0;  // Aufleuchten bei Kontakt (0..1)
+    let ghostMode = false, ghostStart = 0;
+    let revealed = false;
+    let score = 0;
+    let allScores = {};  // { "trid_md_fullName": { name, fullName, trid, md, score } }
+    let floatingTexts = [];
+    let particles = [];
+    let scorePanel = null;
+    let audioCtx = null;
+    let soundEnabled = localStorage.getItem('kt_sound') !== 'off';
 
     // ═══════════════════════════════════════════════════════════════
     //  Boost-System: Punkte laden den Ball auf
     // ═══════════════════════════════════════════════════════════════
-    var charge = 0;              // Aufladung (jeder Punkt +1)
-    var chargeLastHit = 0;       // Zeitpunkt des letzten Punkt-Treffers
-    var CHARGE_HOLD = 1000;      // ms bevor Abbau startet
-    var CHARGE_DECAY = 4;        // Abbau pro Sekunde (nach ~6-7s fast weg)
-    var CHARGE_MAX = 25;         // Deckel
+    let charge = 0;              // Aufladung (jeder Punkt +1)
+    let chargeLastHit = 0;       // Zeitpunkt des letzten Punkt-Treffers
+    const CHARGE_HOLD = 1500;      // ms bevor Abbau startet
+    const CHARGE_DECAY = 3;        // Abbau pro Sekunde
+    const CHARGE_MAX = 20;         // Deckel → dann Split!
 
     function chargePct() { return Math.min(charge / CHARGE_MAX, 1); }
-    function chargeR()   { return CFG.R * (1 + chargePct() * 0.5); }        // bis 50% größer
+    function chargeR()   { return CFG.R * (1 + chargePct() * 0.5); }        // bis 50% größer (10→15)
     function chargeBounce() { return CFG.BOUNCE * (1 + chargePct() * 0.4); } // bis 40% mehr Bounce
-    function chargeGravity() { return CFG.GRAVITY * (1 - chargePct() * 0.45); } // bis 45% weniger Gravity
+    function chargeGravity() { return Math.max(0.08, CFG.GRAVITY * (1 - chargePct() * 0.45)); } // bis 45% weniger, min 0.08
+
+    // Split-Bälle: kleine Klone die nach dem Charge-Max spawnen
+    let splitBalls = [];
+    const SPLIT_LIFETIME = 12000;
+    let lastSplitTime = 0;
+    const SPLIT_COOLDOWN = 1000; // ms bevor nächster Split möglich
 
     function addCharge(pts) {
         charge = Math.min(charge + pts, CHARGE_MAX);
         chargeLastHit = performance.now();
+
+        // Charge voll → SPLIT! (mit Cooldown)
+        if (charge >= CHARGE_MAX && ball && performance.now() - lastSplitTime > SPLIT_COOLDOWN) {
+            splitBall();
+            lastSplitTime = performance.now();
+            chargeLastHit = performance.now();
+        }
+    }
+
+    function splitBall() {
+        if (!ball) return;
+        let splitR = chargeR() * 0.85; // 85% der aktuellen Größe
+        let angle = (Math.random() > 0.5 ? 1 : -1) * Math.PI / 4;
+
+        splitBalls.push({
+            x: ball.x,
+            y: ball.y,
+            vx: Math.cos(angle) * 6 + ball.vx * 0.5,
+            vy: -Math.abs(Math.sin(angle) * 6) - 3,
+            r: splitR,
+            life: SPLIT_LIFETIME,
+            maxLife: SPLIT_LIFETIME,
+            quat: ball.quat.slice(),
+            wx: ball.wx, wz: ball.wz
+        });
+
+        // Hauptball Gegenimpuls
+        ball.vx -= Math.cos(angle) * 3;
+        ball.vy -= 3;
+
+        // Visuelles Feedback
+        floatingTexts.push({
+            x: ball.x, y: ball.y - 20,
+            text: 'SPLIT!',
+            life: 2000, maxLife: 2000,
+            color: '#FF4136', stroke: '#7b1f1f', big: true
+        });
+
+        // Partikel-Burst
+        for (let p = 0; p < 20; p++) {
+            let pa = Math.random() * Math.PI * 2;
+            particles.push({
+                x: ball.x, y: ball.y,
+                vx: Math.cos(pa) * (1 + Math.random() * 3),
+                vy: Math.sin(pa) * (1 + Math.random() * 3),
+                life: 800 + Math.random() * 600,
+                maxLife: 800 + Math.random() * 600,
+                size: 2 + Math.random() * 3,
+                color: ['#FF4136','#FF851B','#FFDC00'][Math.floor(Math.random() * 3)]
+            });
+        }
+
+        if (soundEnabled) playPling(3);
+    }
+
+    function stepSplitBalls(dt) {
+        let w = window.innerWidth, h = window.innerHeight - CFG.BOTTOM_M;
+        for (let i = splitBalls.length - 1; i >= 0; i--) {
+            let sb = splitBalls[i];
+            if (sb.popping) {
+                sb.life -= dt;
+                if (sb.life <= 0) { splitBalls.splice(i, 1); continue; }
+            }
+
+            // Physics
+            sb.vy += CFG.GRAVITY;
+            sb.x += sb.vx;
+            sb.y += sb.vy;
+            sb.vx *= CFG.FRICTION;
+            sb.vy *= CFG.FRICTION;
+
+            // Wände
+            if (sb.x - sb.r < 0) { sb.x = sb.r; sb.vx = Math.abs(sb.vx) * CFG.BOUNCE; }
+            if (sb.x + sb.r > w) { sb.x = w - sb.r; sb.vx = -Math.abs(sb.vx) * CFG.BOUNCE; }
+            if (sb.y + sb.r > h) { sb.y = h - sb.r; sb.vy = -Math.abs(sb.vy) * CFG.BOUNCE; sb.vx *= 0.95; }
+
+            // Plattformen
+            let platforms = collectPlatforms();
+            for (let pi = 0; pi < platforms.length; pi++) {
+                let p = platforms[pi];
+                let rect = { left: p.left, right: p.right, top: p.y - 1.5, bottom: p.y + 1.5 };
+                let col = circleRectCollision(sb.x, sb.y, sb.r, rect);
+                if (col) {
+                    sb.x += col.nx * col.overlap * 1.01;
+                    sb.y += col.ny * col.overlap * 1.01;
+                    let dot = sb.vx * col.nx + sb.vy * col.ny;
+                    if (dot < 0) { sb.vx -= (1 + CFG.BOUNCE) * dot * col.nx; sb.vy -= (1 + CFG.BOUNCE) * dot * col.ny; }
+                }
+            }
+
+            // Blöcke treffen
+            let cells = document.querySelectorAll(CFG.BLOCK_SEL);
+            for (let ci = 0; ci < cells.length; ci++) {
+                let el = cells[ci];
+                let val = parseInt(el.textContent);
+                if (!val || val < 1) continue;
+                let cr = el.getBoundingClientRect();
+                if (cr.width < 4 || cr.height < 4) continue;
+                let bCol = circleRectCollision(sb.x, sb.y, sb.r, cr);
+                if (bCol) {
+                    sb.x += bCol.nx * bCol.overlap * 1.01;
+                    sb.y += bCol.ny * bCol.overlap * 1.01;
+                    let bDot = sb.vx * bCol.nx + sb.vy * bCol.ny;
+                    if (bDot < 0) { sb.vx -= (1 + CFG.BOUNCE) * bDot * bCol.nx; sb.vy -= (1 + CFG.BOUNCE) * bDot * bCol.ny; }
+                    destroyBlock(el, val, cr);
+                    break;
+                }
+            }
+
+            // Speed clamp
+            let spd = Math.sqrt(sb.vx * sb.vx + sb.vy * sb.vy);
+            if (spd > CFG.MAX_V) { let s = CFG.MAX_V / spd; sb.vx *= s; sb.vy *= s; }
+
+            // Rotation
+            sb.wz = sb.vx / sb.r;
+            let wSpd = Math.abs(sb.wz);
+            if (wSpd > 0.0001) {
+                let half = wSpd / 2, sin = Math.sin(half);
+                let dq = [Math.cos(half), 0, 0, (sb.wz > 0 ? 1 : -1) * sin];
+                sb.quat = qNorm(qMul(dq, sb.quat));
+            }
+        }
+    }
+
+    function drawSplitBalls() {
+        for (let i = 0; i < splitBalls.length; i++) {
+            let sb = splitBalls[i];
+            let fadeAlpha = sb.popping ? Math.min(sb.life / 500, 1) : 1;
+
+            ctx.save();
+            ctx.globalAlpha = fadeAlpha;
+            ctx.translate(sb.x, sb.y);
+
+            // Rotation (vereinfacht: nur Z-Rotation aus Quaternion)
+            let q = sb.quat;
+            let angle = 2 * Math.atan2(Math.sqrt(q[1]*q[1] + q[2]*q[2] + q[3]*q[3]), q[0]);
+            if (q[3] < 0) angle = -angle;
+            ctx.rotate(angle);
+
+            // Ball zeichnen — orange/gold Variante
+            ctx.beginPath();
+            ctx.arc(0, 0, sb.r, 0, Math.PI * 2);
+            ctx.clip();
+
+            let g = ctx.createRadialGradient(-sb.r * 0.3, -sb.r * 0.3, sb.r * 0.1, 0, 0, sb.r);
+            g.addColorStop(0, '#fff');
+            g.addColorStop(0.25, '#ffe0a0');
+            g.addColorStop(0.6, '#e8a020');
+            g.addColorStop(1, '#b07010');
+            ctx.fillStyle = g;
+            ctx.fill();
+
+            // Pentagon-Muster (dunkler auf Gold)
+            ctx.fillStyle = 'rgba(80,40,0,0.45)';
+            let pr = sb.r * 0.35;
+            ctx.beginPath();
+            for (let p = 0; p < 5; p++) {
+                let pa = p * Math.PI * 2 / 5 - Math.PI / 2;
+                ctx[p === 0 ? 'moveTo' : 'lineTo'](Math.cos(pa) * pr, Math.sin(pa) * pr);
+            }
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.restore();
+
+            // Umriss
+            ctx.save();
+            ctx.globalAlpha = fadeAlpha;
+            ctx.strokeStyle = '#a06010';
+            ctx.lineWidth = 0.7;
+            ctx.beginPath();
+            ctx.arc(sb.x, sb.y, sb.r, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+        }
     }
 
     function decayCharge(dt) {
         if (charge <= 0) return;
-        var elapsed = performance.now() - chargeLastHit;
+        let elapsed = performance.now() - chargeLastHit;
         if (elapsed < CHARGE_HOLD) return;
         charge -= CHARGE_DECAY * dt / 1000;
         if (charge < 0) charge = 0;
@@ -68,7 +250,7 @@
     // ═══════════════════════════════════════════════════════════════
     //  Zahlen-Jagd: Mini-Game wenn Übersicht leer ist
     // ═══════════════════════════════════════════════════════════════
-    var hunt = {
+    let hunt = {
         active: false,
         ready: false,          // true wenn 15s + 10 Berührungen erreicht
         touchCount: 0,
@@ -93,18 +275,18 @@
         if (!audioCtx) return;
         if (audioCtx.state === 'suspended') audioCtx.resume();
         try {
-            var now = audioCtx.currentTime;
-            var vol = 0.15 + intensity * 0.55;    // 0.15 (leise) bis 0.7 (kräftig)
-            var freq = 100 + intensity * 80;      // 100-180 Hz
+            let now = audioCtx.currentTime;
+            let vol = 0.15 + intensity * 0.55;    // 0.15 (leise) bis 0.7 (kräftig)
+            let freq = 100 + intensity * 80;      // 100-180 Hz
 
             // Noise-Burst für den "Pf"-Anteil
-            var bufLen = audioCtx.sampleRate * 0.03;
-            var noiseBuf = audioCtx.createBuffer(1, bufLen, audioCtx.sampleRate);
-            var data = noiseBuf.getChannelData(0);
-            for (var i = 0; i < bufLen; i++) data[i] = (Math.random() * 2 - 1) * 0.3;
-            var noise = audioCtx.createBufferSource();
+            let bufLen = audioCtx.sampleRate * 0.03;
+            let noiseBuf = audioCtx.createBuffer(1, bufLen, audioCtx.sampleRate);
+            let data = noiseBuf.getChannelData(0);
+            for (let i = 0; i < bufLen; i++) data[i] = (Math.random() * 2 - 1) * 0.3;
+            let noise = audioCtx.createBufferSource();
             noise.buffer = noiseBuf;
-            var noiseGain = audioCtx.createGain();
+            let noiseGain = audioCtx.createGain();
             noiseGain.gain.setValueAtTime(vol * 0.4, now);
             noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
             noise.connect(noiseGain);
@@ -112,8 +294,8 @@
             noise.start(now);
 
             // Tiefer Sinus für den "ubb"-Anteil
-            var osc = audioCtx.createOscillator();
-            var gain = audioCtx.createGain();
+            let osc = audioCtx.createOscillator();
+            let gain = audioCtx.createGain();
             osc.type = 'sine';
             osc.frequency.setValueAtTime(freq, now);
             osc.frequency.exponentialRampToValueAtTime(30, now + 0.12);
@@ -131,13 +313,13 @@
         if (!audioCtx) return;
         if (audioCtx.state === 'suspended') audioCtx.resume();
         try {
-            var now = audioCtx.currentTime;
-            var vol = 0.18 + Math.min(pts, 3) * 0.06;
-            var baseFreq = 1200 + pts * 200;   // höher bei mehr Punkten
+            let now = audioCtx.currentTime;
+            let vol = 0.18 + Math.min(pts, 3) * 0.06;
+            let baseFreq = 1200 + pts * 200;   // höher bei mehr Punkten
 
             // Hauptton (Sinus)
-            var osc1 = audioCtx.createOscillator();
-            var g1 = audioCtx.createGain();
+            let osc1 = audioCtx.createOscillator();
+            let g1 = audioCtx.createGain();
             osc1.type = 'sine';
             osc1.frequency.setValueAtTime(baseFreq, now);
             osc1.frequency.exponentialRampToValueAtTime(baseFreq * 0.85, now + 0.25);
@@ -149,8 +331,8 @@
             osc1.stop(now + 0.35);
 
             // Oberton (Triangle, Oktave höher) für Glanz
-            var osc2 = audioCtx.createOscillator();
-            var g2 = audioCtx.createGain();
+            let osc2 = audioCtx.createOscillator();
+            let g2 = audioCtx.createGain();
             osc2.type = 'triangle';
             osc2.frequency.setValueAtTime(baseFreq * 2, now);
             g2.gain.setValueAtTime(vol * 0.3, now);
@@ -163,7 +345,7 @@
     }
 
     // Pentagon-Zentren auf Einheitskugel (Ikosaeder)
-    var pentas = [
+    let pentas = [
         {x:0,y:-1,z:0},{x:0,y:1,z:0},
         {x:.894,y:-.447,z:0},{x:.276,y:-.447,z:.851},{x:-.724,y:-.447,z:.526},
         {x:-.724,y:-.447,z:-.526},{x:.276,y:-.447,z:-.851},
@@ -184,21 +366,21 @@
     }
 
     function qNorm(q) {
-        var len = Math.sqrt(q[0]*q[0] + q[1]*q[1] + q[2]*q[2] + q[3]*q[3]);
+        let len = Math.sqrt(q[0]*q[0] + q[1]*q[1] + q[2]*q[2] + q[3]*q[3]);
         return [q[0]/len, q[1]/len, q[2]/len, q[3]/len];
     }
 
     function qRotate(q, px, py, pz) {
         // q * [0,px,py,pz] * q^-1
-        var qp = qMul(q, [0, px, py, pz]);
-        var r = qMul(qp, [q[0], -q[1], -q[2], -q[3]]);
+        let qp = qMul(q, [0, px, py, pz]);
+        let r = qMul(qp, [q[0], -q[1], -q[2], -q[3]]);
         return [r[1], r[2], r[3]];
     }
 
     // ═══════════════════════════════════════════════════════════════
     //  Injiziertes CSS: Glut-Effekt + Hover-Deaktivierung
     // ═══════════════════════════════════════════════════════════════
-    var styleEl = null;
+    let styleEl = null;
     function injectStyles() {
         if (styleEl) return;
         styleEl = document.createElement('style');
@@ -255,8 +437,8 @@
         if (styleEl && styleEl.parentNode) styleEl.parentNode.removeChild(styleEl);
         styleEl = null;
         // Burned-Klasse von allen Zellen entfernen
-        var burned = document.querySelectorAll('.kt-ball-burned');
-        for (var i = 0; i < burned.length; i++) {
+        let burned = document.querySelectorAll('.kt-ball-burned');
+        for (let i = 0; i < burned.length; i++) {
             burned[i].classList.remove('kt-ball-burned');
             burned[i].style.cssText = '';
             burned[i].style.pointerEvents = '';
@@ -267,17 +449,17 @@
     //  Name-Hilfsfunktionen
     // ═══════════════════════════════════════════════════════════════
     function getFullName() {
-        var row = document.querySelector('tr.rowUser td');
+        let row = document.querySelector('tr.rowUser td');
         return row ? row.textContent.replace(/\uD83D\uDC51\s*/, '').trim() : '';
     }
 
     function shortName(fullName) {
         // "Mueller, Thomas" → "Thomas" (bei Duplikaten clientseitig nicht erkennbar → mit Initial)
         if (!fullName) return '?';
-        var parts = fullName.split(',');
+        let parts = fullName.split(',');
         if (parts.length < 2) return fullName;
-        var nachname = parts[0].trim();
-        var vorname = parts[1].trim();
+        let nachname = parts[0].trim();
+        let vorname = parts[1].trim();
         return vorname + ' ' + nachname.charAt(0);
     }
 
@@ -318,11 +500,11 @@
         huntCleanup();
         level2Cleanup();
         // Burned-Zellen zurücksetzen
-        var burned = document.querySelectorAll('.kt-ball-burned');
-        for (var i = 0; i < burned.length; i++) burned[i].classList.remove('kt-ball-burned');
+        let burned = document.querySelectorAll('.kt-ball-burned');
+        for (let i = 0; i < burned.length; i++) burned[i].classList.remove('kt-ball-burned');
         // Ausgeblendete Zellen wiederherstellen
-        var faded = document.querySelectorAll('td.Tipps, td.Name, th.Tipps, th.Name, .ui-jqgrid-titlebar');
-        for (var i = 0; i < faded.length; i++) { faded[i].style.opacity = ''; faded[i].style.transition = ''; }
+        let faded = document.querySelectorAll('td.Tipps, td.Name, th.Tipps, th.Name, .ui-jqgrid-titlebar');
+        for (let i = 0; i < faded.length; i++) { faded[i].style.opacity = ''; faded[i].style.transition = ''; }
         removeStyles();
         document.body.classList.remove('kt-ball-active');
         document.body.classList.remove('kt-ball-game');
@@ -335,11 +517,11 @@
     // TEST: kt.testCascade(0.7) - blendet 70% der Nicht-Pts1-Zellen aus
     kt.testCascade = function (ratio) {
         ratio = ratio || 0.7;
-        var tbody = document.querySelector('.ui-jqgrid-btable tbody');
+        let tbody = document.querySelector('.ui-jqgrid-btable tbody');
         if (!tbody) return;
-        var cells = tbody.querySelectorAll('td');
-        for (var i = 0; i < cells.length; i++) {
-            var cell = cells[i];
+        let cells = tbody.querySelectorAll('td');
+        for (let i = 0; i < cells.length; i++) {
+            let cell = cells[i];
             if (cell.classList.contains('Pts1')) continue;
             if (cell.offsetWidth < 4) continue;
             if (Math.random() < ratio) {
@@ -359,11 +541,13 @@
         revealed = false;
         huntCleanup();
         level2Cleanup();
+        glowLines = [];
+        splitBalls = [];
         removeScorePanel();
         document.body.classList.remove('kt-ball-game');
         // Ausgeblendete Zellen wiederherstellen
-        var faded = document.querySelectorAll('td.Tipps, td.Name, th.Tipps, th.Name, .ui-jqgrid-titlebar');
-        for (var i = 0; i < faded.length; i++) { faded[i].style.opacity = ''; faded[i].style.transition = ''; }
+        let faded = document.querySelectorAll('td.Tipps, td.Name, th.Tipps, th.Name, .ui-jqgrid-titlebar');
+        for (let i = 0; i < faded.length; i++) { faded[i].style.opacity = ''; faded[i].style.transition = ''; }
         setTimeout(function () {
             if (!ball) spawnBall();
         }, 1500);
@@ -371,9 +555,9 @@
 
     // ═══════════════════════════════════════════════════════════════
     function spawnBall() {
-        var tb = document.querySelector('.ui-jqgrid-titlebar');
+        let tb = document.querySelector('.ui-jqgrid-titlebar');
         if (!tb) return;
-        var r = tb.getBoundingClientRect();
+        let r = tb.getBoundingClientRect();
         // Oben außerhalb des Viewports starten, fällt dann rein
         ball = {
             x: r.left + r.width * (0.3 + Math.random() * 0.4),
@@ -392,12 +576,12 @@
     //  Kollisions-Erkennung: Kreis vs. Rechteck
     // ═══════════════════════════════════════════════════════════════
     function circleRectCollision(bx, by, r, rect) {
-        var cx = Math.max(rect.left, Math.min(bx, rect.right));
-        var cy = Math.max(rect.top, Math.min(by, rect.bottom));
-        var dx = bx - cx, dy = by - cy;
-        var distSq = dx * dx + dy * dy;
+        let cx = Math.max(rect.left, Math.min(bx, rect.right));
+        let cy = Math.max(rect.top, Math.min(by, rect.bottom));
+        let dx = bx - cx, dy = by - cy;
+        let distSq = dx * dx + dy * dy;
         if (distSq >= r * r) return null;
-        var dist = Math.sqrt(distSq);
+        let dist = Math.sqrt(distSq);
         if (dist < 0.001) return { nx: 0, ny: -1, overlap: r };
         return { nx: dx / dist, ny: dy / dist, overlap: r - dist };
     }
@@ -405,8 +589,8 @@
     function resolveCollision(col) {
         ball.x += col.nx * col.overlap * 1.01;
         ball.y += col.ny * col.overlap * 1.01;
-        var bounce = chargeBounce();
-        var dot = ball.vx * col.nx + ball.vy * col.ny;
+        let bounce = chargeBounce();
+        let dot = ball.vx * col.nx + ball.vy * col.ny;
         if (dot < 0) {
             ball.vx -= (1 + bounce) * dot * col.nx;
             ball.vy -= (1 + bounce) * dot * col.ny;
@@ -419,67 +603,75 @@
     //  Platform-Kollisionen – dynamisch pro sichtbarem Grid
     // ═══════════════════════════════════════════════════════════════
     function collectPlatforms() {
-        var platforms = []; // { y, left, right }
-        var grids = document.querySelectorAll('.ui-jqgrid');
-        for (var g = 0; g < grids.length; g++) {
-            var grid = grids[g];
-            var gRect = grid.getBoundingClientRect();
+        let platforms = []; // { y, left, right }
+        let grids = document.querySelectorAll('.ui-jqgrid');
+        for (let g = 0; g < grids.length; g++) {
+            let grid = grids[g];
+            let gRect = grid.getBoundingClientRect();
             if (gRect.width < 20 || gRect.bottom < 0 || gRect.top > window.innerHeight) continue;
-            var left = gRect.left, right = gRect.right;
+            let left = gRect.left, right = gRect.right;
 
             // Titlebar – Oberkante
-            var tb = grid.querySelector('.ui-jqgrid-titlebar');
+            let tb = grid.querySelector('.ui-jqgrid-titlebar');
             if (tb) {
-                var tbr = tb.getBoundingClientRect();
+                let tbr = tb.getBoundingClientRect();
                 platforms.push({ y: tbr.top, left: left, right: right });
             }
 
             // Header – Unterkante (Spaltenüberschriften)
-            var hd = grid.querySelector('.ui-jqgrid-hdiv');
+            let hd = grid.querySelector('.ui-jqgrid-hdiv');
             if (hd) {
-                var hdr = hd.getBoundingClientRect();
+                let hdr = hd.getBoundingClientRect();
                 platforms.push({ y: hdr.bottom, left: left, right: right });
             }
 
             // Hervorgehobene Zeilen (rowUser, rowOpponent) – Unterkante
-            var specials = grid.querySelectorAll('tr.rowUser, tr.rowOpponent');
-            for (var s = 0; s < specials.length; s++) {
-                var sr = specials[s].getBoundingClientRect();
+            let specials = grid.querySelectorAll('tr.rowUser, tr.rowOpponent');
+            for (let s = 0; s < specials.length; s++) {
+                let sr = specials[s].getBoundingClientRect();
                 if (sr.height > 0) platforms.push({ y: sr.bottom, left: left, right: right });
             }
 
             // Toolbar / Pager – Oberkante (wenn sichtbar)
-            var pager = grid.querySelector('.ui-jqgrid-pager');
+            let pager = grid.querySelector('.ui-jqgrid-pager');
             if (pager) {
-                var pr = pager.getBoundingClientRect();
+                let pr = pager.getBoundingClientRect();
                 if (pr.height > 0) platforms.push({ y: pr.top, left: left, right: right });
             }
 
             // Letzte Datenzeile – Unterkante (Tabellenboden)
-            var rows = grid.querySelectorAll('.ui-jqgrid-bdiv tr[role="row"]');
+            let rows = grid.querySelectorAll('.ui-jqgrid-bdiv tr[role="row"]');
             if (rows.length) {
-                var lr = rows[rows.length - 1].getBoundingClientRect();
+                let lr = rows[rows.length - 1].getBoundingClientRect();
                 platforms.push({ y: lr.bottom, left: left, right: right });
             }
         }
+        // Pinnwand-Karten – Oberkante als Plattform
+        let pinCards = document.querySelectorAll('.pin-card');
+        for (let pc = 0; pc < pinCards.length; pc++) {
+            let pcr = pinCards[pc].getBoundingClientRect();
+            if (pcr.width < 20 || pcr.bottom < 0 || pcr.top > window.innerHeight) continue;
+            platforms.push({ y: pcr.top, left: pcr.left, right: pcr.right });
+        }
+
         return platforms;
     }
 
     function collidePlatforms() {
         if (ghostMode) return;
-        var T = 3; // Liniendicke für Kollision
-        var platforms = collectPlatforms();
+        let T = 3; // Liniendicke für Kollision
+        let platforms = collectPlatforms();
 
-        for (var i = 0; i < platforms.length; i++) {
-            var p = platforms[i];
-            var rect = { left: p.left, right: p.right, top: p.y - T / 2, bottom: p.y + T / 2 };
-            var cr = chargeR();
-            var col = circleRectCollision(ball.x, ball.y, cr, rect);
+        for (let i = 0; i < platforms.length; i++) {
+            let p = platforms[i];
+            let rect = { left: p.left, right: p.right, top: p.y - T / 2, bottom: p.y + T / 2 };
+            let cr = chargeR();
+            let col = circleRectCollision(ball.x, ball.y, cr, rect);
             if (col) { resolveCollision(col); continue; }
 
             // Anti-Tunneling: Ball hat Linie im letzten Frame überquert
             if (ball.x >= p.left && ball.x <= p.right && ball.vy > 0) {
-                var prevY = ball.y - ball.vy;
+                let prevY = ball.y - ball.vy;
                 if (prevY + cr <= p.y && ball.y + cr > p.y) {
                     ball.y = p.y - cr;
                     ball.vy = -Math.abs(ball.vy) * CFG.BOUNCE;
@@ -493,15 +685,15 @@
     //  Block-Kollisionen (Breakout-Zellen)
     // ═══════════════════════════════════════════════════════════════
     function collideBlocks() {
-        var cells = document.querySelectorAll(CFG.BLOCK_SEL);
-        for (var i = 0; i < cells.length; i++) {
-            var el = cells[i];
+        let cells = document.querySelectorAll(CFG.BLOCK_SEL);
+        for (let i = 0; i < cells.length; i++) {
+            let el = cells[i];
             if (el.querySelector('.kt-hunt-num')) continue; // Zahlen-Jagd-Target, separat behandelt
-            var val = parseInt(el.textContent);
+            let val = parseInt(el.textContent);
             if (!val || val < 1) continue;
-            var rect = el.getBoundingClientRect();
+            let rect = el.getBoundingClientRect();
             if (rect.width < 4 || rect.height < 4) continue;
-            var col = circleRectCollision(ball.x, ball.y, chargeR(), rect);
+            let col = circleRectCollision(ball.x, ball.y, chargeR(), rect);
             if (col) {
                 resolveCollision(col);
                 destroyBlock(el, val, rect);
@@ -525,15 +717,15 @@
 
         // Explosions-Boost: Ball wird etwas weggeschleudert
         if (ball) {
-            var boost = 0.3 + pts * 0.15 + chargePct() * 0.5;
-            var cx2 = rect.left + rect.width / 2, cy2 = rect.top + rect.height / 2;
-            var edx = ball.x - cx2, edy = ball.y - cy2;
-            var eDist = Math.sqrt(edx * edx + edy * edy) || 1;
+            let boost = 0.3 + pts * 0.15 + chargePct() * 0.5;
+            let cx2 = rect.left + rect.width / 2, cy2 = rect.top + rect.height / 2;
+            let edx = ball.x - cx2, edy = ball.y - cy2;
+            let eDist = Math.sqrt(edx * edx + edy * edy) || 1;
             ball.vx += (edx / eDist) * boost;
             ball.vy += (edy / eDist) * boost;
         }
 
-        var cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+        let cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
 
         // Floating-Text: Punkte
         floatingTexts.push({
@@ -568,9 +760,9 @@
     }
 
     function allBlocksCleared() {
-        var cells = document.querySelectorAll(CFG.BLOCK_SEL);
-        for (var i = 0; i < cells.length; i++) {
-            var val = parseInt(cells[i].textContent);
+        let cells = document.querySelectorAll(CFG.BLOCK_SEL);
+        for (let i = 0; i < cells.length; i++) {
+            let val = parseInt(cells[i].textContent);
             if (val >= 1) return false;
         }
         return true;
@@ -583,23 +775,23 @@
     //  Cascade: Zellen brechen weg wenn genug Umgebung zerstört ist
     //  Radius 2 (5x5), Schwelle 65% der existierenden Nachbarn
     // ═══════════════════════════════════════════════════════════════
-    var CASCADE_RATIO = 0.65;
-    var CASCADE_RADIUS = 2;
-    var _cascadePending = false;
+    const CASCADE_RATIO = 0.65;
+    const CASCADE_RADIUS = 2;
+    let _cascadePending = false;
 
     function isCellDead(cell) {
-        return cell.classList.contains('kt-ball-burned') || cell.style.opacity === '0';
+        return cell.classList.contains('kt-ball-burned');
     }
 
     function getGridCells(el) {
-        var tbody = el.closest('tbody');
+        let tbody = el.closest('tbody');
         if (!tbody) return null;
-        var rows = tbody.querySelectorAll('tr');
-        var grid = [];
-        for (var r = 0; r < rows.length; r++) {
-            var cells = rows[r].querySelectorAll('td');
-            var row = [];
-            for (var c = 0; c < cells.length; c++) row.push(cells[c]);
+        let rows = tbody.querySelectorAll('tr');
+        let grid = [];
+        for (let r = 0; r < rows.length; r++) {
+            let cells = rows[r].querySelectorAll('td');
+            let row = [];
+            for (let c = 0; c < cells.length; c++) row.push(cells[c]);
             grid.push(row);
         }
         return grid;
@@ -616,25 +808,25 @@
     }
 
     function doCascadePass(srcEl) {
-        var grid = getGridCells(srcEl);
+        let grid = getGridCells(srcEl);
         if (!grid) return;
 
-        var toDestroy = [];
-        for (var r = 0; r < grid.length; r++) {
-            for (var c = 0; c < grid[r].length; c++) {
-                var cell = grid[r][c];
+        let toDestroy = [];
+        for (let r = 0; r < grid.length; r++) {
+            for (let c = 0; c < grid[r].length; c++) {
+                let cell = grid[r][c];
                 if (isCellDead(cell)) continue;
                 if (cell.offsetWidth < 4) continue;
 
                 // Nachbarn im Radius zählen
-                var total = 0, dead = 0;
-                for (var dr = -CASCADE_RADIUS; dr <= CASCADE_RADIUS; dr++) {
-                    for (var dc = -CASCADE_RADIUS; dc <= CASCADE_RADIUS; dc++) {
+                let total = 0, dead = 0;
+                for (let dr = -CASCADE_RADIUS; dr <= CASCADE_RADIUS; dr++) {
+                    for (let dc = -CASCADE_RADIUS; dc <= CASCADE_RADIUS; dc++) {
                         if (dr === 0 && dc === 0) continue;
-                        var nr = r + dr, nc = c + dc;
+                        let nr = r + dr, nc = c + dc;
                         if (nr < 0 || nr >= grid.length) continue;
                         if (nc < 0 || nc >= grid[nr].length) continue;
-                        var neighbor = grid[nr][nc];
+                        let neighbor = grid[nr][nc];
                         if (neighbor.offsetWidth < 4) continue; // hidden
                         total++;
                         if (isCellDead(neighbor)) dead++;
@@ -647,8 +839,8 @@
         }
 
         // Gestaffelt, maximal 3 pro Durchgang
-        var batch = toDestroy.slice(0, 3);
-        for (var i = 0; i < batch.length; i++) {
+        let batch = toDestroy.slice(0, 3);
+        for (let i = 0; i < batch.length; i++) {
             (function(cell, delay) {
                 setTimeout(function() {
                     if (isCellDead(cell)) return;
@@ -659,12 +851,12 @@
     }
 
     function cascadeDestroy(cell) {
-        var rect = cell.getBoundingClientRect();
+        let rect = cell.getBoundingClientRect();
         if (rect.width < 4 || rect.height < 4) return;
 
         // Pts1-Zellen geben Punkte
         if (cell.classList.contains('Pts1')) {
-            var pts = parseInt(cell.textContent) || 0;
+            let pts = parseInt(cell.textContent) || 0;
             if (pts > 0) {
                 score += pts;
                 saveScore();
@@ -689,9 +881,9 @@
     }
 
     function spawnConfetti() {
-        var w = window.innerWidth;
-        var colors = ['#FF4136','#FF851B','#FFDC00','#2ECC40','#0074D9','#B10DC9','#FF69B4','#01FF70'];
-        var count = 150;
+        let w = window.innerWidth;
+        let colors = ['#FF4136','#FF851B','#FFDC00','#2ECC40','#0074D9','#B10DC9','#FF69B4','#01FF70'];
+        let count = 150;
 
         floatingTexts.push({
             x: w / 2, y: window.innerHeight / 2 - 40,
@@ -700,9 +892,9 @@
             color: '#FFD700', stroke: '#7A5B00', big: true
         });
 
-        for (var i = 0; i < count; i++) {
-            var x = Math.random() * w;
-            var delay = Math.random() * 600;
+        for (let i = 0; i < count; i++) {
+            let x = Math.random() * w;
+            let delay = Math.random() * 600;
             (function (x, delay) {
                 setTimeout(function () {
                     particles.push({
@@ -719,14 +911,44 @@
             })(x, delay);
         }
 
+        // Split-Bälle nacheinander platzen lassen
+        popSplitBalls();
+
         // Level 2 starten nach Konfetti
         setTimeout(function() { if (active) level2Start(); }, 4500);
+    }
+
+    function popSplitBalls() {
+        for (let i = 0; i < splitBalls.length; i++) {
+            (function(idx) {
+                setTimeout(function() {
+                    if (idx >= splitBalls.length) return;
+                    let sb = splitBalls[idx];
+                    sb.popping = true;
+                    sb.life = 500;
+                    // Partikel-Burst an der Position
+                    for (let p = 0; p < 15; p++) {
+                        let pa = Math.random() * Math.PI * 2;
+                        particles.push({
+                            x: sb.x, y: sb.y,
+                            vx: Math.cos(pa) * (1 + Math.random() * 3),
+                            vy: Math.sin(pa) * (1 + Math.random() * 3),
+                            life: 600 + Math.random() * 400,
+                            maxLife: 600 + Math.random() * 400,
+                            size: 2 + Math.random() * 3,
+                            color: ['#e8a020','#ffe0a0','#b07010'][Math.floor(Math.random() * 3)]
+                        });
+                    }
+                    if (soundEnabled) playPling(1);
+                }, i * 400);
+            })(i);
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════
     //  Level 2: Bewegliche 5er
     // ═══════════════════════════════════════════════════════════════
-    var level2 = {
+    let level2 = {
         active: false,
         movers: [],    // [{ el, grid, row, col, moveInterval }]
         moveTimer: null
@@ -744,16 +966,16 @@
         });
 
         // Alle burned-Zellen wiederherstellen
-        var cells = document.querySelectorAll(CFG.BLOCK_SEL);
+        let cells = document.querySelectorAll(CFG.BLOCK_SEL);
         // Grid nur aus Pts1-Zellen aufbauen (nicht Name/Team/etc.)
-        var grid = [];
-        var tbody = cells[0] ? cells[0].closest('tbody') : null;
+        let grid = [];
+        let tbody = cells[0] ? cells[0].closest('tbody') : null;
         if (tbody) {
-            var rows = tbody.querySelectorAll('tr');
-            for (var r = 0; r < rows.length; r++) {
-                var tds = rows[r].querySelectorAll('td');
-                var row = [];
-                for (var c = 0; c < tds.length; c++) {
+            let rows = tbody.querySelectorAll('tr');
+            for (let r = 0; r < rows.length; r++) {
+                let tds = rows[r].querySelectorAll('td');
+                let row = [];
+                for (let c = 0; c < tds.length; c++) {
                     if (tds[c].classList.contains('Pts1')) row.push(tds[c]);
                 }
                 if (row.length) grid.push(row);
@@ -761,8 +983,8 @@
         }
 
         // Zellen zurücksetzen (leer, sichtbar)
-        for (var i = 0; i < cells.length; i++) {
-            var el = cells[i];
+        for (let i = 0; i < cells.length; i++) {
+            let el = cells[i];
             el.classList.remove('kt-ball-burned');
             el.textContent = '';
             el.style.cssText = '';
@@ -770,17 +992,17 @@
         }
 
         // Bewegliche 5er platzieren
-        var count = Math.min(8, Math.floor(cells.length * 0.08));
-        var placed = [];
-        for (var n = 0; n < count; n++) {
-            var attempts = 0;
+        let count = Math.min(8, Math.floor(cells.length * 0.08));
+        let placed = [];
+        for (let n = 0; n < count; n++) {
+            let attempts = 0;
             while (attempts < 50) {
-                var r = Math.floor(Math.random() * grid.length);
-                var c = Math.floor(Math.random() * grid[r].length);
-                var key = r + ',' + c;
+                let r = Math.floor(Math.random() * grid.length);
+                let c = Math.floor(Math.random() * grid[r].length);
+                let key = r + ',' + c;
                 if (placed.indexOf(key) === -1) {
                     placed.push(key);
-                    var cell = grid[r][c];
+                    let cell = grid[r][c];
                     level2InjectFiver(cell);
                     level2.movers.push({ el: cell, grid: grid, row: r, col: c });
                     break;
@@ -800,7 +1022,7 @@
         cell.textContent = '';
         cell.classList.remove('kt-ball-burned');
         cell.style.cssText = '';
-        var span = document.createElement('span');
+        let span = document.createElement('span');
         span.className = 'kt-level2-num';
         span.textContent = '5';
         span.style.cssText = 'font-weight:900;font-size:1.4em;color:#FF4136;' +
@@ -809,16 +1031,16 @@
     }
 
     function level2MoveAll() {
-        for (var i = 0; i < level2.movers.length; i++) {
-            var m = level2.movers[i];
+        for (let i = 0; i < level2.movers.length; i++) {
+            let m = level2.movers[i];
             // Nachbarzellen finden (oben, unten, links, rechts)
-            var neighbors = [];
-            var dirs = [[-1,0],[1,0],[0,-1],[0,1]];
-            for (var d = 0; d < dirs.length; d++) {
-                var nr = m.row + dirs[d][0];
-                var nc = m.col + dirs[d][1];
+            let neighbors = [];
+            let dirs = [[-1,0],[1,0],[0,-1],[0,1]];
+            for (let d = 0; d < dirs.length; d++) {
+                let nr = m.row + dirs[d][0];
+                let nc = m.col + dirs[d][1];
                 if (nr >= 0 && nr < m.grid.length && nc >= 0 && nc < m.grid[nr].length) {
-                    var target = m.grid[nr][nc];
+                    let target = m.grid[nr][nc];
                     // Nur in leere Pts1-Zellen springen (keine anderen 5er, keine Pts-Zellen)
                     if (target.classList.contains('Pts1') && !target.querySelector('.kt-level2-num') && !parseInt(target.textContent)) {
                         neighbors.push({ r: nr, c: nc, el: target });
@@ -828,10 +1050,10 @@
             if (neighbors.length === 0) continue;
 
             // Zufällige Nachbarzelle wählen
-            var pick = neighbors[Math.floor(Math.random() * neighbors.length)];
+            let pick = neighbors[Math.floor(Math.random() * neighbors.length)];
 
             // Alte Zelle leeren
-            var oldSpan = m.el.querySelector('.kt-level2-num');
+            let oldSpan = m.el.querySelector('.kt-level2-num');
             if (oldSpan) oldSpan.remove();
             m.el.textContent = '';
 
@@ -851,8 +1073,8 @@
     function level2Cleanup() {
         level2.active = false;
         if (level2.moveTimer) { clearInterval(level2.moveTimer); level2.moveTimer = null; }
-        for (var i = 0; i < level2.movers.length; i++) {
-            var span = level2.movers[i].el.querySelector('.kt-level2-num');
+        for (let i = 0; i < level2.movers.length; i++) {
+            let span = level2.movers[i].el.querySelector('.kt-level2-num');
             if (span) span.remove();
         }
         level2.movers = [];
@@ -860,23 +1082,23 @@
 
     function level2CollideBall() {
         if (!level2.active || !ball) return;
-        for (var i = level2.movers.length - 1; i >= 0; i--) {
-            var m = level2.movers[i];
-            var rect = m.el.getBoundingClientRect();
+        for (let i = level2.movers.length - 1; i >= 0; i--) {
+            let m = level2.movers[i];
+            let rect = m.el.getBoundingClientRect();
             if (rect.width < 4 || rect.height < 4) continue;
-            var col = circleRectCollision(ball.x, ball.y, chargeR(), rect);
+            let col = circleRectCollision(ball.x, ball.y, chargeR(), rect);
             if (col) {
                 resolveCollision(col);
 
                 // Treffer! 5 Punkte
-                var pts = 5;
+                let pts = 5;
                 if (soundEnabled) playPling(pts);
                 score += pts;
                 addCharge(pts);
                 saveScore();
                 updateScorePanel();
 
-                var cx = rect.left + rect.width/2, cy = rect.top + rect.height/2;
+                let cx = rect.left + rect.width/2, cy = rect.top + rect.height/2;
                 floatingTexts.push({
                     x: cx, y: cy, text: '+5',
                     life: 2200, maxLife: 2200,
@@ -885,7 +1107,7 @@
                 spawnBorderParticles(rect, pts);
 
                 // Zelle leeren
-                var span = m.el.querySelector('.kt-level2-num');
+                let span = m.el.querySelector('.kt-level2-num');
                 if (span) span.remove();
                 m.el.textContent = '';
                 m.el.style.cssText = 'border:none !important;pointer-events:none;';
@@ -906,9 +1128,9 @@
     }
 
     function spawnBorderParticles(rect, pts) {
-        var color = pts >= 3 ? '#D4A017' : pts >= 2 ? '#4CAF50' : '#999';
-        var count = 20 + pts * 6;
-        var edges = [
+        let color = pts >= 3 ? '#D4A017' : pts >= 2 ? '#4CAF50' : '#999';
+        let count = 20 + pts * 6;
+        let edges = [
             // oben
             function () { return { x: rect.left + Math.random() * rect.width, y: rect.top }; },
             // unten
@@ -918,16 +1140,16 @@
             // rechts
             function () { return { x: rect.right, y: rect.top + Math.random() * rect.height }; }
         ];
-        var cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+        let cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
 
-        for (var i = 0; i < count; i++) {
-            var pos = edges[i % 4]();
+        for (let i = 0; i < count; i++) {
+            let pos = edges[i % 4]();
             // Richtung: weg vom Zellzentrum + etwas Zufall
-            var dx = pos.x - cx, dy = pos.y - cy;
-            var dist = Math.sqrt(dx * dx + dy * dy) || 1;
-            var speed = 1.2 + Math.random() * 2.5;
-            var vx = (dx / dist) * speed + (Math.random() - 0.5) * 1.5;
-            var vy = (dy / dist) * speed + (Math.random() - 0.5) * 1.5;
+            let dx = pos.x - cx, dy = pos.y - cy;
+            let dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            let speed = 1.2 + Math.random() * 2.5;
+            let vx = (dx / dist) * speed + (Math.random() - 0.5) * 1.5;
+            let vy = (dy / dist) * speed + (Math.random() - 0.5) * 1.5;
 
             particles.push({
                 x: pos.x, y: pos.y,
@@ -941,6 +1163,60 @@
         }
     }
 
+    // Leuchtende Plattform-Linien (rowUser/rowOpponent Unterkante)
+    let glowLines = []; // [{ y, left, right }]
+
+    const _glowColors = ['#ff6fd8','#3366ff','#ff3333','#ffdd00','#9933ff','#ff6fd8'];
+
+    function drawGlowLines() {
+        if (!glowLines.length || !ctx || !revealed) return;
+        let t = performance.now() * 0.001;
+        for (let i = 0; i < glowLines.length; i++) {
+            let el = glowLines[i].el;
+            if (!el) continue;
+            let r = el.getBoundingClientRect();
+            if (r.height < 2) continue;
+            let y = r.bottom, left = r.left, right = r.right;
+
+            // Rotierender Multicolor-Gradient (wie conic-gradient Spin)
+            let offset = (t * 0.15) % 1; // Farbrotation
+            let grad = ctx.createLinearGradient(left, 0, right, 0);
+            for (let s = 0; s < _glowColors.length; s++) {
+                let pos = ((s / (_glowColors.length - 1)) + offset) % 1;
+                grad.addColorStop(pos, _glowColors[s]);
+            }
+            // Wrap: erste Farbe auch am Anfang wenn offset > 0
+            if (offset > 0.01) {
+                grad.addColorStop(0, _glowColors[Math.floor(offset * (_glowColors.length - 1))]);
+                grad.addColorStop(1, _glowColors[Math.floor(offset * (_glowColors.length - 1))]);
+            }
+
+            // Outer Glow (blur)
+            ctx.save();
+            ctx.shadowColor = _glowColors[Math.floor(t * 2) % _glowColors.length];
+            ctx.shadowBlur = 16 + Math.sin(t * 3) * 6;
+            ctx.globalAlpha = 0.6;
+            ctx.strokeStyle = grad;
+            ctx.lineWidth = 6;
+            ctx.beginPath();
+            ctx.moveTo(left, y);
+            ctx.lineTo(right, y);
+            ctx.stroke();
+            ctx.restore();
+
+            // Kern-Linie (scharf, hell)
+            ctx.save();
+            ctx.strokeStyle = grad;
+            ctx.lineWidth = 2;
+            ctx.globalAlpha = 0.9;
+            ctx.beginPath();
+            ctx.moveTo(left, y);
+            ctx.lineTo(right, y);
+            ctx.stroke();
+            ctx.restore();
+        }
+    }
+
     function revealEffect(rect) {
         document.body.classList.add('kt-ball-game');
         // Hover in allen Grids deaktivieren
@@ -949,15 +1225,29 @@
             jQuery(this).off('mouseover mouseout');
             jQuery(this).find('tr.ui-state-hover').removeClass('ui-state-hover');
         }); } catch (e) {}
-        // Tipp-/Ergebnis-Zellen ausblenden (außer User/Gegner-Reihe = Hindernisse)
-        var fade = document.querySelectorAll('td.Tipps, td.Name, th.Tipps, th.Name, .ui-jqgrid-titlebar');
-        for (var i = 0; i < fade.length; i++) {
-            var row = fade[i].closest('tr');
-            if (row && (row.classList.contains('rowUser') || row.classList.contains('rowOpponent'))) continue;
-            fade[i].style.transition = 'opacity 0.8s';
-            fade[i].style.opacity = '0.08';
+
+        // Nicht-Ziel-Zellen ausblenden, Plattform-Struktur bleibt
+        let grids = document.querySelectorAll('.ui-jqgrid');
+        for (let g = 0; g < grids.length; g++) {
+            let cells = grids[g].querySelectorAll('td');
+            for (let ci = 0; ci < cells.length; ci++) {
+                let cell = cells[ci];
+                if (cell.classList.contains('Pts1') && parseInt(cell.textContent) >= 1) continue; // Ziel-Block mit Punkten: bleibt
+                // Nicht-Pts1 Zellen: Text unsichtbar, Zelle selbst bleibt für Layout
+                cell.style.transition = 'opacity 0.8s';
+                cell.style.visibility = 'hidden';
+            }
+            // Hover deaktivieren + leuchtende Linien für Hindernis-Reihen sammeln
+            let allRows = grids[g].querySelectorAll('tr');
+            for (let ri = 0; ri < allRows.length; ri++) {
+                allRows[ri].style.pointerEvents = 'none';
+                if (allRows[ri].classList.contains('rowUser') || allRows[ri].classList.contains('rowOpponent')) {
+                    glowLines.push({ el: allRows[ri] });
+                }
+            }
         }
-        var cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+
+        let cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
         floatingTexts.push({
             x: cx, y: cy - 20,
             text: 'BREAKOUT!',
@@ -969,40 +1259,55 @@
     // ═══════════════════════════════════════════════════════════════
     //  Cursor → Ball stupsen
     // ═══════════════════════════════════════════════════════════════
+    function pushOneBall(b, radius) {
+        let dx = b.x - cursor.x, dy = b.y - cursor.y;
+        let dist = Math.sqrt(dx * dx + dy * dy);
+        let min = radius + CFG.CURSOR_R;
+        if (dist >= min || dist < 0.1) return false;
+
+        let nx = dx / dist, ny = dy / dist;
+        b.x += nx * (min - dist);
+        b.y += ny * (min - dist);
+
+        let dot = b.vx * nx + b.vy * ny;
+        if (dot < 0) {
+            b.vx -= (1 + CFG.BOUNCE) * dot * nx;
+            b.vy -= (1 + CFG.BOUNCE) * dot * ny;
+        }
+
+        let tx = -ny;
+        let tSpeed = cursor.vx * tx + cursor.vy * nx;
+        b.wz += tSpeed * 0.004;
+
+        let spd = Math.sqrt(cursor.vx * cursor.vx + cursor.vy * cursor.vy);
+        let push = Math.min(spd * 0.08 + spd * spd * 0.005, 8);
+        if (push > 0.05) {
+            b.vx += nx * push;
+            b.vy += ny * push;
+        }
+        return spd;
+    }
+
     function pushBall() {
         if (!ball) return;
-        var dx = ball.x - cursor.x, dy = ball.y - cursor.y;
-        var dist = Math.sqrt(dx * dx + dy * dy);
-        var min = chargeR() + CFG.CURSOR_R;
-        if (dist >= min || dist < 0.1) return;
 
-        var nx = dx / dist, ny = dy / dist;
-        ball.x += nx * (min - dist);
-        ball.y += ny * (min - dist);
-
-        // Ball-Geschwindigkeit in Richtung Cursor reflektieren (Abprall)
-        var dot = ball.vx * nx + ball.vy * ny;
-        if (dot < 0) {
-            ball.vx -= (1 + CFG.BOUNCE) * dot * nx;
-            ball.vy -= (1 + CFG.BOUNCE) * dot * ny;
+        // Hauptball
+        let spd = pushOneBall(ball, chargeR());
+        if (spd) {
+            if (spd > 14 && !ghostMode) activateGhost();
+            cursorFlash = 1;
+            if (soundEnabled) playKick(Math.min(spd / 25, 1));
         }
 
-        // Drehimpuls aus tangentialer Cursor-Komponente (Effet)
-        var tx = -ny, ty = nx;                              // Tangente am Kontaktpunkt
-        var tSpeed = cursor.vx * tx + cursor.vy * ty;      // tangentiale Cursor-Geschw.
-        ball.wz += tSpeed * 0.004;
-
-        // Zusätzlicher linearer Impuls aus Cursor-Bewegung
-        // Progressiv: sanft bei langsamer Maus, kräftig bei Wucht
-        var spd = Math.sqrt(cursor.vx * cursor.vx + cursor.vy * cursor.vy);
-        var push = Math.min(spd * 0.05 + spd * spd * 0.003, 5);
-        if (push > 0.05) {
-            ball.vx += nx * push;
-            ball.vy += ny * push;
+        // Split-Bälle
+        for (let i = 0; i < splitBalls.length; i++) {
+            let sb = splitBalls[i];
+            let sbSpd = pushOneBall(sb, sb.r);
+            if (sbSpd) {
+                cursorFlash = 1;
+                if (soundEnabled) playKick(Math.min(sbSpd / 25, 1));
+            }
         }
-        if (spd > 8 && !ghostMode) activateGhost();
-        cursorFlash = 1;
-        if (soundEnabled) playKick(Math.min(spd / 25, 1));
 
         // Zahlen-Jagd: Berührungen zählen
         if (!hunt.active && !hunt.ready && !revealed) {
@@ -1022,7 +1327,7 @@
 
     function updateGhost() {
         if (!ghostMode) return;
-        var elapsed = performance.now() - ghostStart;
+        let elapsed = performance.now() - ghostStart;
         if ((elapsed > 120 && ball.vy > 0.3) || elapsed > CFG.GHOST_MS) {
             ghostMode = false;
         }
@@ -1032,7 +1337,7 @@
     //  Wand-Kollisionen
     // ═══════════════════════════════════════════════════════════════
     function collideWalls() {
-        var w = window.innerWidth, h = window.innerHeight - CFG.BOTTOM_M, r = chargeR();
+        let w = window.innerWidth, h = window.innerHeight - CFG.BOTTOM_M, r = chargeR();
         if (ball.x - r < 0) { ball.x = r; ball.vx = Math.abs(ball.vx) * CFG.BOUNCE; }
         if (ball.x + r > w) { ball.x = w - r; ball.vx = -Math.abs(ball.vx) * CFG.BOUNCE; }
         if (ball.y + r > h) {
@@ -1044,8 +1349,8 @@
     }
 
     function clampSpeed() {
-        var spd = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
-        if (spd > CFG.MAX_V) { var s = CFG.MAX_V / spd; ball.vx *= s; ball.vy *= s; }
+        let spd = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
+        if (spd > CFG.MAX_V) { let s = CFG.MAX_V / spd; ball.vx *= s; ball.vy *= s; }
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -1079,12 +1384,12 @@
         }
 
         // Winkelgeschwindigkeit auf Quaternion anwenden
-        var wSpd = Math.sqrt(ball.wx * ball.wx + ball.wz * ball.wz);
+        let wSpd = Math.sqrt(ball.wx * ball.wx + ball.wz * ball.wz);
         if (wSpd > 0.0001) {
-            var ax = ball.wx / wSpd;
-            var az = ball.wz / wSpd;
-            var half = wSpd / 2, s = Math.sin(half);
-            var dq = [Math.cos(half), ax * s, 0, az * s];
+            let ax = ball.wx / wSpd;
+            let az = ball.wz / wSpd;
+            let half = wSpd / 2, s = Math.sin(half);
+            let dq = [Math.cos(half), ax * s, 0, az * s];
             ball.quat = qNorm(qMul(dq, ball.quat));
         }
 
@@ -1096,11 +1401,11 @@
     // ═══════════════════════════════════════════════════════════════
     function drawBall() {
         if (!ball) return;
-        var bx = ball.x, by = ball.y, r = chargeR();
+        let bx = ball.x, by = ball.y, r = chargeR();
 
         ctx.save();
         ctx.translate(bx, by);
-        var cp = chargePct();
+        let cp = chargePct();
         if (ghostMode) {
             ctx.shadowColor = '#ff8800';
             ctx.shadowBlur = 12 + Math.sin(performance.now() * 0.015) * 6;
@@ -1110,28 +1415,28 @@
         }
         ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.clip();
 
-        var g = ctx.createRadialGradient(-r * 0.3, -r * 0.3, r * 0.1, 0, 0, r);
+        let g = ctx.createRadialGradient(-r * 0.3, -r * 0.3, r * 0.1, 0, 0, r);
         g.addColorStop(0, '#fff'); g.addColorStop(0.7, '#e8e8e8'); g.addColorStop(1, '#b0b0b0');
         ctx.fillStyle = g; ctx.fillRect(-r, -r, r * 2, r * 2);
 
-        var q = ball.quat;
-        for (var i = 0; i < pentas.length; i++) {
-            var p = pentas[i];
-            var rp = qRotate(q, p.x, p.y, p.z);
-            var z2 = rp[2];
+        let q = ball.quat;
+        for (let i = 0; i < pentas.length; i++) {
+            let p = pentas[i];
+            let rp = qRotate(q, p.x, p.y, p.z);
+            let z2 = rp[2];
             if (z2 < 0.1) continue;
-            var px = rp[0] * r, py = rp[1] * r, pr = r * 0.28 * (0.3 + z2 * 0.7);
+            let px = rp[0] * r, py = rp[1] * r, pr = r * 0.28 * (0.3 + z2 * 0.7);
             ctx.fillStyle = 'rgba(40,40,40,' + (0.3 + z2 * 0.6) + ')';
             ctx.beginPath();
-            for (var j = 0; j < 5; j++) {
-                var a = j / 5 * Math.PI * 2 - Math.PI / 2;
+            for (let j = 0; j < 5; j++) {
+                let a = j / 5 * Math.PI * 2 - Math.PI / 2;
                 j === 0 ? ctx.moveTo(px + Math.cos(a) * pr, py + Math.sin(a) * pr)
                         : ctx.lineTo(px + Math.cos(a) * pr, py + Math.sin(a) * pr);
             }
             ctx.closePath(); ctx.fill();
         }
 
-        var gl = ctx.createRadialGradient(-r * 0.35, -r * 0.35, 0, -r * 0.35, -r * 0.35, r * 0.5);
+        let gl = ctx.createRadialGradient(-r * 0.35, -r * 0.35, 0, -r * 0.35, -r * 0.35, r * 0.5);
         gl.addColorStop(0, 'rgba(255,255,255,0.6)'); gl.addColorStop(1, 'rgba(255,255,255,0)');
         ctx.fillStyle = gl; ctx.fillRect(-r, -r, r * 2, r * 2);
         ctx.restore();
@@ -1140,11 +1445,11 @@
         ctx.beginPath(); ctx.arc(bx, by, r, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
 
         if (!ghostMode) {
-            var groundY = window.innerHeight - CFG.BOTTOM_M;
-            var height  = groundY - (by + r);
+            let groundY = window.innerHeight - CFG.BOTTOM_M;
+            let height  = groundY - (by + r);
             if (height < 30) {
-                var t = Math.max(0, 1 - height / 30);
-                var blur = (1 - t) * 6;
+                let t = Math.max(0, 1 - height / 30);
+                let blur = (1 - t) * 6;
                 ctx.save();
                 ctx.globalAlpha = 0.15 * t;
                 ctx.shadowColor = '#000';
@@ -1160,41 +1465,41 @@
 
     function drawCursorRing(dt) {
         if (cursorFlash <= 0 && charge <= 0) return;
-        var cp = chargePct();
-        var r = CFG.CURSOR_R;
-        var expand = cursorFlash > 0 ? (1 - cursorFlash) * 8 : 0;
-        var cr = r + expand + cp * 12;
+        let cp = chargePct();
+        let r = CFG.CURSOR_R;
+        let expand = cursorFlash > 0 ? (1 - cursorFlash) * 8 : 0;
+        let cr = r + expand + cp * 12;
 
         ctx.save();
-        var baseAlpha = cursorFlash > 0 ? cursorFlash * 0.4 : 0;
-        var chargeAlpha = cp * 0.6;
+        let baseAlpha = cursorFlash > 0 ? cursorFlash * 0.4 : 0;
+        let chargeAlpha = cp * 0.6;
         ctx.globalAlpha = Math.max(baseAlpha, chargeAlpha);
 
         if (cp > 0.05) {
             // Elektrifizierter Ring: gezackter Kreis mit Glow
-            var segments = 24 + Math.floor(cp * 20);
-            var jitter = 2 + cp * 10;
+            let segments = 24 + Math.floor(cp * 20);
+            let jitter = 2 + cp * 10;
             ctx.shadowColor = 'hsl(' + (200 + cp * 60) + ', 90%, 70%)';
             ctx.shadowBlur = 4 + cp * 16;
             ctx.strokeStyle = 'hsl(' + (200 + cp * 60) + ', 85%, ' + (60 + cp * 20) + '%)';
             ctx.lineWidth = 1.5 + cp * 2;
             ctx.beginPath();
-            for (var i = 0; i <= segments; i++) {
-                var a = (i / segments) * Math.PI * 2;
-                var j = (Math.random() - 0.5) * jitter;
-                var px = cursor.x + Math.cos(a) * (cr + j);
-                var py = cursor.y + Math.sin(a) * (cr + j);
+            for (let i = 0; i <= segments; i++) {
+                let a = (i / segments) * Math.PI * 2;
+                let j = (Math.random() - 0.5) * jitter;
+                let px = cursor.x + Math.cos(a) * (cr + j);
+                let py = cursor.y + Math.sin(a) * (cr + j);
                 i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
             }
             ctx.closePath();
             ctx.stroke();
 
             // Zusätzliche Mini-Blitze vom Ring
-            var arcCount = Math.floor(cp * 5);
-            for (var a = 0; a < arcCount; a++) {
-                var angle = Math.random() * Math.PI * 2;
-                var startR = cr + (Math.random() - 0.5) * 4;
-                var len = 8 + Math.random() * cp * 25;
+            let arcCount = Math.floor(cp * 5);
+            for (let a = 0; a < arcCount; a++) {
+                let angle = Math.random() * Math.PI * 2;
+                let startR = cr + (Math.random() - 0.5) * 4;
+                let len = 8 + Math.random() * cp * 25;
                 drawLightningBolt(
                     cursor.x + Math.cos(angle) * startR,
                     cursor.y + Math.sin(angle) * startR,
@@ -1228,11 +1533,11 @@
         ctx.shadowBlur = 6;
         ctx.beginPath();
         ctx.moveTo(x1, y1);
-        var steps = 4 + Math.floor(Math.random() * 3);
-        for (var i = 1; i < steps; i++) {
-            var t = i / steps;
-            var mx = x1 + (x2 - x1) * t + (Math.random() - 0.5) * displacement;
-            var my = y1 + (y2 - y1) * t + (Math.random() - 0.5) * displacement;
+        let steps = 4 + Math.floor(Math.random() * 3);
+        for (let i = 1; i < steps; i++) {
+            let t = i / steps;
+            let mx = x1 + (x2 - x1) * t + (Math.random() - 0.5) * displacement;
+            let my = y1 + (y2 - y1) * t + (Math.random() - 0.5) * displacement;
             ctx.lineTo(mx, my);
         }
         ctx.lineTo(x2, y2);
@@ -1243,31 +1548,31 @@
     // Entladungen: hauptsächlich zu nahegelegenen Hindernissen, selten frei
     function drawElectricArcs() {
         if (!ball) return;
-        var cp = chargePct();
+        let cp = chargePct();
         if (cp < 0.15) return;
-        var br = chargeR();
-        var bx = ball.x, by = ball.y;
+        let br = chargeR();
+        let bx = ball.x, by = ball.y;
 
         // Nahe Plattformen/Hindernisse finden und Blitze dorthin ziehen
-        var platforms = collectPlatforms();
-        for (var i = 0; i < platforms.length; i++) {
-            var p = platforms[i];
+        let platforms = collectPlatforms();
+        for (let i = 0; i < platforms.length; i++) {
+            let p = platforms[i];
             if (bx < p.left - 40 || bx > p.right + 40) continue;
-            var dy = Math.abs(by - p.y);
+            let dy = Math.abs(by - p.y);
             if (dy > br + 30 + cp * 40) continue; // zu weit weg
             // Chance steigt je näher + je mehr Charge
             if (Math.random() > cp * 0.4 + (1 - dy / (br + 70)) * 0.3) continue;
             // Startpunkt am Ball, Endpunkt auf der Plattform
-            var tx = bx + (Math.random() - 0.5) * 20;
-            var clampX = Math.max(p.left, Math.min(tx, p.right));
+            let tx = bx + (Math.random() - 0.5) * 20;
+            let clampX = Math.max(p.left, Math.min(tx, p.right));
             drawLightningBolt(bx, by + (p.y > by ? br : -br), clampX, p.y, 5 + cp * 8, cp * 0.6);
         }
 
         // Ganz sporadisch eine freie Entladung (ca. 10% Chance pro Frame bei hoher Charge)
         if (Math.random() < cp * 0.1) {
-            var angle = Math.random() * Math.PI * 2;
-            var dist = br + 5;
-            var len = 10 + Math.random() * cp * 25;
+            let angle = Math.random() * Math.PI * 2;
+            let dist = br + 5;
+            let len = 10 + Math.random() * cp * 25;
             drawLightningBolt(
                 bx + Math.cos(angle) * dist, by + Math.sin(angle) * dist,
                 bx + Math.cos(angle) * (dist + len), by + Math.sin(angle) * (dist + len),
@@ -1278,17 +1583,17 @@
 
     function drawFloatingTexts(dt) {
         if (!revealed) return;
-        for (var i = floatingTexts.length - 1; i >= 0; i--) {
-            var ft = floatingTexts[i];
+        for (let i = floatingTexts.length - 1; i >= 0; i--) {
+            let ft = floatingTexts[i];
             ft.life -= dt;
             if (ft.life <= 0) { floatingTexts.splice(i, 1); continue; }
 
-            var t = 1 - ft.life / ft.maxLife;
+            let t = 1 - ft.life / ft.maxLife;
             // Langsamer Ease-Out, bleibt länger sichtbar
-            var ease = 1 - Math.pow(1 - t, 2);
+            let ease = 1 - Math.pow(1 - t, 2);
             // Erst in der letzten 40% ausfaden
-            var alpha = t < 0.6 ? 1 : 1 - ((t - 0.6) / 0.4);
-            var yOff, font;
+            let alpha = t < 0.6 ? 1 : 1 - ((t - 0.6) / 0.4);
+            let yOff, font;
 
             if (ft.big) {
                 yOff = ease * -20;
@@ -1304,7 +1609,7 @@
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
 
-            var x = ft.x, y = ft.y + yOff;
+            let x = ft.x, y = ft.y + yOff;
 
             // Outline für Kontrast auf hellem Hintergrund
             if (ft.stroke) {
@@ -1321,8 +1626,8 @@
     }
 
     function drawParticles(dt) {
-        for (var i = particles.length - 1; i >= 0; i--) {
-            var p = particles[i];
+        for (let i = particles.length - 1; i >= 0; i--) {
+            let p = particles[i];
             p.life -= dt;
             if (p.life <= 0) { particles.splice(i, 1); continue; }
 
@@ -1333,9 +1638,9 @@
             p.vy *= 0.98;
             p.rot += 0.1;
 
-            var t = 1 - p.life / p.maxLife;
-            var alpha = t < 0.5 ? 1 : 1 - (t - 0.5) / 0.5;
-            var size = p.size * (1 - t * 0.6);
+            let t = 1 - p.life / p.maxLife;
+            let alpha = t < 0.5 ? 1 : 1 - (t - 0.5) / 0.5;
+            let size = p.size * (1 - t * 0.6);
 
             ctx.save();
             ctx.globalAlpha = alpha;
@@ -1357,7 +1662,7 @@
         scorePanel.id = 'kt-ball-score';
         document.body.appendChild(scorePanel);
 
-        var s = scorePanel.style;
+        let s = scorePanel.style;
         s.cssText = 'position:fixed;bottom:20px;right:20px;z-index:10000;' +
             'background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);' +
             'color:#fff;font:13px/1.6 sans-serif;padding:10px 14px;' +
@@ -1379,15 +1684,15 @@
         updateScorePanel();
     }
 
-    function renderScoreTable(title, rows, myName) {
-        var html = '<div style="font-size:11px;font-weight:bold;margin-bottom:2px;opacity:0.7;text-transform:uppercase;letter-spacing:1px">' + title + '</div>';
+    function renderScoreTable(title, rows) {
+        let html = '<div style="font-size:11px;font-weight:bold;margin-bottom:2px;opacity:0.7;text-transform:uppercase;letter-spacing:1px">' + title + '</div>';
         if (!rows || rows.length === 0) {
             html += '<div style="opacity:0.5;font-size:12px">Noch keine Scores</div>';
             return html;
         }
-        for (var i = 0; i < rows.length; i++) {
-            var e = rows[i];
-            var style = 'white-space:nowrap';
+        for (let i = 0; i < rows.length; i++) {
+            let e = rows[i];
+            let style = 'white-space:nowrap';
             if (e._current) style += ';color:#FFD700';
             html += '<div style="' + style + '">' +
                 '<span style="display:inline-block;min-width:28px;text-align:right;font-weight:bold;margin-right:6px">' +
@@ -1398,8 +1703,8 @@
     }
 
     function injectCurrentScore(rows, myName, currentScore) {
-        var found = false;
-        for (var i = 0; i < rows.length; i++) {
+        let found = false;
+        for (let i = 0; i < rows.length; i++) {
             if (rows[i].name === myName) {
                 found = true;
                 rows[i]._current = true;
@@ -1417,7 +1722,7 @@
 
     function updateScorePanel() {
         if (!scorePanel) return;
-        var trid = kt.trid || 0, md = kt.md || 0;
+        let trid = kt.trid || 0, md = kt.md || 0;
         $j.ajax({
             url: 'php/GetGameScores.php',
             method: 'POST',
@@ -1425,14 +1730,14 @@
             dataType: 'json',
             success: function(res) {
                 if (!scorePanel || !res || !res.ok) return;
-                var myName = shortName(getFullName());
+                let myName = shortName(getFullName());
 
-                var alltime = injectCurrentScore(res.scores || [], myName, score);
-                var mdRows = injectCurrentScore(res.matchday || [], myName, score);
+                let alltime = injectCurrentScore(/** @type {Array} */(res['scores']) || [], myName, score);
+                let mdRows = injectCurrentScore(/** @type {Array} */(res['matchday']) || [], myName, score);
 
-                var html = renderScoreTable('Spieltag', mdRows, myName);
+                let html = renderScoreTable('Spieltag', mdRows);
                 html += '<div style="border-top:1px solid rgba(255,255,255,0.2);margin:6px 0"></div>';
-                html += renderScoreTable('All-Time', alltime, myName);
+                html += renderScoreTable('All-Time', alltime);
 
                 scorePanel.innerHTML = html;
             }
@@ -1457,7 +1762,7 @@
         if (!scorePanel) return;
         scorePanel.style.opacity = '0';
         scorePanel.style.transform = 'translateY(20px)';
-        var p = scorePanel;
+        let p = scorePanel;
         setTimeout(function () { if (p.parentNode) p.parentNode.removeChild(p); }, 500);
         scorePanel = null;
     }
@@ -1471,8 +1776,8 @@
 
     function saveScore() {
         if (score <= 0) return;
-        var trid = kt.trid || 0;
-        var md = kt.md || 0;
+        let trid = kt.trid || 0;
+        let md = kt.md || 0;
         $j.ajax({
             url: 'php/SaveGameScore.php',
             method: 'POST',
@@ -1490,7 +1795,7 @@
         // AudioContext bei erster Interaktion initialisieren (Browser-Policy)
         document.addEventListener('click', function () { if (soundEnabled) initAudio(); }, { once: true });
         document.addEventListener('mousemove', function (e) {
-            var now = performance.now(), dt = now - cursor.lt;
+            let now = performance.now(), dt = now - cursor.lt;
             if (dt > 0) {
                 cursor.vx = (e.clientX - cursor.lx) / dt * 16;
                 cursor.vy = (e.clientY - cursor.ly) / dt * 16;
@@ -1515,10 +1820,10 @@
     //  Zahlen-Jagd: Logik
     // ═══════════════════════════════════════════════════════════════
     function isOverviewEmpty() {
-        var cells = document.querySelectorAll(CFG.BLOCK_SEL);
+        let cells = document.querySelectorAll(CFG.BLOCK_SEL);
         if (cells.length === 0) return false;
-        for (var i = 0; i < cells.length; i++) {
-            var val = parseInt(cells[i].textContent);
+        for (let i = 0; i < cells.length; i++) {
+            let val = parseInt(cells[i].textContent);
             if (val >= 1) return false; // mindestens 1 Zelle hat Punkte → nicht leer
         }
         return true;
@@ -1527,7 +1832,7 @@
     function huntCheck() {
         if (hunt.active || hunt.ready || revealed) return;
         if (!isOverviewEmpty()) return;
-        var elapsed = performance.now() - hunt.firstTouchTime;
+        let elapsed = performance.now() - hunt.firstTouchTime;
         if (hunt.touchCount >= 5 && elapsed >= 7500) {
             hunt.ready = true;
             huntStart();
@@ -1546,11 +1851,11 @@
         if (hunt.timerEl) return;
         hunt.timerEl = document.createElement('div');
         hunt.timerEl.id = 'kt-hunt-timer';
-        var s = hunt.timerEl.style;
+        let s = hunt.timerEl.style;
         // Neben die Tabelle positionieren
-        var grid = document.querySelector('.ui-jqgrid');
-        var gridRect = grid ? grid.getBoundingClientRect() : null;
-        var rightPos = gridRect ? (window.innerWidth - gridRect.right - 20) : 12;
+        let grid = document.querySelector('.ui-jqgrid');
+        let gridRect = grid ? grid.getBoundingClientRect() : null;
+        let rightPos = gridRect ? (window.innerWidth - gridRect.right - 20) : 12;
         if (rightPos < 12) rightPos = 12;
         s.cssText = 'position:fixed;top:50%;right:' + rightPos + 'px;transform:translateY(-50%);z-index:10001;' +
             'text-align:center;pointer-events:none;opacity:0;transition:opacity 0.5s';
@@ -1574,8 +1879,8 @@
 
     function huntUpdateTimerDisplay() {
         if (!hunt.timerEl) return;
-        var best = huntGetBest();
-        var timerColor, timerShadow;
+        let best = huntGetBest();
+        let timerColor, timerShadow;
         if (hunt.timer <= 10) {
             timerColor = '#e74c3c';
             timerShadow = '0 0 12px rgba(231,76,60,0.6)';
@@ -1592,7 +1897,7 @@
             (best > 0 ? '<div style="font-size:11px;color:#aaa;margin-top:2px">Rekord: ' + best + '</div>' : '');
     }
 
-    var _huntBestCache = 0;
+    let _huntBestCache = 0;
 
     function huntGetBest() {
         return _huntBestCache;
@@ -1605,10 +1910,11 @@
             data: { game: 'hunt' },
             dataType: 'json',
             success: function(res) {
-                if (res && res.ok && res.scores) {
-                    var max = 0;
-                    for (var i = 0; i < res.scores.length; i++) {
-                        var r = parseInt(res.scores[i].best_round || 0);
+                if (res && res.ok && res['scores']) {
+                    let max = 0;
+                    let rows = /** @type {Array} */(res['scores']);
+                    for (let i = 0; i < rows.length; i++) {
+                        let r = parseInt(rows[i]['best_round'] || 0);
                         if (r > max) max = r;
                     }
                     _huntBestCache = max;
@@ -1630,41 +1936,41 @@
 
     function huntPlaceNumbers() {
         // Leere Pts1-Zellen sammeln
-        var cells = document.querySelectorAll(CFG.BLOCK_SEL);
-        var empty = [];
-        for (var i = 0; i < cells.length; i++) {
-            var el = cells[i];
-            var rect = el.getBoundingClientRect();
+        let cells = document.querySelectorAll(CFG.BLOCK_SEL);
+        let empty = [];
+        for (let i = 0; i < cells.length; i++) {
+            let el = cells[i];
+            let rect = el.getBoundingClientRect();
             if (rect.width < 4 || rect.height < 4) continue;
             if (el.classList.contains('kt-ball-burned')) continue;
             if (el.querySelector('.kt-hunt-num')) continue;
-            var val = parseInt(el.textContent);
+            let val = parseInt(el.textContent);
             if (val >= 1) continue;
             empty.push(el);
         }
         if (empty.length === 0) return;
 
         // Zellen nahe der Mitte bevorzugen
-        var viewCY = window.innerHeight / 2;
+        let viewCY = window.innerHeight / 2;
         empty.sort(function(a, b) {
-            var ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+            let ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
             return Math.abs(ra.top + ra.height/2 - viewCY) - Math.abs(rb.top + rb.height/2 - viewCY);
         });
 
         // Aus den mittleren 60% zufällig wählen
-        var pool = empty.slice(0, Math.max(Math.ceil(empty.length * 0.6), hunt.round));
+        let pool = empty.slice(0, Math.max(Math.ceil(empty.length * 0.6), hunt.round));
 
         // Bestehende Targets behalten, nur neue Zahlen hinzufügen
-        var existingNums = {};
-        for (var i = 0; i < hunt.targets.length; i++) {
+        let existingNums = {};
+        for (let i = 0; i < hunt.targets.length; i++) {
             existingNums[hunt.targets[i].num] = true;
         }
 
-        for (var n = 1; n <= hunt.round; n++) {
+        for (let n = 1; n <= hunt.round; n++) {
             if (existingNums[n]) continue; // Zahl existiert bereits
             if (pool.length === 0) break;
-            var idx = Math.floor(Math.random() * pool.length);
-            var cell = pool.splice(idx, 1)[0];
+            let idx = Math.floor(Math.random() * pool.length);
+            let cell = pool.splice(idx, 1)[0];
             huntInjectNumber(cell, n);
         }
     }
@@ -1672,7 +1978,7 @@
     function huntInjectNumber(cell, num) {
         // Zelle leeren und Zahl einsetzen
         cell.textContent = '';
-        var span = document.createElement('span');
+        let span = document.createElement('span');
         span.className = 'kt-hunt-num';
         span.textContent = num;
         span.style.cssText = 'font-weight:900;font-size:1.4em;color:#c0392b;' +
@@ -1683,15 +1989,15 @@
 
     function huntCollideBall() {
         if (!hunt.active || !ball) return;
-        for (var i = hunt.targets.length - 1; i >= 0; i--) {
-            var t = hunt.targets[i];
-            var rect = t.el.getBoundingClientRect();
+        for (let i = hunt.targets.length - 1; i >= 0; i--) {
+            let t = hunt.targets[i];
+            let rect = t.el.getBoundingClientRect();
             if (rect.width < 4 || rect.height < 4) continue;
-            var col = circleRectCollision(ball.x, ball.y, chargeR(), rect);
+            let col = circleRectCollision(ball.x, ball.y, chargeR(), rect);
             if (col) {
                 // Finde die niedrigste Zahl die getroffen werden muss
-                var lowestNum = hunt.round;
-                for (var j = 0; j < hunt.targets.length; j++) {
+                let lowestNum = hunt.round;
+                for (let j = 0; j < hunt.targets.length; j++) {
                     if (hunt.targets[j].num < lowestNum) lowestNum = hunt.targets[j].num;
                 }
                 // Nur die richtige Zahl (die niedrigste) darf getroffen werden
@@ -1702,7 +2008,7 @@
 
                 resolveCollision(col);
                 // Treffer!
-                var cx = rect.left + rect.width/2, cy = rect.top + rect.height/2;
+                let cx = rect.left + rect.width/2, cy = rect.top + rect.height/2;
                 floatingTexts.push({
                     x: cx, y: cy,
                     text: '#' + t.num + '!',
@@ -1745,10 +2051,10 @@
     }
 
     function huntGameOver() {
-        var finalRound = hunt.round;
+        let finalRound = hunt.round;
         huntSaveScore();
-        var best = huntGetBest();
-        var msg = 'Zeit abgelaufen! Runde ' + finalRound;
+        let best = huntGetBest();
+        let msg = 'Zeit abgelaufen! Runde ' + finalRound;
         if (finalRound >= best && finalRound > 1) msg = 'Neuer Rekord! Runde ' + finalRound;
         floatingTexts.push({
             x: window.innerWidth / 2, y: window.innerHeight / 2,
@@ -1768,9 +2074,9 @@
         hunt.firstTouchTime = 0;
         if (hunt.intervalId) { clearInterval(hunt.intervalId); hunt.intervalId = null; }
         // Targets aus Zellen entfernen
-        for (var i = 0; i < hunt.targets.length; i++) {
-            var el = hunt.targets[i].el;
-            var numSpan = el.querySelector('.kt-hunt-num');
+        for (let i = 0; i < hunt.targets.length; i++) {
+            let el = hunt.targets[i].el;
+            let numSpan = el.querySelector('.kt-hunt-num');
             if (numSpan) numSpan.remove();
         }
         hunt.targets = [];
@@ -1778,7 +2084,7 @@
         // Timer-Element entfernen
         if (hunt.timerEl) {
             hunt.timerEl.style.opacity = '0';
-            var te = hunt.timerEl;
+            let te = hunt.timerEl;
             setTimeout(function() { if (te.parentNode) te.parentNode.removeChild(te); }, 500);
             hunt.timerEl = null;
         }
@@ -1787,23 +2093,26 @@
     // ═══════════════════════════════════════════════════════════════
     //  Game Loop
     // ═══════════════════════════════════════════════════════════════
-    var lastT = 0;
+    let lastT = 0;
     function loop(ts) {
         if (!active) return;
         ts = ts || performance.now();
-        var dt = ts - lastT;
+        let dt = ts - lastT;
         lastT = ts;
         if (dt > 50) dt = 16;
 
         pushBall();
         step();
+        stepSplitBalls(dt);
         huntCollideBall();
         level2CollideBall();
         decayCharge(dt);
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         if (charge > 0.5) drawElectricArcs();
+        drawGlowLines();
         drawParticles(dt);
+        drawSplitBalls();
         drawBall();
         drawCursorRing(dt);
         drawFloatingTexts(dt);
@@ -1821,17 +2130,16 @@
     register();
 
     function breakoutPage() {
-        var dark = (localStorage.getItem('kt_theme') || '') === 'premium';
-        var trid = kt.trid || 0;
+        let trid = kt.trid || 0;
 
         // Beide Ranglisten parallel vom Server laden
-        var breakoutDone = false, huntDone = false;
-        var breakoutRows = [], huntRows = [];
+        let breakoutDone = false, huntDone = false;
+        let breakoutRows = [], huntRows = [];
 
         function render() {
             if (!breakoutDone || !huntDone) return;
 
-            var html = '<div style="padding:16px 24px;max-width:600px">';
+            let html = '<div style="padding:16px 24px;max-width:600px">';
             html += '<h4 style="margin-bottom:12px">Breakout-Rangliste</h4>';
 
             if (breakoutRows.length === 0) {
@@ -1847,17 +2155,17 @@
                     '<th style="text-align:right">Bester</th>' +
                     '</tr></thead><tbody>';
 
-                for (var i = 0; i < breakoutRows.length; i++) {
-                    var r = breakoutRows[i];
-                    var medal = i === 0 ? ' style="font-weight:bold;color:#8b6914"' :
+                for (let i = 0; i < breakoutRows.length; i++) {
+                    let r = breakoutRows[i];
+                    let medal = i === 0 ? ' style="font-weight:bold;color:#8b6914"' :
                                 i === 1 ? ' style="color:#606060"' :
                                 i === 2 ? ' style="color:#7a4a2a"' : '';
                     html += '<tr' + medal + '>' +
                         '<td>' + (i + 1) + '</td>' +
                         '<td>' + r.name + '</td>' +
-                        '<td style="text-align:right;font-weight:bold">' + r.total + '</td>' +
-                        '<td style="text-align:right">' + r.matchdays + '</td>' +
-                        '<td style="text-align:right">' + r.best + '</td>' +
+                        '<td style="text-align:right;font-weight:bold">' + r['total'] + '</td>' +
+                        '<td style="text-align:right">' + r['matchdays'] + '</td>' +
+                        '<td style="text-align:right">' + r['best'] + '</td>' +
                         '</tr>';
                 }
                 html += '</tbody></table>';
@@ -1871,15 +2179,15 @@
                     '<th>Spieler</th>' +
                     '<th style="text-align:right">Beste Runde</th>' +
                     '</tr></thead><tbody>';
-                for (var h = 0; h < huntRows.length; h++) {
-                    var hr = huntRows[h];
-                    var hmedal = h === 0 ? ' style="font-weight:bold;color:#8b6914"' :
+                for (let h = 0; h < huntRows.length; h++) {
+                    let hr = huntRows[h];
+                    let hmedal = h === 0 ? ' style="font-weight:bold;color:#8b6914"' :
                                  h === 1 ? ' style="color:#606060"' :
                                  h === 2 ? ' style="color:#7a4a2a"' : '';
                     html += '<tr' + hmedal + '>' +
                         '<td>' + (h + 1) + '</td>' +
                         '<td>' + hr.name + '</td>' +
-                        '<td style="text-align:right;font-weight:bold">' + hr.best_round + '</td>' +
+                        '<td style="text-align:right;font-weight:bold">' + hr['best_round'] + '</td>' +
                         '</tr>';
                 }
                 html += '</tbody></table>';
@@ -1893,7 +2201,7 @@
             url: 'php/GetGameScores.php', method: 'POST',
             data: { game: 'breakout', trid: trid }, dataType: 'json',
             success: function(res) {
-                if (res && res.ok) breakoutRows = res.scores || [];
+                if (res && res.ok) breakoutRows = res['scores'] || [];
                 breakoutDone = true; render();
             },
             error: function() { breakoutDone = true; render(); }
@@ -1903,7 +2211,7 @@
             url: 'php/GetGameScores.php', method: 'POST',
             data: { game: 'hunt' }, dataType: 'json',
             success: function(res) {
-                if (res && res.ok) huntRows = res.scores || [];
+                if (res && res.ok) huntRows = res['scores'] || [];
                 huntDone = true; render();
             },
             error: function() { huntDone = true; render(); }
@@ -1913,4 +2221,4 @@
         setContent('<div style="padding:16px 24px"><p style="opacity:0.6">Lade Rangliste...</p></div>');
     }
 
-}(window.kt = window.kt || {}, jQuery));
+}(window.kt = window.kt || {}, jQuery)); // eslint-disable-line no-undef

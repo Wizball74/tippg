@@ -3270,6 +3270,7 @@ class KT
 	function GetPinnwand()
 	{
 		$sql = sprintf("SELECT p.id, p.tnid, p.nick, p.`text`, p.image, p.sticky,
+				p.pos_x, p.pos_y, p.rotation, p.color, p.card_style,
 				DATE_FORMAT(p.created, '%%d.%%m.%%Y %%H:%%i') AS created_fmt
 				FROM %s p
 				ORDER BY p.sticky DESC, p.created DESC
@@ -3286,12 +3287,15 @@ class KT
 		));
 	}
 
-	function SavePinnwandPost($text)
+	function SavePinnwandPost($text, $color = '#fff9c4')
 	{
 		if (empty($text)) {
 			$this->jsonout(array('ok' => false, 'message' => 'Text darf nicht leer sein.'));
 			return;
 		}
+
+		$allowedColors = ['#fff9c4','#c8e6c9','#bbdefb','#f8bbd0','#e1bee7','#ffe0b2'];
+		if (!in_array($color, $allowedColors)) $color = '#fff9c4';
 
 		// Bild verarbeiten (falls in Session zwischengespeichert)
 		$image = null;
@@ -3303,9 +3307,9 @@ class KT
 		$nick = $this->user['name'];
 		$tnid = $this->user['tnid'];
 
-		$sql = sprintf("INSERT INTO %s (tnid, nick, `text`, image) VALUES (?, ?, ?, ?)", $this->TABLE['pinnwand']);
+		$sql = sprintf("INSERT INTO %s (tnid, nick, `text`, image, color) VALUES (?, ?, ?, ?, ?)", $this->TABLE['pinnwand']);
 		$image = $image ?: '';
-		$this->db->prepareExecute($sql, 'isss', [$tnid, $nick, $text, $image]);
+		$this->db->prepareExecute($sql, 'issss', [$tnid, $nick, $text, $image, $color]);
 
 		$this->GetPinnwand();
 	}
@@ -3361,6 +3365,66 @@ class KT
 		$this->db->prepareExecute($sql, 'i', [$id]);
 
 		$this->GetPinnwand();
+	}
+
+	function SavePinnwandPosition($id, $posX, $posY, $rotation)
+	{
+		if ($id <= 0) {
+			$this->jsonout(array('ok' => false, 'message' => 'Ungueltige ID.'));
+			return;
+		}
+
+		$sql = sprintf("SELECT tnid FROM %s WHERE id = ?", $this->TABLE['pinnwand']);
+		$result = $this->db->prepare($sql, 'i', [$id]);
+		$row = $result ? $result->fetch_assoc() : null;
+
+		if (!$row) {
+			$this->jsonout(array('ok' => false, 'message' => 'Post nicht gefunden.'));
+			return;
+		}
+
+		if ($row['tnid'] != $this->user['tnid']) {
+			$this->jsonout(array('ok' => false, 'message' => 'Nur eigene Karten verschieben.'));
+			return;
+		}
+
+		$sql = sprintf("UPDATE %s SET pos_x = ?, pos_y = ?, rotation = ? WHERE id = ?", $this->TABLE['pinnwand']);
+		$this->db->prepareExecute($sql, 'dddi', [$posX, $posY, $rotation, $id]);
+
+		$this->jsonout(array('ok' => true));
+	}
+
+	function SavePinnwandStyle($id, $style)
+	{
+		$allowed = ['','polaroid','vintage','neon','doodle','frame','dark','glass','wobble','elegant','retro','tape','shadow'];
+		if (!in_array($style, $allowed)) {
+			$this->jsonout(array('ok' => false, 'message' => 'Ungueltiger Stil.'));
+			return;
+		}
+
+		if ($id <= 0) {
+			$this->jsonout(array('ok' => false, 'message' => 'Ungueltige ID.'));
+			return;
+		}
+
+		$sql = sprintf("SELECT tnid FROM %s WHERE id = ?", $this->TABLE['pinnwand']);
+		$result = $this->db->prepare($sql, 'i', [$id]);
+		$row = $result ? $result->fetch_assoc() : null;
+
+		if (!$row) {
+			$this->jsonout(array('ok' => false, 'message' => 'Post nicht gefunden.'));
+			return;
+		}
+
+		if ($row['tnid'] != $this->user['tnid']) {
+			$this->jsonout(array('ok' => false, 'message' => 'Nur eigene Karten stylen.'));
+			return;
+		}
+
+		$sql = sprintf("UPDATE %s SET card_style = ? WHERE id = ?", $this->TABLE['pinnwand']);
+		$this->db->prepareExecute($sql, 'si', [$style, $id]);
+
+		$this->jsonout(array('ok' => true));
 	}
 
 	function UploadPinnwandImage()

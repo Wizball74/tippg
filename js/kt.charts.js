@@ -620,6 +620,13 @@
                 }
             }, 200);
         })();
+
+        // Bei Resize neu zeichnen (oder ausblenden wenn gestapelt)
+        var resizeTimer;
+        $j(window).on('resize.tabellenLinks', function() {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(drawTabellenLinks, 300);
+        });
     };
 
     function drawTabellenLinks() {
@@ -628,6 +635,19 @@
         var container = svg.parentElement;
         if (!container) return;
         container.style.position = 'relative';
+
+        // Nur zeichnen wenn beide Tabellen nebeneinander stehen
+        var leftGrid = $j('#gridTippTabelle').closest('.ui-jqgrid')[0];
+        var rightGrid = $j('#gridTabelle').closest('.ui-jqgrid')[0];
+        if (leftGrid && rightGrid) {
+            var lgRect = leftGrid.getBoundingClientRect();
+            var rgRect = rightGrid.getBoundingClientRect();
+            // Tabellen untereinander? → keine Linien
+            if (rgRect.top >= lgRect.bottom - 5) {
+                svg.innerHTML = '';
+                return;
+            }
+        }
 
         // Team-Positionen aus beiden Grids auslesen
         var leftTeams = {}, rightTeams = {};
