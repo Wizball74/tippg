@@ -67,7 +67,7 @@
         if (charge >= CHARGE_MAX && ball && performance.now() - lastSplitTime > SPLIT_COOLDOWN) {
             splitBall();
             lastSplitTime = performance.now();
-            chargeLastHit = performance.now();
+            charge = 0; // Charge verbraucht → Gravity/Radius sofort zurück
         }
     }
 
@@ -81,6 +81,7 @@
             y: ball.y,
             vx: Math.cos(angle) * 6 + ball.vx * 0.5,
             vy: -Math.abs(Math.sin(angle) * 6) - 3,
+            lastKick: performance.now(),
             r: splitR,
             life: SPLIT_LIFETIME,
             maxLife: SPLIT_LIFETIME,
@@ -124,6 +125,23 @@
             if (sb.popping) {
                 sb.life -= dt;
                 if (sb.life <= 0) { splitBalls.splice(i, 1); continue; }
+            } else if (performance.now() - sb.lastKick > 20000) {
+                // 20s nicht gekickt → auflösen
+                sb.popping = true;
+                sb.life = 500;
+                for (let p = 0; p < 10; p++) {
+                    let pa = Math.random() * Math.PI * 2;
+                    particles.push({
+                        x: sb.x, y: sb.y,
+                        vx: Math.cos(pa) * (1 + Math.random() * 2),
+                        vy: Math.sin(pa) * (1 + Math.random() * 2),
+                        life: 500 + Math.random() * 300,
+                        maxLife: 500 + Math.random() * 300,
+                        size: 2 + Math.random() * 2,
+                        color: ['#e8a020','#ffe0a0','#b07010'][Math.floor(Math.random() * 3)]
+                    });
+                }
+                if (soundEnabled) playPling(1);
             }
 
             // Physics
@@ -1304,6 +1322,7 @@
             let sb = splitBalls[i];
             let sbSpd = pushOneBall(sb, sb.r);
             if (sbSpd) {
+                sb.lastKick = performance.now();
                 cursorFlash = 1;
                 if (soundEnabled) playKick(Math.min(sbSpd / 25, 1));
             }
