@@ -455,7 +455,7 @@
                     sel.data("data", d);
                     sel.html(items.join(''));
 
-                    if (!kt.trid && data.Rows[0]) {
+                    if ((!kt.trid || !d[kt.trid]) && data.Rows[0]) {
                         kt.trid = data.Rows[0].trid;
                         kt.md = data.Rows[0].curmd;
                     }
@@ -490,7 +490,8 @@
                     });
                     sel.data("data", d);
                     sel.html(items.join(''));
-                    if (!kt.md) kt.md = kt.curmd;
+                    if (!kt.md || !d[kt.md]) kt.md = kt.curmd;
+                    if (!kt.md && data.Rows.length) kt.md = data.Rows[0].sptag;
                     if (data.Rows.length) kt.maxmd = data.Rows[data.Rows.length - 1].sptag;
                     sel.val(kt.md);
                 }

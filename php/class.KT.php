@@ -3174,6 +3174,8 @@ class KT
 		$score = intval($_POST['score'] ?? 0);
 		$trid  = intval($_POST['trid'] ?? 0);
 		$md    = intval($_POST['md'] ?? 0);
+		$kicks  = intval($_POST['kicks'] ?? 0);
+		$clones = intval($_POST['clones'] ?? 0);
 
 		if (!in_array($game, ['breakout', 'hunt'])) {
 			$this->jsonResult2(false, Status::Error, 'Ungültiges Spiel.'); return;
@@ -3193,16 +3195,31 @@ class KT
 
 		if (empty($existing)) {
 			// Neuer Eintrag
-			$this->db->prepareExecute(
-				"INSERT INTO $table (tnid, game, trid, md, score) VALUES (?, ?, ?, ?, ?)",
-				'isiii', [$tnid, $game, $trid, $md, $score]
-			);
+			try {
+				$this->db->prepareExecute(
+					"INSERT INTO $table (tnid, game, trid, md, score, kicks, clones) VALUES (?, ?, ?, ?, ?, ?, ?)",
+					'isiiii' . 'i', [$tnid, $game, $trid, $md, $score, $kicks, $clones]
+				);
+			} catch (\Exception $e) {
+				// Fallback ohne neue Spalten
+				$this->db->prepareExecute(
+					"INSERT INTO $table (tnid, game, trid, md, score) VALUES (?, ?, ?, ?, ?)",
+					'isiii', [$tnid, $game, $trid, $md, $score]
+				);
+			}
 		} elseif ($score > intval($existing[0]['score'])) {
 			// Nur updaten wenn neuer Score höher
-			$this->db->prepareExecute(
-				"UPDATE $table SET score = ? WHERE tnid = ? AND game = ? AND trid = ? AND md = ?",
-				'iisii', [$score, $tnid, $game, $trid, $md]
-			);
+			try {
+				$this->db->prepareExecute(
+					"UPDATE $table SET score = ?, kicks = ?, clones = ? WHERE tnid = ? AND game = ? AND trid = ? AND md = ?",
+					'iiiisii', [$score, $kicks, $clones, $tnid, $game, $trid, $md]
+				);
+			} catch (\Exception $e) {
+				$this->db->prepareExecute(
+					"UPDATE $table SET score = ? WHERE tnid = ? AND game = ? AND trid = ? AND md = ?",
+					'iisii', [$score, $tnid, $game, $trid, $md]
+				);
+			}
 		}
 
 		$this->jsonout(array('ok' => true));
@@ -3218,7 +3235,8 @@ class KT
 
 		if ($game === 'breakout') {
 			// All-Time: Gesamtscore über alle Spieltage
-			$sql = "SELECT t.name, SUM(g.score) AS total, COUNT(g.score) AS matchdays, MAX(g.score) AS best
+			$sql = "SELECT t.name, SUM(g.score) AS total, COUNT(g.score) AS matchdays, MAX(g.score) AS best,
+			               SUM(g.kicks) AS total_kicks, SUM(g.clones) AS total_clones
 			        FROM $table g
 			        JOIN $tnTable t ON t.tnid = g.tnid
 			        WHERE g.game = 'breakout' AND g.trid = ? AND g.md > 0

@@ -12,8 +12,8 @@
 
     const CFG = {
         R:          10,       // Ball-Radius
-        GRAVITY:    0.18,     // Schwerkraft pro Frame
-        BOUNCE:     0.75,     // Rückprall-Faktor
+        GRAVITY:    0.16,     // Schwerkraft pro Frame
+        BOUNCE:     0.68,     // Rückprall-Faktor
         FRICTION:   0.997,    // Luftwiderstand (multipliziert pro Frame)
         CURSOR_R:   28,       // Cursor-Kollisionsradius (Schuh-Trefferfläche)
         MAX_V:      15,       // Maximalgeschwindigkeit
@@ -40,6 +40,16 @@
     let soundEnabled = localStorage.getItem('kt_sound') !== 'off';
     let currentLevel = 1;  // 1 = Breakout, 2 = fliegende 5er, 3 = 2er/3er + Fallen
 
+    // Statistik-Tracking pro Durchgang
+    let stats = { l1: 0, l2: 0, l3: 0, l4: 0, kicks: 0, splits: [], skullHits: 0, startTime: 0 };
+    function resetStats() {
+        stats = { l1: 0, l2: 0, l3: 0, l4: 0, kicks: 0, splits: [], skullHits: 0, startTime: performance.now() };
+    }
+    function trackScore(pts) {
+        let key = 'l' + currentLevel;
+        if (stats[key] !== undefined) stats[key] += pts;
+    }
+
     // ═══════════════════════════════════════════════════════════════
     //  Boost-System: Punkte laden den Ball auf
     // ═══════════════════════════════════════════════════════════════
@@ -47,12 +57,15 @@
     let chargeLastHit = 0;       // Zeitpunkt des letzten Punkt-Treffers
     const CHARGE_HOLD = 1500;      // ms bevor Abbau startet
     const CHARGE_DECAY = 3;        // Abbau pro Sekunde
-    const CHARGE_MAX = 20;         // Deckel → dann Split!
+    const CHARGE_MAX = 40;         // Deckel → dann Split!
 
     function chargePct() { return Math.min(charge / CHARGE_MAX, 1); }
     function chargeR()   { return CFG.R * (1 + chargePct() * 0.5); }        // bis 50% größer (10→15)
     function chargeBounce() { return CFG.BOUNCE * (1 + chargePct() * 0.4); } // bis 40% mehr Bounce
-    function chargeGravity() { return Math.max(0.08, CFG.GRAVITY * (1 - chargePct() * 0.45)); } // bis 45% weniger, min 0.08
+    function chargeGravity() {
+        let g = level4.active ? level4.gravity : CFG.GRAVITY;
+        return Math.max(0.08, g * (1 - chargePct() * 0.45));
+    }
 
     // Split-Bälle: kleine Klone die nach dem Charge-Max spawnen
     let splitBalls = [];
@@ -60,43 +73,68 @@
     let lastSplitTime = 0;
     const SPLIT_COOLDOWN = 1000; // ms bevor nächster Split möglich
 
-    function addCharge(pts) {
+    // Ball-Skins: jede Farbe hat eigene Physik-Persönlichkeit
+    const BALL_SKINS = [
+        { name: 'Standard', grad: ['#fff','#ffe0a0','#e8a020','#b07010'], pent: 'rgba(80,40,0,0.45)', stroke: '#a06010',
+          gravity: 0.16, bounce: 0.75, friction: 0.997 },
+        { name: 'Panzer',   grad: ['#fff','#ffc0c0','#e04040','#901010'], pent: 'rgba(60,0,0,0.45)',   stroke: '#901010',
+          gravity: 0.22, bounce: 0.6,  friction: 0.999 },   // schwer, rollt weit
+        { name: 'Feder',    grad: ['#fff','#c0e0ff','#4080e0','#103090'], pent: 'rgba(0,0,60,0.45)',   stroke: '#103090',
+          gravity: 0.10, bounce: 0.7,  friction: 0.993 },   // leicht, schwebt länger
+        { name: 'Kleber',   grad: ['#fff','#c0ffc0','#40c040','#108010'], pent: 'rgba(0,50,0,0.45)',   stroke: '#108010',
+          gravity: 0.17, bounce: 0.45, friction: 0.990 },   // bleibt liegen, kaum Bounce
+        { name: 'Geist',    grad: ['#fff','#e0c0ff','#a040e0','#501090'], pent: 'rgba(40,0,60,0.45)',  stroke: '#501090',
+          gravity: 0.12, bounce: 0.80, friction: 0.999 },   // gleitet, wenig Reibung
+        { name: 'Rakete',   grad: ['#fff','#ffe0c0','#e08020','#904010'], pent: 'rgba(60,30,0,0.45)',  stroke: '#904010',
+          gravity: 0.19, bounce: 0.85, friction: 0.998 },   // schnell, springt gut
+        { name: 'Flummi',   grad: ['#fff','#ffffc0','#e0e020','#909010'], pent: 'rgba(50,50,0,0.45)',  stroke: '#808010',
+          gravity: 0.14, bounce: 0.95, friction: 0.996 },   // extrem bouncy!
+        { name: 'Eis',      grad: ['#fff','#c0ffff','#40c0c0','#108080'], pent: 'rgba(0,50,50,0.45)',  stroke: '#108080',
+          gravity: 0.16, bounce: 0.70, friction: 0.9995 },  // gleitet ewig, kaum Bremse
+    ];
+
+    function addCharge(pts, sourceBall) {
         charge = Math.min(charge + pts, CHARGE_MAX);
         chargeLastHit = performance.now();
 
         // Charge voll → SPLIT! (mit Cooldown)
-        if (charge >= CHARGE_MAX && ball && performance.now() - lastSplitTime > SPLIT_COOLDOWN) {
-            splitBall();
-            lastSplitTime = performance.now();
-            charge = 0; // Charge verbraucht → Gravity/Radius sofort zurück
+        if (charge >= CHARGE_MAX && performance.now() - lastSplitTime > SPLIT_COOLDOWN) {
+            let src = sourceBall || ball;
+            if (src) {
+                splitBall(src);
+                lastSplitTime = performance.now();
+                charge = 0;
+            }
         }
     }
 
-    function splitBall() {
-        if (!ball) return;
-        let splitR = chargeR() * 0.85; // 85% der aktuellen Größe
+    function splitBall(src) {
+        if (!src) return;
+        let splitR = (src === ball ? chargeR() : src.r) * 0.85;
         let angle = (Math.random() > 0.5 ? 1 : -1) * Math.PI / 4;
 
         splitBalls.push({
-            x: ball.x,
-            y: ball.y,
-            vx: Math.cos(angle) * 6 + ball.vx * 0.5,
+            x: src.x,
+            y: src.y,
+            vx: Math.cos(angle) * 6 + src.vx * 0.5,
             vy: -Math.abs(Math.sin(angle) * 6) - 3,
             lastKick: performance.now(),
             r: splitR,
             life: SPLIT_LIFETIME,
             maxLife: SPLIT_LIFETIME,
-            quat: ball.quat.slice(),
-            wx: ball.wx, wz: ball.wz
+            quat: src.quat ? src.quat.slice() : (ball ? ball.quat.slice() : [1,0,0,0]),
+            wx: src.wx || 0, wz: src.wz || 0,
+            skin: BALL_SKINS[Math.floor(Math.random() * BALL_SKINS.length)]
         });
+        stats.splits.push(splitBalls[splitBalls.length - 1].skin.name);
 
-        // Hauptball Gegenimpuls
-        ball.vx -= Math.cos(angle) * 3;
-        ball.vy -= 3;
+        // Quellball Gegenimpuls
+        src.vx -= Math.cos(angle) * 3;
+        src.vy -= 3;
 
         // Visuelles Feedback
         floatingTexts.push({
-            x: ball.x, y: ball.y - 20,
+            x: src.x, y: src.y - 20,
             text: 'SPLIT!',
             life: 2000, maxLife: 2000,
             color: '#FF4136', stroke: '#7b1f1f', big: true
@@ -106,7 +144,7 @@
         for (let p = 0; p < 20; p++) {
             let pa = Math.random() * Math.PI * 2;
             particles.push({
-                x: ball.x, y: ball.y,
+                x: src.x, y: src.y,
                 vx: Math.cos(pa) * (1 + Math.random() * 3),
                 vy: Math.sin(pa) * (1 + Math.random() * 3),
                 life: 800 + Math.random() * 600,
@@ -116,7 +154,7 @@
             });
         }
 
-        if (soundEnabled) playPling(3);
+        if (soundEnabled) playSplit();
     }
 
     function stepSplitBalls(dt) {
@@ -145,17 +183,21 @@
                 if (soundEnabled) playPling(1);
             }
 
-            // Physics
-            sb.vy += CFG.GRAVITY;
+            // Physics (jeder Ball hat eigene Werte aus seinem Skin)
+            let sk = sb.skin || BALL_SKINS[0];
+            let sbGrav = level4.active ? level4.gravity : sk.gravity;
+            let sbBounce = sk.bounce;
+            let sbFriction = sk.friction;
+            sb.vy += sbGrav;
             sb.x += sb.vx;
             sb.y += sb.vy;
-            sb.vx *= CFG.FRICTION;
-            sb.vy *= CFG.FRICTION;
+            sb.vx *= sbFriction;
+            sb.vy *= sbFriction;
 
             // Wände
-            if (sb.x - sb.r < 0) { sb.x = sb.r; sb.vx = Math.abs(sb.vx) * CFG.BOUNCE; }
-            if (sb.x + sb.r > w) { sb.x = w - sb.r; sb.vx = -Math.abs(sb.vx) * CFG.BOUNCE; }
-            if (sb.y + sb.r > h) { sb.y = h - sb.r; sb.vy = -Math.abs(sb.vy) * CFG.BOUNCE; sb.vx *= 0.95; }
+            if (sb.x - sb.r < 0) { sb.x = sb.r; sb.vx = Math.abs(sb.vx) * sbBounce; }
+            if (sb.x + sb.r > w) { sb.x = w - sb.r; sb.vx = -Math.abs(sb.vx) * sbBounce; }
+            if (sb.y + sb.r > h) { sb.y = h - sb.r; sb.vy = -Math.abs(sb.vy) * sbBounce; sb.vx *= 0.95; }
 
             // Plattformen
             let platforms = collectPlatforms();
@@ -185,7 +227,7 @@
                     sb.y += bCol.ny * bCol.overlap * 1.01;
                     let bDot = sb.vx * bCol.nx + sb.vy * bCol.ny;
                     if (bDot < 0) { sb.vx -= (1 + CFG.BOUNCE) * bDot * bCol.nx; sb.vy -= (1 + CFG.BOUNCE) * bDot * bCol.ny; }
-                    destroyBlock(el, val, cr);
+                    destroyBlock(el, val, cr, sb);
                     break;
                 }
             }
@@ -208,8 +250,8 @@
 
                         let sPts = spr.value;
                         if (soundEnabled) playPling(sPts);
-                        score += sPts;
-                        addCharge(sPts);
+                        score += sPts; trackScore(sPts);
+                        addCharge(sPts, sb);
                         saveScore();
                         updateScorePanel();
 
@@ -260,24 +302,35 @@
                         if (sDot < 0) { sb.vx -= (1 + CFG.BOUNCE) * sDot * snx; sb.vy -= (1 + CFG.BOUNCE) * sDot * sny; }
 
                         if (spr.trap) {
-                            let penalty = Math.min(L3_PENALTY, score);
-                            score -= penalty;
-                            updateScorePanel();
-                            floatingTexts.push({ x: spr.x, y: spr.y - 10, text: penalty > 0 ? '-' + penalty : 'TRAP!', life: 2500, maxLife: 2500, color: L3_TRAP_COLOR, stroke: L3_TRAP_STROKE, big: true });
+                            // Skull: 3 positive Sprites verpuffen lassen
+                            if (soundEnabled) playSkull(); stats.skullHits++;
+                            floatingTexts.push({ x: spr.x, y: spr.y - 10, text: 'PUFF!', life: 2500, maxLife: 2500, color: L3_TRAP_COLOR, stroke: L3_TRAP_STROKE, big: true });
                             for (let sp = 0; sp < 16; sp++) { let spa = Math.random() * Math.PI * 2; particles.push({ x: spr.x, y: spr.y, vx: Math.cos(spa) * (2 + Math.random() * 3), vy: Math.sin(spa) * (2 + Math.random() * 3), life: 700 + Math.random() * 400, maxLife: 700 + Math.random() * 400, size: 2 + Math.random() * 3, color: L3_TRAP_COLOR }); }
+                            level3.sprites.splice(si, 1);
+                            let dest = 0;
+                            for (let dd = level3.sprites.length - 1; dd >= 0 && dest < 3; dd--) {
+                                if (!level3.sprites[dd].trap) {
+                                    let ds = level3.sprites[dd];
+                                    floatingTexts.push({ x: ds.x, y: ds.y - 10, text: 'PUFF!', life: 1500, maxLife: 1500, color: '#999', stroke: '#444' }); if (soundEnabled) playPuff();
+                                    for (let dp = 0; dp < 10; dp++) { let dpa = Math.random() * Math.PI * 2; particles.push({ x: ds.x, y: ds.y, vx: Math.cos(dpa) * 2, vy: Math.sin(dpa) * 2, life: 500, maxLife: 500, size: 2, color: '#999' }); }
+                                    level3.sprites.splice(dd, 1);
+                                    level3.goodCount--;
+                                    dest++;
+                                }
+                            }
                         } else {
                             let sPts = spr.value;
                             if (soundEnabled) playPling(sPts);
-                            score += sPts;
-                            addCharge(sPts);
+                            score += sPts; trackScore(sPts);
+                            addCharge(sPts, sb);
                             saveScore();
                             updateScorePanel();
                             floatingTexts.push({ x: spr.x, y: spr.y - 10, text: '+' + sPts, life: 2200, maxLife: 2200, color: L2_COLORS[sPts] || '#2ECC40', stroke: L2_STROKES[sPts] || '#145a1e' });
                             for (let sp = 0; sp < 12; sp++) { let spa = Math.random() * Math.PI * 2; particles.push({ x: spr.x, y: spr.y, vx: Math.cos(spa) * (1 + Math.random() * 2.5), vy: Math.sin(spa) * (1 + Math.random() * 2.5), life: 500 + Math.random() * 300, maxLife: 500 + Math.random() * 300, size: 2 + Math.random() * 2, color: L2_COLORS[sPts] || '#2ECC40' }); }
                             level3.goodCount--;
+                            level3.sprites.splice(si, 1);
                         }
-                        level3.sprites.splice(si, 1);
-                        if (!spr.trap && level3.goodCount <= 0) {
+                        if (level3.goodCount <= 0) {
                             level3.active = false;
                             level3.sprites = [];
                             level2RestoreGrid();
@@ -306,6 +359,7 @@
     function drawSplitBalls() {
         for (let i = 0; i < splitBalls.length; i++) {
             let sb = splitBalls[i];
+            let skin = sb.skin || BALL_SKINS[0];
             let fadeAlpha = sb.popping ? Math.min(sb.life / 500, 1) : 1;
 
             ctx.save();
@@ -318,21 +372,21 @@
             if (q[3] < 0) angle = -angle;
             ctx.rotate(angle);
 
-            // Ball zeichnen — orange/gold Variante
+            // Ball zeichnen mit Skin
             ctx.beginPath();
             ctx.arc(0, 0, sb.r, 0, Math.PI * 2);
             ctx.clip();
 
             let g = ctx.createRadialGradient(-sb.r * 0.3, -sb.r * 0.3, sb.r * 0.1, 0, 0, sb.r);
-            g.addColorStop(0, '#fff');
-            g.addColorStop(0.25, '#ffe0a0');
-            g.addColorStop(0.6, '#e8a020');
-            g.addColorStop(1, '#b07010');
+            g.addColorStop(0, skin.grad[0]);
+            g.addColorStop(0.25, skin.grad[1]);
+            g.addColorStop(0.6, skin.grad[2]);
+            g.addColorStop(1, skin.grad[3]);
             ctx.fillStyle = g;
             ctx.fill();
 
-            // Pentagon-Muster (dunkler auf Gold)
-            ctx.fillStyle = 'rgba(80,40,0,0.45)';
+            // Pentagon-Muster
+            ctx.fillStyle = skin.pent;
             let pr = sb.r * 0.35;
             ctx.beginPath();
             for (let p = 0; p < 5; p++) {
@@ -347,7 +401,7 @@
             // Umriss
             ctx.save();
             ctx.globalAlpha = fadeAlpha;
-            ctx.strokeStyle = '#a06010';
+            ctx.strokeStyle = skin.stroke;
             ctx.lineWidth = 0.7;
             ctx.beginPath();
             ctx.arc(sb.x, sb.y, sb.r, 0, Math.PI * 2);
@@ -387,77 +441,144 @@
         } catch (e) {}
     }
 
-    function playKick(intensity) {
-        if (intensity < 0.03) return;
+    // Hilfsfunktion: Oszillator + Gain erstellen und verbinden
+    function sndOsc(type, freq, freqEnd, vol, volEnd, start, dur) {
         if (!audioCtx) return;
+        let now = audioCtx.currentTime + (start || 0);
+        let o = audioCtx.createOscillator();
+        let g = audioCtx.createGain();
+        o.type = type;
+        o.frequency.setValueAtTime(freq, now);
+        if (freqEnd) o.frequency.exponentialRampToValueAtTime(freqEnd, now + dur);
+        g.gain.setValueAtTime(vol, now);
+        g.gain.exponentialRampToValueAtTime(volEnd || 0.001, now + dur);
+        o.connect(g);
+        g.connect(audioCtx.destination);
+        o.start(now);
+        o.stop(now + dur + 0.01);
+    }
+
+    function sndNoise(vol, dur, start) {
+        if (!audioCtx) return;
+        let now = audioCtx.currentTime + (start || 0);
+        let len = audioCtx.sampleRate * dur;
+        let buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+        let d = buf.getChannelData(0);
+        for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1);
+        let src = audioCtx.createBufferSource();
+        src.buffer = buf;
+        let g = audioCtx.createGain();
+        g.gain.setValueAtTime(vol, now);
+        g.gain.exponentialRampToValueAtTime(0.001, now + dur);
+        src.connect(g);
+        g.connect(audioCtx.destination);
+        src.start(now);
+    }
+
+    function playKick(intensity) {
+        if (intensity < 0.03 || !audioCtx) return;
         if (audioCtx.state === 'suspended') audioCtx.resume();
         try {
-            let now = audioCtx.currentTime;
-            let vol = 0.15 + intensity * 0.55;    // 0.15 (leise) bis 0.7 (kräftig)
-            let freq = 100 + intensity * 80;      // 100-180 Hz
-
-            // Noise-Burst für den "Pf"-Anteil
-            let bufLen = audioCtx.sampleRate * 0.03;
-            let noiseBuf = audioCtx.createBuffer(1, bufLen, audioCtx.sampleRate);
-            let data = noiseBuf.getChannelData(0);
-            for (let i = 0; i < bufLen; i++) data[i] = (Math.random() * 2 - 1) * 0.3;
-            let noise = audioCtx.createBufferSource();
-            noise.buffer = noiseBuf;
-            let noiseGain = audioCtx.createGain();
-            noiseGain.gain.setValueAtTime(vol * 0.4, now);
-            noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
-            noise.connect(noiseGain);
-            noiseGain.connect(audioCtx.destination);
-            noise.start(now);
-
-            // Tiefer Sinus für den "ubb"-Anteil
-            let osc = audioCtx.createOscillator();
-            let gain = audioCtx.createGain();
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(freq, now);
-            osc.frequency.exponentialRampToValueAtTime(30, now + 0.12);
-            gain.gain.setValueAtTime(vol, now);
-            gain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            osc.start(now);
-            osc.stop(now + 0.2);
+            let v = 0.12 + intensity * 0.4;
+            let f = 110 + intensity * 90;
+            // Leder-Impact: Noise + tiefer Sinus + leichter Mittelton
+            sndNoise(v * 0.5, 0.035);
+            sndOsc('sine', f, 25, v, 0.001, 0, 0.15);
+            sndOsc('triangle', f * 2.5, f * 0.8, v * 0.15, 0.001, 0, 0.08);
         } catch (e) {}
     }
 
-    // "Pling"-Sound beim Block-Zerstören: heller Glockenton
+    function playBounce() {
+        if (!audioCtx) return;
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        try {
+            sndOsc('sine', 180, 60, 0.08, 0.001, 0, 0.08);
+            sndNoise(0.04, 0.02);
+        } catch (e) {}
+    }
+
+    function playWallHit() {
+        if (!audioCtx) return;
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        try {
+            sndNoise(0.06, 0.025);
+            sndOsc('sine', 90, 30, 0.06, 0.001, 0, 0.06);
+        } catch (e) {}
+    }
+
     function playPling(pts) {
         if (!audioCtx) return;
         if (audioCtx.state === 'suspended') audioCtx.resume();
         try {
-            let now = audioCtx.currentTime;
-            let vol = 0.18 + Math.min(pts, 3) * 0.06;
-            let baseFreq = 1200 + pts * 200;   // höher bei mehr Punkten
+            let v = 0.15 + Math.min(pts, 5) * 0.04;
+            let f = 800 + pts * 250;
+            // Glockenton: Sinus + Oberton + Shimmer
+            sndOsc('sine', f, f * 0.9, v, 0.001, 0, 0.35);
+            sndOsc('triangle', f * 2, f * 1.8, v * 0.2, 0.001, 0, 0.15);
+            sndOsc('sine', f * 3, f * 2.5, v * 0.08, 0.001, 0, 0.1);
+        } catch (e) {}
+    }
 
-            // Hauptton (Sinus)
-            let osc1 = audioCtx.createOscillator();
-            let g1 = audioCtx.createGain();
-            osc1.type = 'sine';
-            osc1.frequency.setValueAtTime(baseFreq, now);
-            osc1.frequency.exponentialRampToValueAtTime(baseFreq * 0.85, now + 0.25);
-            g1.gain.setValueAtTime(vol, now);
-            g1.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
-            osc1.connect(g1);
-            g1.connect(audioCtx.destination);
-            osc1.start(now);
-            osc1.stop(now + 0.35);
+    function playSplit() {
+        if (!audioCtx) return;
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        try {
+            // Aufsteigender Sweep + Noise
+            sndOsc('sawtooth', 200, 800, 0.12, 0.001, 0, 0.15);
+            sndOsc('sine', 400, 1200, 0.08, 0.001, 0.02, 0.12);
+            sndNoise(0.1, 0.05);
+        } catch (e) {}
+    }
 
-            // Oberton (Triangle, Oktave höher) für Glanz
-            let osc2 = audioCtx.createOscillator();
-            let g2 = audioCtx.createGain();
-            osc2.type = 'triangle';
-            osc2.frequency.setValueAtTime(baseFreq * 2, now);
-            g2.gain.setValueAtTime(vol * 0.3, now);
-            g2.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
-            osc2.connect(g2);
-            g2.connect(audioCtx.destination);
-            osc2.start(now);
-            osc2.stop(now + 0.2);
+    function playSkull() {
+        if (!audioCtx) return;
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        try {
+            // Dunkler Doom-Sound: tiefer Buzz + absteigender Ton
+            sndOsc('sawtooth', 80, 30, 0.15, 0.001, 0, 0.3);
+            sndOsc('square', 120, 40, 0.06, 0.001, 0, 0.25);
+            sndNoise(0.12, 0.06);
+            // Nachhall
+            sndOsc('sine', 60, 25, 0.08, 0.001, 0.1, 0.3);
+        } catch (e) {}
+    }
+
+    function playPuff() {
+        if (!audioCtx) return;
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        try {
+            // Leises Verpuffen
+            sndNoise(0.08, 0.06);
+            sndOsc('sine', 300, 80, 0.05, 0.001, 0, 0.1);
+        } catch (e) {}
+    }
+
+    function playLevelUp() {
+        if (!audioCtx) return;
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        try {
+            // Aufsteigende Fanfare: 3 Töne
+            sndOsc('sine', 523, 523, 0.15, 0.001, 0, 0.15);     // C5
+            sndOsc('triangle', 523, 523, 0.06, 0.001, 0, 0.12);
+            sndOsc('sine', 659, 659, 0.15, 0.001, 0.12, 0.15);  // E5
+            sndOsc('triangle', 659, 659, 0.06, 0.001, 0.12, 0.12);
+            sndOsc('sine', 784, 784, 0.18, 0.001, 0.24, 0.25);  // G5
+            sndOsc('triangle', 784, 784, 0.08, 0.001, 0.24, 0.2);
+            sndOsc('sine', 1047, 1047, 0.2, 0.001, 0.38, 0.35); // C6
+            sndOsc('triangle', 1568, 1568, 0.06, 0.001, 0.38, 0.2);
+        } catch (e) {}
+    }
+
+    function playConfetti() {
+        if (!audioCtx) return;
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        try {
+            // Shimmer-Kaskade
+            for (let i = 0; i < 6; i++) {
+                let f = 1200 + Math.random() * 1500;
+                sndOsc('sine', f, f * 0.7, 0.04, 0.001, i * 0.06, 0.2);
+            }
+            sndNoise(0.05, 0.08, 0.02);
         } catch (e) {}
     }
 
@@ -617,6 +738,7 @@
         huntCleanup();
         level2Cleanup();
         level3Cleanup();
+        level4Cleanup();
         // Burned-Zellen zurücksetzen
         let burned = document.querySelectorAll('.kt-ball-burned');
         for (let i = 0; i < burned.length; i++) burned[i].classList.remove('kt-ball-burned');
@@ -657,6 +779,7 @@
         if (!active) return;
         level2Cleanup();
         level3Cleanup();
+        level4Cleanup();
         huntCleanup();
         hunt.touchCount = 0;
         hunt.firstTouchTime = 0;
@@ -673,6 +796,7 @@
         huntCleanup();
         level2Cleanup();
         level3Cleanup();
+        level4Cleanup();
         currentLevel = 1;
         glowLines = [];
         splitBalls = [];
@@ -836,16 +960,18 @@
         }
     }
 
-    function destroyBlock(el, pts, rect) {
+    function destroyBlock(el, pts, rect, sourceBall) {
         if (!revealed) {
             revealed = true;
+            resetStats();
             revealEffect(rect);
             showScorePanel();
         }
 
         if (soundEnabled) playPling(pts);
+        trackScore(pts);
         score += pts;
-        addCharge(pts);
+        addCharge(pts, sourceBall);
         saveScore();
         updateScorePanel();
 
@@ -992,7 +1118,7 @@
         if (cell.classList.contains('Pts1')) {
             let pts = parseInt(cell.textContent) || 0;
             if (pts > 0) {
-                score += pts;
+                score += pts; trackScore(pts);
                 saveScore();
                 updateScorePanel();
             }
@@ -1015,6 +1141,7 @@
     }
 
     function spawnConfetti() {
+        if (soundEnabled) { playLevelUp(); playConfetti(); }
         let w = window.innerWidth;
         let colors = ['#FF4136','#FF851B','#FFDC00','#2ECC40','#0074D9','#B10DC9','#FF69B4','#01FF70'];
         let count = 150;
@@ -1053,7 +1180,8 @@
             if (!active) return;
             if (currentLevel === 1) { currentLevel = 2; level2Start(); }
             else if (currentLevel === 2) { currentLevel = 3; level3Start(); }
-            else { currentLevel = 2; level2Start(); } // Loop: 3 → 2 → 3 …
+            else if (currentLevel === 3) { currentLevel = 4; level4Start(); }
+            else { showFinalScreen(); }
         }, 4500);
     }
 
@@ -1331,7 +1459,7 @@
                 // Punkte = aktueller Sprite-Wert
                 let pts = s.value;
                 if (soundEnabled) playPling(pts);
-                score += pts;
+                score += pts; trackScore(pts);
                 addCharge(pts);
                 saveScore();
                 updateScorePanel();
@@ -1383,7 +1511,7 @@
 
     const L3_TRAP_COLOR  = '#B10DC9';  // Fallen: auffälliges Lila
     const L3_TRAP_STROKE = '#5a066a';
-    const L3_PENALTY     = 5;          // Punkteabzug bei Fallen-Treffer
+
 
     function level3Start() {
         if (!active || level3.active) return;
@@ -1425,7 +1553,7 @@
             level3.goodCount++;
         }
 
-        // Fallen (☠) — gleiche Größe, aber klar erkennbar
+        // Fallen (☠) — größer und gut sichtbar
         for (let n = 0; n < trapCount; n++) {
             let angle = Math.random() * Math.PI * 2;
             let speed = L2_SPEED * (0.7 + Math.random() * 0.6);
@@ -1435,7 +1563,7 @@
                 vx: Math.cos(angle) * speed,
                 vy: Math.sin(angle) * speed,
                 value: 0,
-                r: L2_SPRITE_R,
+                r: 20,
                 angle: Math.random() * Math.PI * 2,
                 va: (Math.random() - 0.5) * 0.04,
                 trap: true
@@ -1494,32 +1622,89 @@
             ctx.shadowColor = col;
             ctx.shadowBlur = s.trap ? (8 + Math.sin(t * 5 + i) * 6) : (10 + Math.sin(t * 3 + i) * 3);
 
-            // Kreis
-            ctx.beginPath();
-            ctx.arc(0, 0, s.r, 0, Math.PI * 2);
-            ctx.fillStyle = s.trap ? 'rgba(60,0,40,0.7)' : 'rgba(0,0,0,0.5)';
-            ctx.fill();
-            ctx.strokeStyle = col;
-            ctx.lineWidth = s.trap ? 2.5 : 2;
-            ctx.stroke();
+            if (s.trap) {
+                // Pulsierender Glow-Kreis
+                ctx.shadowColor = '#ff4080';
+                ctx.shadowBlur = 18 + Math.sin(t * 4 + i) * 8;
+                ctx.beginPath();
+                ctx.arc(0, 0, s.r, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255,40,80,0.25)';
+                ctx.fill();
+                ctx.strokeStyle = '#ff4080';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.shadowBlur = 0;
 
-            // Pulsierender Ring
-            let pulse = 1 + Math.sin(t * 4 + i * 1.3) * 0.06;
-            ctx.beginPath();
-            ctx.arc(0, 0, s.r * pulse * 1.12, 0, Math.PI * 2);
-            ctx.strokeStyle = col;
-            ctx.lineWidth = 0.8;
-            ctx.globalAlpha = 0.25 + Math.sin(t * 3 + i) * 0.1;
-            ctx.stroke();
-            ctx.globalAlpha = 1;
+                // Totenkopf mit Canvas-Shapes zeichnen
+                let sk = s.r * 0.55;
+                // Schädel (Oval)
+                ctx.beginPath();
+                ctx.ellipse(0, -sk * 0.15, sk * 0.75, sk * 0.85, 0, 0, Math.PI * 2);
+                ctx.fillStyle = '#ffe0e8';
+                ctx.fill();
+                ctx.strokeStyle = '#ff4080';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+                // Kiefer
+                ctx.beginPath();
+                ctx.roundRect(-sk * 0.5, sk * 0.3, sk, sk * 0.4, 3);
+                ctx.fillStyle = '#ffe0e8';
+                ctx.fill();
+                ctx.stroke();
+                // Augen
+                ctx.fillStyle = '#cc0030';
+                ctx.beginPath();
+                ctx.ellipse(-sk * 0.3, -sk * 0.2, sk * 0.2, sk * 0.25, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.ellipse(sk * 0.3, -sk * 0.2, sk * 0.2, sk * 0.25, 0, 0, Math.PI * 2);
+                ctx.fill();
+                // Nase
+                ctx.fillStyle = '#cc0030';
+                ctx.beginPath();
+                ctx.moveTo(0, sk * 0.05);
+                ctx.lineTo(-sk * 0.1, sk * 0.25);
+                ctx.lineTo(sk * 0.1, sk * 0.25);
+                ctx.closePath();
+                ctx.fill();
+                // Zähne (Striche im Kiefer)
+                ctx.strokeStyle = '#cc0030';
+                ctx.lineWidth = 1;
+                for (let z = -2; z <= 2; z++) {
+                    let zx = z * sk * 0.18;
+                    ctx.beginPath();
+                    ctx.moveTo(zx, sk * 0.32);
+                    ctx.lineTo(zx, sk * 0.65);
+                    ctx.stroke();
+                }
+            } else {
+                // Kreis
+                ctx.beginPath();
+                ctx.arc(0, 0, s.r, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0,0,0,0.5)';
+                ctx.fill();
+                ctx.strokeStyle = col;
+                ctx.lineWidth = 2;
+                ctx.stroke();
 
-            // Label
-            ctx.shadowBlur = 0;
-            ctx.fillStyle = col;
-            ctx.font = s.trap ? '16px Arial, sans-serif' : 'bold 15px Arial, sans-serif';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(label, 0, 1);
+                // Pulsierender Ring
+                let pulse = 1 + Math.sin(t * 4 + i * 1.3) * 0.06;
+                ctx.beginPath();
+                ctx.arc(0, 0, s.r * pulse * 1.12, 0, Math.PI * 2);
+                ctx.strokeStyle = col;
+                ctx.lineWidth = 0.8;
+                ctx.globalAlpha = 0.25 + Math.sin(t * 3 + i) * 0.1;
+                ctx.stroke();
+                ctx.globalAlpha = 1;
+
+                // Label
+                ctx.shadowBlur = 0;
+                ctx.fillStyle = col;
+                ctx.font = 'bold 15px Arial, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(label, 0, 1);
+            }
 
             ctx.restore();
         }
@@ -1548,19 +1733,14 @@
             }
 
             if (s.trap) {
-                // FALLE! Punkte abziehen
-                let penalty = Math.min(L3_PENALTY, score); // nicht unter 0
-                score -= penalty;
-                if (soundEnabled) playPling(0); // tiefer Ton
-                updateScorePanel();
-
+                // FALLE! 3 positive Sprites verpuffen lassen
+                if (soundEnabled) playSkull(); stats.skullHits++;
                 floatingTexts.push({
-                    x: s.x, y: s.y - 10, text: penalty > 0 ? '-' + penalty : 'TRAP!',
+                    x: s.x, y: s.y - 10, text: 'PUFF!',
                     life: 2500, maxLife: 2500,
                     color: L3_TRAP_COLOR, stroke: L3_TRAP_STROKE, big: true
                 });
-
-                // Rotes Partikel-Burst
+                // Partikel am Skull
                 for (let p = 0; p < 20; p++) {
                     let pa = Math.random() * Math.PI * 2;
                     particles.push({
@@ -1573,13 +1753,35 @@
                         color: L3_TRAP_COLOR
                     });
                 }
-
                 level3.sprites.splice(i, 1);
+
+                // 3 zufällige positive Sprites zerstören
+                let destroyed = 0;
+                for (let d = level3.sprites.length - 1; d >= 0 && destroyed < 3; d--) {
+                    if (!level3.sprites[d].trap) {
+                        let ds = level3.sprites[d];
+                        floatingTexts.push({ x: ds.x, y: ds.y - 10, text: 'PUFF!', life: 1500, maxLife: 1500, color: '#999', stroke: '#444' }); if (soundEnabled) playPuff();
+                        for (let dp = 0; dp < 10; dp++) {
+                            let dpa = Math.random() * Math.PI * 2;
+                            particles.push({ x: ds.x, y: ds.y, vx: Math.cos(dpa) * 2, vy: Math.sin(dpa) * 2, life: 500, maxLife: 500, size: 2, color: '#999' });
+                        }
+                        level3.sprites.splice(d, 1);
+                        level3.goodCount--;
+                        destroyed++;
+                    }
+                }
+                // Keine positiven mehr übrig? → Next Level!
+                if (level3.goodCount <= 0) {
+                    level3.active = false;
+                    level3.sprites = [];
+                    level2RestoreGrid();
+                    spawnConfetti();
+                }
             } else {
                 // Positive Treffer
                 let pts = s.value;
                 if (soundEnabled) playPling(pts);
-                score += pts;
+                score += pts; trackScore(pts);
                 addCharge(pts);
                 saveScore();
                 updateScorePanel();
@@ -1623,6 +1825,288 @@
         level3.sprites = [];
         level3.goodCount = 0;
         level2RestoreGrid();
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Level 4: Gravity-Challenge – 2×10 + 1×25 am oberen Rand
+    // ═══════════════════════════════════════════════════════════════
+    let level4 = {
+        active: false,
+        sprites: [],    // [{ x, y, value, r }]
+        count: 0,       // verbleibende Sprites
+        gravity: 0.26,  // aktuelle Gravity (steigt pro Treffer)
+        countdownTimer: null
+    };
+
+    const L4_GRAVITY_START = 0.26;
+    const L4_GRAVITY_STEP  = 0.06;  // Gravity-Zunahme pro Treffer
+    const L4_SPRITE_R = 18;
+
+    function level4Start() {
+        if (!active || level4.active) return;
+        level4.active = true;
+        level4.sprites = [];
+        level4.gravity = L4_GRAVITY_START;
+
+        floatingTexts.push({
+            x: window.innerWidth / 2, y: window.innerHeight / 2,
+            text: 'LEVEL 4 \u2013 GRAVITY!',
+            life: 3000, maxLife: 3000,
+            color: '#FF851B', stroke: '#7a3a00', big: true
+        });
+
+        level2HideGrid();
+
+        let bounds = level2GetBounds();
+        let bw = bounds.right - bounds.left;
+        let topY = bounds.top + 35;
+
+        // Links: 10 Punkte
+        level4.sprites.push({
+            x: bounds.left + bw * 0.25, y: topY,
+            value: 10, r: L4_SPRITE_R,
+            angle: 0, va: 0.02
+        });
+        // Mitte: 25 Punkte – oberhalb des Spielfelds!
+        level4.sprites.push({
+            x: bounds.left + bw * 0.5, y: bounds.top - 30,
+            value: 25, r: L4_SPRITE_R - 4,
+            angle: 0, va: -0.03
+        });
+        // Rechts: 10 Punkte
+        level4.sprites.push({
+            x: bounds.left + bw * 0.75, y: topY,
+            value: 10, r: L4_SPRITE_R,
+            angle: 0, va: 0.02
+        });
+
+        level4.count = 3;
+
+        // Countdown: alle 15s Punkte um 1 verringern (min 1)
+        level4.countdownTimer = setInterval(function() {
+            if (!active || !level4.active) { level4Cleanup(); return; }
+            let changed = false;
+            for (let i = 0; i < level4.sprites.length; i++) {
+                if (level4.sprites[i].value > 1) {
+                    level4.sprites[i].value--;
+                    changed = true;
+                }
+            }
+            if (changed) {
+                floatingTexts.push({
+                    x: window.innerWidth / 2, y: window.innerHeight / 2,
+                    text: 'TICK! Punkte -1',
+                    life: 2000, maxLife: 2000,
+                    color: '#e67e22', stroke: '#7a3a00'
+                });
+            }
+        }, 15000);
+    }
+
+    function drawLevel4Sprites() {
+        if (!level4.active || !ctx) return;
+        let t = performance.now() / 1000;
+
+        for (let i = 0; i < level4.sprites.length; i++) {
+            let s = level4.sprites[i];
+            s.angle += s.va;
+
+            // Leichtes Schweben (auf und ab)
+            let floatY = s.y + Math.sin(t * 2 + i * 2) * 4;
+
+            let col = s.value === 25 ? '#FFD700' : '#FF851B';
+
+            ctx.save();
+            ctx.translate(s.x, floatY);
+            ctx.rotate(s.angle);
+
+            // Glow
+            ctx.shadowColor = col;
+            ctx.shadowBlur = 12 + Math.sin(t * 3 + i) * 4;
+
+            // Kreis
+            ctx.beginPath();
+            ctx.arc(0, 0, s.r, 0, Math.PI * 2);
+            ctx.fillStyle = s.value === 25 ? 'rgba(50,40,0,0.7)' : 'rgba(40,20,0,0.7)';
+            ctx.fill();
+            ctx.strokeStyle = col;
+            ctx.lineWidth = 2.5;
+            ctx.stroke();
+
+            // Label
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = col;
+            ctx.font = s.value === 25 ? 'bold 16px Arial, sans-serif' : 'bold 14px Arial, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('' + s.value, 0, 1);
+
+            ctx.restore();
+        }
+    }
+
+    function level4CollideBall() {
+        if (!level4.active || !ball) return;
+        let br = chargeR();
+
+        for (let i = level4.sprites.length - 1; i >= 0; i--) {
+            let s = level4.sprites[i];
+            let t = performance.now() / 1000;
+            let floatY = s.y + Math.sin(t * 2 + i * 2) * 4;
+            let dx = ball.x - s.x, dy = ball.y - floatY;
+            let dist = Math.sqrt(dx * dx + dy * dy);
+
+            if (dist < br + s.r) {
+                // Abprall
+                let nx = dist > 0.001 ? dx / dist : 0, ny = dist > 0.001 ? dy / dist : 0;
+                let dot = ball.vx * nx + ball.vy * ny;
+                if (dot < 0) { ball.vx -= (1 + CFG.BOUNCE) * dot * nx; ball.vy -= (1 + CFG.BOUNCE) * dot * ny; }
+
+                let pts = s.value;
+                if (soundEnabled) playPling(pts);
+                score += pts; trackScore(pts);
+                addCharge(pts);
+                updateScorePanel();
+                floatingTexts.push({
+                    x: s.x, y: floatY - 15, text: '+' + pts,
+                    life: 2500, maxLife: 2500,
+                    color: s.value === 25 ? '#FFD700' : '#FF851B',
+                    stroke: s.value === 25 ? '#7A5B00' : '#7a3a00', big: true
+                });
+                // Partikel
+                for (let p = 0; p < 20; p++) {
+                    let pa = Math.random() * Math.PI * 2;
+                    particles.push({
+                        x: s.x, y: floatY,
+                        vx: Math.cos(pa) * (2 + Math.random() * 4),
+                        vy: Math.sin(pa) * (2 + Math.random() * 4),
+                        life: 800 + Math.random() * 500,
+                        maxLife: 800 + Math.random() * 500,
+                        size: 2 + Math.random() * 3,
+                        color: s.value === 25 ? '#FFD700' : '#FF851B'
+                    });
+                }
+
+                level4.sprites.splice(i, 1);
+                level4.count--;
+
+                // Gravity steigt nach jedem Treffer!
+                level4.gravity += L4_GRAVITY_STEP;
+                floatingTexts.push({
+                    x: window.innerWidth / 2, y: window.innerHeight * 0.7,
+                    text: 'GRAVITY +' + L4_GRAVITY_STEP.toFixed(2),
+                    life: 2000, maxLife: 2000,
+                    color: '#e74c3c', stroke: '#7b1f1f'
+                });
+
+                if (level4.count <= 0) {
+                    level4.active = false;
+                    if (level4.countdownTimer) { clearInterval(level4.countdownTimer); level4.countdownTimer = null; }
+                    level2RestoreGrid();
+                    spawnConfetti();
+                }
+                return;
+            }
+        }
+    }
+
+    function level4Cleanup() {
+        level4.active = false;
+        level4.sprites = [];
+        level4.count = 0;
+        level4.gravity = L4_GRAVITY_START;
+        if (level4.countdownTimer) { clearInterval(level4.countdownTimer); level4.countdownTimer = null; }
+        level2RestoreGrid();
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Finaler Stats-Screen nach Level 4
+    // ═══════════════════════════════════════════════════════════════
+    function showFinalScreen() {
+        let elapsed = ((performance.now() - stats.startTime) / 1000).toFixed(0);
+        let mins = Math.floor(elapsed / 60);
+        let secs = elapsed % 60;
+        let timeStr = mins > 0 ? (mins + ':' + (secs < 10 ? '0' : '') + secs) : (secs + 's');
+
+        // Klon-Statistik: Namen zählen
+        let cloneMap = {};
+        for (let i = 0; i < stats.splits.length; i++) {
+            let n = stats.splits[i];
+            cloneMap[n] = (cloneMap[n] || 0) + 1;
+        }
+        let cloneList = [];
+        for (let name in cloneMap) {
+            cloneList.push(cloneMap[name] + '\u00d7 ' + name);
+        }
+
+        // Overlay erstellen
+        let overlay = document.createElement('div');
+        overlay.id = 'kt-final-screen';
+        let s = overlay.style;
+        s.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:10002;' +
+            'display:flex;align-items:center;justify-content:center;' +
+            'background:rgba(0,0,0,0.85);opacity:0;transition:opacity 0.8s;cursor:pointer';
+
+        let html = '<div style="text-align:center;color:#fff;font-family:Arial,sans-serif;max-width:500px;padding:30px">';
+        html += '<div style="font-size:48px;color:#FFD700;text-shadow:0 0 20px rgba(255,215,0,0.5);margin-bottom:10px">' + score + '</div>';
+        html += '<div style="font-size:14px;color:#aaa;margin-bottom:25px">PUNKTE</div>';
+
+        html += '<table style="margin:0 auto;text-align:left;color:#ccc;font-size:14px;border-collapse:collapse">';
+        html += '<tr><td style="padding:4px 15px 4px 0;color:#888">Breakout</td><td style="color:#e8a020">' + stats.l1 + '</td></tr>';
+        html += '<tr><td style="padding:4px 15px 4px 0;color:#888">Level 2</td><td style="color:#FF4136">' + stats.l2 + '</td></tr>';
+        html += '<tr><td style="padding:4px 15px 4px 0;color:#888">Level 3</td><td style="color:#2ECC40">' + stats.l3 + '</td></tr>';
+        html += '<tr><td style="padding:4px 15px 4px 0;color:#888">Level 4 (Gravity)</td><td style="color:#FF851B">' + stats.l4 + '</td></tr>';
+        html += '<tr><td colspan="2" style="border-top:1px solid #444;padding-top:8px"></td></tr>';
+        html += '<tr><td style="padding:4px 15px 4px 0;color:#888">Spielzeit</td><td>' + timeStr + '</td></tr>';
+        html += '<tr><td style="padding:4px 15px 4px 0;color:#888">Kicks</td><td>' + stats.kicks + '</td></tr>';
+        html += '<tr><td style="padding:4px 15px 4px 0;color:#888">Skull-Treffer</td><td style="color:#ff4080">' + stats.skullHits + '</td></tr>';
+
+        if (stats.splits.length > 0) {
+            html += '<tr><td colspan="2" style="border-top:1px solid #444;padding-top:8px"></td></tr>';
+            html += '<tr><td style="padding:4px 15px 4px 0;color:#888">Klone (' + stats.splits.length + ')</td>';
+            html += '<td style="font-size:12px;color:#aaa">' + cloneList.join(', ') + '</td></tr>';
+        }
+        html += '</table>';
+
+        // Highscore prüfen
+        let lsKey = 'kt_ball_hs_' + (kt.trid || 0) + '_' + (kt.md || 0);
+        let prevBest = parseInt(localStorage.getItem(lsKey) || '0');
+        let isHS = score > prevBest;
+        if (isHS) localStorage.setItem(lsKey, score);
+
+        if (isHS) {
+            html += '<div style="margin-top:20px;font-size:20px;color:#FFD700;text-shadow:0 0 12px rgba(255,215,0,0.4)">';
+            html += 'NEUER HIGHSCORE!</div>';
+        } else if (prevBest > 0) {
+            html += '<div style="margin-top:15px;font-size:13px;color:#666">Bisheriger Rekord: ' + prevBest + '</div>';
+        }
+
+        html += '<div style="margin-top:25px;font-size:12px;color:#555">Klick zum Schlie\u00dfen</div>';
+        html += '</div>';
+
+        overlay.innerHTML = html;
+        document.body.appendChild(overlay);
+
+        requestAnimationFrame(function() {
+            requestAnimationFrame(function() { overlay.style.opacity = '1'; });
+        });
+
+        overlay.addEventListener('click', function() {
+            overlay.style.opacity = '0';
+            setTimeout(function() {
+                if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+                // Spielende: Grid wiederherstellen, Score speichern, zurück auf Level 1
+                level2RestoreGrid();
+                saveScore();
+                resetStats();
+                currentLevel = 1;
+                score = 0;
+                revealed = false;
+                charge = 0;
+                removeScorePanel();
+                splitBalls = [];
+            }, 800);
+        });
     }
 
     function spawnBorderParticles(rect, pts) {
@@ -1760,7 +2244,9 @@
     function pushOneBall(b, radius) {
         let dx = b.x - cursor.x, dy = b.y - cursor.y;
         let dist = Math.sqrt(dx * dx + dy * dy);
-        let min = radius + CFG.CURSOR_R;
+        let cp = chargePct();
+        let cursorR = CFG.CURSOR_R * (1 + cp * 0.4);  // Cursor-Trefferfläche wächst mit Charge
+        let min = radius + cursorR;
         if (dist >= min || dist < 0.1) return false;
 
         let nx = dx / dist, ny = dy / dist;
@@ -1778,7 +2264,8 @@
         b.wz += tSpeed * 0.004;
 
         let spd = Math.sqrt(cursor.vx * cursor.vx + cursor.vy * cursor.vy);
-        let push = Math.min(spd * 0.08 + spd * spd * 0.005, 8);
+        let kickMult = 1 + cp * 1.5;  // bis 2.5x Kick-Stärke bei voller Charge
+        let push = Math.min((spd * 0.08 + spd * spd * 0.005) * kickMult, 18);
         if (push > 0.05) {
             b.vx += nx * push;
             b.vy += ny * push;
@@ -1794,6 +2281,7 @@
         if (spd) {
             if (spd > 14 && !ghostMode) activateGhost();
             cursorFlash = 1;
+            stats.kicks++;
             if (soundEnabled) playKick(Math.min(spd / 25, 1));
         }
 
@@ -1837,13 +2325,15 @@
     // ═══════════════════════════════════════════════════════════════
     function collideWalls() {
         let w = window.innerWidth, h = window.innerHeight - CFG.BOTTOM_M, r = chargeR();
-        if (ball.x - r < 0) { ball.x = r; ball.vx = Math.abs(ball.vx) * CFG.BOUNCE; }
-        if (ball.x + r > w) { ball.x = w - r; ball.vx = -Math.abs(ball.vx) * CFG.BOUNCE; }
+        let spd = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
+        if (ball.x - r < 0) { ball.x = r; ball.vx = Math.abs(ball.vx) * CFG.BOUNCE; if (soundEnabled && spd > 2) playWallHit(); }
+        if (ball.x + r > w) { ball.x = w - r; ball.vx = -Math.abs(ball.vx) * CFG.BOUNCE; if (soundEnabled && spd > 2) playWallHit(); }
         if (ball.y + r > h) {
             ball.y = h - r;
             ball.vy = -Math.abs(ball.vy) * CFG.BOUNCE;
             ball.vx *= 0.95;
             ball.onGround = true;
+            if (soundEnabled && spd > 2) playBounce();
         }
     }
 
@@ -2280,7 +2770,8 @@
         $j.ajax({
             url: 'php/SaveGameScore.php',
             method: 'POST',
-            data: { game: 'breakout', score: score, trid: trid, md: md },
+            data: { game: 'breakout', score: score, trid: trid, md: md,
+                    kicks: stats.kicks, clones: stats.splits.length },
             dataType: 'json'
         });
         register();
@@ -2610,6 +3101,7 @@
         huntCollideBall();
         level2CollideBall();
         level3CollideBall();
+        level4CollideBall();
         decayCharge(dt);
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -2617,6 +3109,7 @@
         drawGlowLines();
         drawLevel2Sprites();
         drawLevel3Sprites();
+        drawLevel4Sprites();
         drawParticles(dt);
         drawSplitBalls();
         drawBall();
@@ -2659,6 +3152,8 @@
                     '<th style="text-align:right">Gesamt</th>' +
                     '<th style="text-align:right">Spieltage</th>' +
                     '<th style="text-align:right">Bester</th>' +
+                    '<th style="text-align:right">Sch\u00fcsse</th>' +
+                    '<th style="text-align:right">Klone</th>' +
                     '</tr></thead><tbody>';
 
                 for (let i = 0; i < breakoutRows.length; i++) {
@@ -2672,6 +3167,8 @@
                         '<td style="text-align:right;font-weight:bold">' + r['total'] + '</td>' +
                         '<td style="text-align:right">' + r['matchdays'] + '</td>' +
                         '<td style="text-align:right">' + r['best'] + '</td>' +
+                        '<td style="text-align:right">' + (r['total_kicks'] || 0) + '</td>' +
+                        '<td style="text-align:right">' + (r['total_clones'] || 0) + '</td>' +
                         '</tr>';
                 }
                 html += '</tbody></table>';
