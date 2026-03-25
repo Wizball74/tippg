@@ -118,6 +118,7 @@
                             // Navigation laden, dann Übersicht aufrufen
                             initNav(true, function () {
                                 exec('Tipps', 'Uebersicht');
+                                if (kt.initBall && localStorage.getItem('kt_ball') !== 'off') kt.initBall();
                             });
                         } else // Fehler
                         {
@@ -176,7 +177,9 @@
                     $j("#subnav").html("");
                     clearContent();
                     closeDialogs();
+                    if (kt.destroyBall) kt.destroyBall();
                     makeMenu();
+                    showLogin();
                 }
                 return false;
             } // end success

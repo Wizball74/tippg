@@ -12,8 +12,8 @@
 
     const CFG = {
         R:          10,       // Ball-Radius
-        GRAVITY:    0.2,     // Schwerkraft pro Frame
-        BOUNCE:     0.8,     // Rückprall-Faktor
+        GRAVITY:    0.18,     // Schwerkraft pro Frame
+        BOUNCE:     0.75,     // Rückprall-Faktor
         FRICTION:   0.997,    // Luftwiderstand (multipliziert pro Frame)
         CURSOR_R:   28,       // Cursor-Kollisionsradius (Schuh-Trefferfläche)
         MAX_V:      15,       // Maximalgeschwindigkeit
@@ -38,6 +38,7 @@
     let scorePanel = null;
     let audioCtx = null;
     let soundEnabled = localStorage.getItem('kt_sound') !== 'off';
+    let currentLevel = 1;  // 1 = Breakout, 2 = fliegende 5er, 3 = 2er/3er + Fallen
 
     // ═══════════════════════════════════════════════════════════════
     //  Boost-System: Punkte laden den Ball auf
@@ -170,7 +171,7 @@
                 }
             }
 
-            // Blöcke treffen
+            // Blöcke treffen (Level 1)
             let cells = document.querySelectorAll(CFG.BLOCK_SEL);
             for (let ci = 0; ci < cells.length; ci++) {
                 let el = cells[ci];
@@ -186,6 +187,104 @@
                     if (bDot < 0) { sb.vx -= (1 + CFG.BOUNCE) * bDot * bCol.nx; sb.vy -= (1 + CFG.BOUNCE) * bDot * bCol.ny; }
                     destroyBlock(el, val, cr);
                     break;
+                }
+            }
+
+            // Level-2-Sprites treffen (Split-Ball)
+            if (level2.active && !sb.popping) {
+                for (let si = level2.sprites.length - 1; si >= 0; si--) {
+                    let spr = level2.sprites[si];
+                    let sdx = sb.x - spr.x, sdy = sb.y - spr.y;
+                    let sDist = Math.sqrt(sdx * sdx + sdy * sdy);
+                    if (sDist < sb.r + spr.r) {
+                        // Abprall Split-Ball
+                        let snx = sDist > 0.001 ? sdx / sDist : 0;
+                        let sny = sDist > 0.001 ? sdy / sDist : -1;
+                        let sOverlap = sb.r + spr.r - sDist;
+                        sb.x += snx * sOverlap * 0.6;
+                        sb.y += sny * sOverlap * 0.6;
+                        let sDot = sb.vx * snx + sb.vy * sny;
+                        if (sDot < 0) { sb.vx -= (1 + CFG.BOUNCE) * sDot * snx; sb.vy -= (1 + CFG.BOUNCE) * sDot * sny; }
+
+                        let sPts = spr.value;
+                        if (soundEnabled) playPling(sPts);
+                        score += sPts;
+                        addCharge(sPts);
+                        saveScore();
+                        updateScorePanel();
+
+                        floatingTexts.push({
+                            x: spr.x, y: spr.y - 10, text: '+' + sPts,
+                            life: 2200, maxLife: 2200,
+                            color: L2_COLORS[sPts] || '#FF4136',
+                            stroke: L2_STROKES[sPts] || '#7b1f1f'
+                        });
+                        for (let sp = 0; sp < 14; sp++) {
+                            let spa = Math.random() * Math.PI * 2;
+                            particles.push({
+                                x: spr.x, y: spr.y,
+                                vx: Math.cos(spa) * (1 + Math.random() * 3),
+                                vy: Math.sin(spa) * (1 + Math.random() * 3),
+                                life: 600 + Math.random() * 400,
+                                maxLife: 600 + Math.random() * 400,
+                                size: 2 + Math.random() * 3,
+                                color: L2_COLORS[sPts] || '#FF4136'
+                            });
+                        }
+
+                        level2.sprites.splice(si, 1);
+                        if (level2.sprites.length === 0) {
+                            if (level2.countdownTimer) { clearInterval(level2.countdownTimer); level2.countdownTimer = null; }
+                            level2.active = false;
+                            level2RestoreGrid();
+                            spawnConfetti();
+                        }
+                        break;
+                    }
+                }
+            }
+
+            // Level-3-Sprites treffen (Split-Ball)
+            if (level3.active && !sb.popping) {
+                for (let si = level3.sprites.length - 1; si >= 0; si--) {
+                    let spr = level3.sprites[si];
+                    let sdx = sb.x - spr.x, sdy = sb.y - spr.y;
+                    let sDist = Math.sqrt(sdx * sdx + sdy * sdy);
+                    if (sDist < sb.r + spr.r) {
+                        let snx = sDist > 0.001 ? sdx / sDist : 0;
+                        let sny = sDist > 0.001 ? sdy / sDist : -1;
+                        let sOverlap = sb.r + spr.r - sDist;
+                        sb.x += snx * sOverlap * 0.6;
+                        sb.y += sny * sOverlap * 0.6;
+                        let sDot = sb.vx * snx + sb.vy * sny;
+                        if (sDot < 0) { sb.vx -= (1 + CFG.BOUNCE) * sDot * snx; sb.vy -= (1 + CFG.BOUNCE) * sDot * sny; }
+
+                        if (spr.trap) {
+                            let penalty = Math.min(L3_PENALTY, score);
+                            score -= penalty;
+                            updateScorePanel();
+                            floatingTexts.push({ x: spr.x, y: spr.y - 10, text: penalty > 0 ? '-' + penalty : 'TRAP!', life: 2500, maxLife: 2500, color: L3_TRAP_COLOR, stroke: L3_TRAP_STROKE, big: true });
+                            for (let sp = 0; sp < 16; sp++) { let spa = Math.random() * Math.PI * 2; particles.push({ x: spr.x, y: spr.y, vx: Math.cos(spa) * (2 + Math.random() * 3), vy: Math.sin(spa) * (2 + Math.random() * 3), life: 700 + Math.random() * 400, maxLife: 700 + Math.random() * 400, size: 2 + Math.random() * 3, color: L3_TRAP_COLOR }); }
+                        } else {
+                            let sPts = spr.value;
+                            if (soundEnabled) playPling(sPts);
+                            score += sPts;
+                            addCharge(sPts);
+                            saveScore();
+                            updateScorePanel();
+                            floatingTexts.push({ x: spr.x, y: spr.y - 10, text: '+' + sPts, life: 2200, maxLife: 2200, color: L2_COLORS[sPts] || '#2ECC40', stroke: L2_STROKES[sPts] || '#145a1e' });
+                            for (let sp = 0; sp < 12; sp++) { let spa = Math.random() * Math.PI * 2; particles.push({ x: spr.x, y: spr.y, vx: Math.cos(spa) * (1 + Math.random() * 2.5), vy: Math.sin(spa) * (1 + Math.random() * 2.5), life: 500 + Math.random() * 300, maxLife: 500 + Math.random() * 300, size: 2 + Math.random() * 2, color: L2_COLORS[sPts] || '#2ECC40' }); }
+                            level3.goodCount--;
+                        }
+                        level3.sprites.splice(si, 1);
+                        if (!spr.trap && level3.goodCount <= 0) {
+                            level3.active = false;
+                            level3.sprites = [];
+                            level2RestoreGrid();
+                            spawnConfetti();
+                        }
+                        break;
+                    }
                 }
             }
 
@@ -517,6 +616,7 @@
         removeScorePanel();
         huntCleanup();
         level2Cleanup();
+        level3Cleanup();
         // Burned-Zellen zurücksetzen
         let burned = document.querySelectorAll('.kt-ball-burned');
         for (let i = 0; i < burned.length; i++) burned[i].classList.remove('kt-ball-burned');
@@ -529,6 +629,7 @@
         charge = 0;
         score = 0;
         revealed = false;
+        currentLevel = 1;
         ball = null; canvas = null; ctx = null;
     };
 
@@ -551,6 +652,18 @@
         }
     };
 
+    // TEST: kt.nextLevel() - springt zum nächsten Level
+    kt.nextLevel = function () {
+        if (!active) return;
+        level2Cleanup();
+        level3Cleanup();
+        huntCleanup();
+        hunt.touchCount = 0;
+        hunt.firstTouchTime = 0;
+        splitBalls = [];
+        spawnConfetti();
+    };
+
     kt.rescanBallObstacles = function () {
         if (!active) return;
         // Score pro Seitenansicht zurücksetzen (Highscores bleiben in localStorage)
@@ -559,6 +672,8 @@
         revealed = false;
         huntCleanup();
         level2Cleanup();
+        level3Cleanup();
+        currentLevel = 1;
         glowLines = [];
         splitBalls = [];
         removeScorePanel();
@@ -703,6 +818,7 @@
     //  Block-Kollisionen (Breakout-Zellen)
     // ═══════════════════════════════════════════════════════════════
     function collideBlocks() {
+        if (level2.active || level3.active) return; // Level 2/3 nutzen Sprites, keine Grid-Blöcke
         let cells = document.querySelectorAll(CFG.BLOCK_SEL);
         for (let i = 0; i < cells.length; i++) {
             let el = cells[i];
@@ -932,8 +1048,13 @@
         // Split-Bälle nacheinander platzen lassen
         popSplitBalls();
 
-        // Level 2 starten nach Konfetti
-        setTimeout(function() { if (active) level2Start(); }, 4500);
+        // Nächstes Level starten nach Konfetti
+        setTimeout(function() {
+            if (!active) return;
+            if (currentLevel === 1) { currentLevel = 2; level2Start(); }
+            else if (currentLevel === 2) { currentLevel = 3; level3Start(); }
+            else { currentLevel = 2; level2Start(); } // Loop: 3 → 2 → 3 …
+        }, 4500);
     }
 
     function popSplitBalls() {
@@ -964,17 +1085,28 @@
     }
 
     // ═══════════════════════════════════════════════════════════════
-    //  Level 2: Bewegliche 5er
+    //  Level 2: Frei fliegende Zahlen-Sprites (Countdown 5→1)
     // ═══════════════════════════════════════════════════════════════
     let level2 = {
         active: false,
-        movers: [],    // [{ el, grid, row, col, moveInterval }]
-        moveTimer: null
+        sprites: [],       // [{ x, y, vx, vy, value, r, angle, va }]
+        countdownTimer: null,
+        currentValue: 5,
+        startTime: 0
     };
+
+    const L2_SPRITE_R   = 14;   // Sprite-Radius (≈ Zellengröße Level 1)
+    const L2_SPEED      = 0.3;  // Basis-Geschwindigkeit (langsam, gemächlich)
+    const L2_COUNTDOWN  = 20000; // 20s pro Stufe
+    const L2_COLORS     = { 5:'#FF4136', 4:'#FF851B', 3:'#FFDC00', 2:'#2ECC40', 1:'#0074D9' };
+    const L2_STROKES    = { 5:'#7b1f1f', 4:'#7a3a00', 3:'#7a6500', 2:'#145a1e', 1:'#003366' };
 
     function level2Start() {
         if (!active || level2.active) return;
         level2.active = true;
+        level2.currentValue = 5;
+        level2.startTime = performance.now();
+        level2.sprites = [];
 
         floatingTexts.push({
             x: window.innerWidth / 2, y: window.innerHeight / 2,
@@ -983,166 +1115,514 @@
             color: '#FF4136', stroke: '#7b1f1f', big: true
         });
 
-        // Alle burned-Zellen wiederherstellen
-        let cells = document.querySelectorAll(CFG.BLOCK_SEL);
-        // Grid nur aus Pts1-Zellen aufbauen (nicht Name/Team/etc.)
-        let grid = [];
-        let tbody = cells[0] ? cells[0].closest('tbody') : null;
-        if (tbody) {
-            let rows = tbody.querySelectorAll('tr');
-            for (let r = 0; r < rows.length; r++) {
-                let tds = rows[r].querySelectorAll('td');
-                let row = [];
-                for (let c = 0; c < tds.length; c++) {
-                    if (tds[c].classList.contains('Pts1')) row.push(tds[c]);
-                }
-                if (row.length) grid.push(row);
-            }
-        }
+        // Grid komplett ausblenden (Linien, Zellen, alles)
+        level2HideGrid();
 
-        // Zellen zurücksetzen (leer, sichtbar)
-        for (let i = 0; i < cells.length; i++) {
-            let el = cells[i];
-            el.classList.remove('kt-ball-burned');
-            el.textContent = '';
-            el.style.cssText = '';
-            el.style.pointerEvents = '';
-        }
-
-        // Bewegliche 5er platzieren
-        let count = Math.min(8, Math.floor(cells.length * 0.08));
-        let placed = [];
+        // Sprites innerhalb der Tabelle spawnen
+        let bounds = level2GetBounds();
+        let bw = bounds.right - bounds.left, bh = bounds.bottom - bounds.top;
+        let count = Math.min(8, Math.max(4, Math.floor(bw * bh / 20000)));
         for (let n = 0; n < count; n++) {
-            let attempts = 0;
-            while (attempts < 50) {
-                let r = Math.floor(Math.random() * grid.length);
-                let c = Math.floor(Math.random() * grid[r].length);
-                let key = r + ',' + c;
-                if (placed.indexOf(key) === -1) {
-                    placed.push(key);
-                    let cell = grid[r][c];
-                    level2InjectFiver(cell);
-                    level2.movers.push({ el: cell, grid: grid, row: r, col: c });
-                    break;
-                }
-                attempts++;
-            }
+            let angle = Math.random() * Math.PI * 2;
+            let speed = L2_SPEED * (0.7 + Math.random() * 0.6);
+            level2.sprites.push({
+                x: bounds.left + 30 + Math.random() * (bw - 60),
+                y: bounds.top + 30 + Math.random() * (bh - 60),
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                value: 5,
+                r: L2_SPRITE_R,
+                angle: Math.random() * Math.PI * 2,
+                va: (Math.random() - 0.5) * 0.03  // Rotationsgeschwindigkeit
+            });
         }
 
-        // Bewegungs-Timer: alle 2s springen die 5er
-        level2.moveTimer = setInterval(function() {
+        // Countdown-Timer: alle 20s Wert verringern
+        level2.countdownTimer = setInterval(function() {
             if (!active || !level2.active) { level2Cleanup(); return; }
-            level2MoveAll();
-        }, 2000);
+            if (level2.currentValue > 1) {
+                level2.currentValue--;
+                // Alle lebenden Sprites updaten
+                for (let i = 0; i < level2.sprites.length; i++) {
+                    level2.sprites[i].value = level2.currentValue;
+                }
+                // Visuelles Feedback
+                floatingTexts.push({
+                    x: window.innerWidth / 2, y: 60,
+                    text: level2.currentValue === 1 ? 'LETZTE CHANCE!' : level2.currentValue + ' PUNKTE',
+                    life: 2500, maxLife: 2500,
+                    color: L2_COLORS[level2.currentValue],
+                    stroke: L2_STROKES[level2.currentValue], big: true
+                });
+                if (soundEnabled) playPling(1);
+            }
+            // Bei 1 bleibt der Timer stehen (kein weiterer Countdown)
+            if (level2.currentValue <= 1) {
+                clearInterval(level2.countdownTimer);
+                level2.countdownTimer = null;
+            }
+        }, L2_COUNTDOWN);
     }
 
-    function level2InjectFiver(cell) {
-        cell.textContent = '';
-        cell.classList.remove('kt-ball-burned');
-        cell.style.cssText = '';
-        let span = document.createElement('span');
-        span.className = 'kt-level2-num';
-        span.textContent = '5';
-        span.style.cssText = 'font-weight:900;font-size:1.4em;color:#FF4136;' +
-            'text-shadow:0 0 8px rgba(255,65,54,0.6);transition:transform 0.3s';
-        cell.appendChild(span);
-    }
-
-    function level2MoveAll() {
-        for (let i = 0; i < level2.movers.length; i++) {
-            let m = level2.movers[i];
-            // Nachbarzellen finden (oben, unten, links, rechts)
-            let neighbors = [];
-            let dirs = [[-1,0],[1,0],[0,-1],[0,1]];
-            for (let d = 0; d < dirs.length; d++) {
-                let nr = m.row + dirs[d][0];
-                let nc = m.col + dirs[d][1];
-                if (nr >= 0 && nr < m.grid.length && nc >= 0 && nc < m.grid[nr].length) {
-                    let target = m.grid[nr][nc];
-                    // Nur in leere Pts1-Zellen springen (keine anderen 5er, keine Pts-Zellen)
-                    if (target.classList.contains('Pts1') && !target.querySelector('.kt-level2-num') && !parseInt(target.textContent)) {
-                        neighbors.push({ r: nr, c: nc, el: target });
-                    }
+    function level2HideGrid() {
+        // Innere Zellen-Ränder ausblenden (Gitternetzlinien weg),
+        // aber äußeren Rahmen und Glow-Lines (Plattformen) behalten
+        let grids = document.querySelectorAll('.ui-jqgrid');
+        for (let g = 0; g < grids.length; g++) {
+            let tds = grids[g].querySelectorAll('.ui-jqgrid-bdiv td');
+            for (let c = 0; c < tds.length; c++) {
+                tds[c].style.transition = 'border-color 0.8s';
+                tds[c].style.borderColor = 'transparent';
+                // Restliche Zahlen aus Grid-Zellen entfernen (Überbleibsel Level 1)
+                if (tds[c].classList.contains('Pts1') && parseInt(tds[c].textContent)) {
+                    tds[c].textContent = '';
                 }
             }
-            if (neighbors.length === 0) continue;
+            // Horizontale Zeilen-Trennlinien ausblenden
+            let trs = grids[g].querySelectorAll('.ui-jqgrid-bdiv tr');
+            for (let r = 0; r < trs.length; r++) {
+                // rowUser/rowOpponent behalten (sind Plattform + GlowLine)
+                if (trs[r].classList.contains('rowUser') || trs[r].classList.contains('rowOpponent')) continue;
+                trs[r].style.transition = 'border-color 0.8s';
+                trs[r].style.borderColor = 'transparent';
+            }
+        }
+    }
 
-            // Zufällige Nachbarzelle wählen
-            let pick = neighbors[Math.floor(Math.random() * neighbors.length)];
+    function level2RestoreGrid() {
+        let grids = document.querySelectorAll('.ui-jqgrid');
+        for (let g = 0; g < grids.length; g++) {
+            let tds = grids[g].querySelectorAll('.ui-jqgrid-bdiv td');
+            for (let c = 0; c < tds.length; c++) {
+                tds[c].style.transition = 'border-color 0.6s';
+                tds[c].style.borderColor = '';
+            }
+            let trs = grids[g].querySelectorAll('.ui-jqgrid-bdiv tr');
+            for (let r = 0; r < trs.length; r++) {
+                trs[r].style.transition = 'border-color 0.6s';
+                trs[r].style.borderColor = '';
+            }
+        }
+    }
 
-            // Alte Zelle leeren
-            let oldSpan = m.el.querySelector('.kt-level2-num');
-            if (oldSpan) oldSpan.remove();
-            m.el.textContent = '';
+    function level2GetBounds() {
+        // Spielfeld = Datenbereich der ersten sichtbaren Tabelle
+        let bdiv = document.querySelector('.ui-jqgrid-bdiv');
+        if (bdiv) {
+            let r = bdiv.getBoundingClientRect();
+            if (r.width > 20 && r.height > 20) {
+                return { left: r.left, right: r.right, top: r.top, bottom: r.bottom };
+            }
+        }
+        // Fallback: ganzer Viewport
+        return { left: 0, right: window.innerWidth, top: 0, bottom: window.innerHeight - CFG.BOTTOM_M };
+    }
 
-            // Neue Zelle füllen
-            level2InjectFiver(pick.el);
-            m.el = pick.el;
-            m.row = pick.r;
-            m.col = pick.c;
+    function stepLevel2Sprites() {
+        if (!level2.active) return;
+        let bounds = level2GetBounds();
+        let margin = L2_SPRITE_R;
 
-            // Kurzer Animations-Pulse
-            pick.el.style.transition = 'background 0.3s';
-            pick.el.style.background = 'rgba(255,65,54,0.1)';
-            setTimeout(function(el) { el.style.background = ''; }, 400, pick.el);
+        for (let i = 0; i < level2.sprites.length; i++) {
+            let s = level2.sprites[i];
+
+            // Bewegung
+            s.x += s.vx;
+            s.y += s.vy;
+            s.angle += s.va;
+
+            // An Tabellengrenzen abprallen
+            if (s.x - margin < bounds.left)   { s.x = bounds.left + margin;  s.vx = Math.abs(s.vx); }
+            if (s.x + margin > bounds.right)  { s.x = bounds.right - margin; s.vx = -Math.abs(s.vx); }
+            if (s.y - margin < bounds.top)    { s.y = bounds.top + margin;   s.vy = Math.abs(s.vy); }
+            if (s.y + margin > bounds.bottom) { s.y = bounds.bottom - margin; s.vy = -Math.abs(s.vy); }
+
+            // Leichte Geschwindigkeitsvariation (Drift)
+            if (Math.random() < 0.005) {
+                let nudge = 0.05;
+                s.vx += (Math.random() - 0.5) * nudge;
+                s.vy += (Math.random() - 0.5) * nudge;
+                // Speed begrenzen
+                let spd = Math.sqrt(s.vx * s.vx + s.vy * s.vy);
+                let target = L2_SPEED * (0.7 + Math.random() * 0.6);
+                if (spd > 0.01) { s.vx *= target / spd; s.vy *= target / spd; }
+            }
+        }
+    }
+
+    function drawLevel2Sprites() {
+        if (!level2.active) return;
+        let t = performance.now() * 0.001;
+
+        for (let i = 0; i < level2.sprites.length; i++) {
+            let s = level2.sprites[i];
+            let col = L2_COLORS[s.value] || '#FF4136';
+
+            ctx.save();
+            ctx.translate(s.x, s.y);
+            ctx.rotate(s.angle);
+
+            // Äußerer Glow
+            ctx.shadowColor = col;
+            ctx.shadowBlur = 12 + Math.sin(t * 3 + i) * 4;
+
+            // Kreis-Hintergrund
+            ctx.beginPath();
+            ctx.arc(0, 0, s.r, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(0,0,0,0.5)';
+            ctx.fill();
+            ctx.strokeStyle = col;
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Pulsierender Ring
+            let pulse = 1 + Math.sin(t * 4 + i * 1.3) * 0.06;
+            ctx.beginPath();
+            ctx.arc(0, 0, s.r * pulse * 1.12, 0, Math.PI * 2);
+            ctx.strokeStyle = col;
+            ctx.lineWidth = 0.8;
+            ctx.globalAlpha = 0.25 + Math.sin(t * 3 + i) * 0.1;
+            ctx.stroke();
+            ctx.globalAlpha = 1;
+
+            // Zahl
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = col;
+            ctx.font = 'bold 15px Arial, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(s.value, 0, 1);
+
+            ctx.restore();
         }
     }
 
     function level2Cleanup() {
         level2.active = false;
-        if (level2.moveTimer) { clearInterval(level2.moveTimer); level2.moveTimer = null; }
-        for (let i = 0; i < level2.movers.length; i++) {
-            let span = level2.movers[i].el.querySelector('.kt-level2-num');
-            if (span) span.remove();
-        }
-        level2.movers = [];
+        if (level2.countdownTimer) { clearInterval(level2.countdownTimer); level2.countdownTimer = null; }
+        level2.sprites = [];
+        level2.currentValue = 5;
+        level2RestoreGrid();
     }
 
     function level2CollideBall() {
         if (!level2.active || !ball) return;
-        for (let i = level2.movers.length - 1; i >= 0; i--) {
-            let m = level2.movers[i];
-            let rect = m.el.getBoundingClientRect();
-            if (rect.width < 4 || rect.height < 4) continue;
-            let col = circleRectCollision(ball.x, ball.y, chargeR(), rect);
-            if (col) {
-                resolveCollision(col);
+        let br = chargeR();
 
-                // Treffer! 5 Punkte
-                let pts = 5;
+        for (let i = level2.sprites.length - 1; i >= 0; i--) {
+            let s = level2.sprites[i];
+            let dx = ball.x - s.x, dy = ball.y - s.y;
+            let dist = Math.sqrt(dx * dx + dy * dy);
+            let minDist = br + s.r;
+
+            if (dist < minDist) {
+                // Abprall
+                let nx = dist > 0.001 ? dx / dist : 0;
+                let ny = dist > 0.001 ? dy / dist : -1;
+                let overlap = minDist - dist;
+                ball.x += nx * overlap * 0.6;
+                ball.y += ny * overlap * 0.6;
+                let dot = ball.vx * nx + ball.vy * ny;
+                if (dot < 0) {
+                    ball.vx -= (1 + chargeBounce()) * dot * nx;
+                    ball.vy -= (1 + chargeBounce()) * dot * ny;
+                }
+
+                // Punkte = aktueller Sprite-Wert
+                let pts = s.value;
                 if (soundEnabled) playPling(pts);
                 score += pts;
                 addCharge(pts);
                 saveScore();
                 updateScorePanel();
 
-                let cx = rect.left + rect.width/2, cy = rect.top + rect.height/2;
                 floatingTexts.push({
-                    x: cx, y: cy, text: '+5',
+                    x: s.x, y: s.y - 10, text: '+' + pts,
                     life: 2200, maxLife: 2200,
-                    color: '#FF4136', stroke: '#7b1f1f'
+                    color: L2_COLORS[pts] || '#FF4136',
+                    stroke: L2_STROKES[pts] || '#7b1f1f'
                 });
-                spawnBorderParticles(rect, pts);
 
-                // Zelle leeren
-                let span = m.el.querySelector('.kt-level2-num');
-                if (span) span.remove();
-                m.el.textContent = '';
-                m.el.style.cssText = 'border:none !important;pointer-events:none;';
-                m.el.style.opacity = '0';
-                m.el.classList.add('kt-ball-burned');
+                // Partikel-Burst am Sprite
+                let particleCol = L2_COLORS[pts] || '#FF4136';
+                for (let p = 0; p < 18; p++) {
+                    let pa = Math.random() * Math.PI * 2;
+                    particles.push({
+                        x: s.x, y: s.y,
+                        vx: Math.cos(pa) * (1.5 + Math.random() * 3),
+                        vy: Math.sin(pa) * (1.5 + Math.random() * 3),
+                        life: 700 + Math.random() * 500,
+                        maxLife: 700 + Math.random() * 500,
+                        size: 2 + Math.random() * 3,
+                        color: particleCol
+                    });
+                }
 
-                level2.movers.splice(i, 1);
+                level2.sprites.splice(i, 1);
 
-                // Alle 5er erwischt? → nochmal!
-                if (level2.movers.length === 0) {
+                // Alle Sprites erwischt? → Konfetti + nächste Runde
+                if (level2.sprites.length === 0) {
+                    if (level2.countdownTimer) { clearInterval(level2.countdownTimer); level2.countdownTimer = null; }
                     level2.active = false;
-                    if (level2.moveTimer) { clearInterval(level2.moveTimer); level2.moveTimer = null; }
+                    level2RestoreGrid();
                     spawnConfetti();
                 }
                 return;
             }
         }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Level 3: 2er/3er + Fallen
+    // ═══════════════════════════════════════════════════════════════
+    let level3 = {
+        active: false,
+        sprites: [],    // [{ x, y, vx, vy, value, r, angle, va, trap }]
+        goodCount: 0    // Anzahl positiver Sprites (Ziel: 0 → geschafft)
+    };
+
+    const L3_TRAP_COLOR  = '#B10DC9';  // Fallen: auffälliges Lila
+    const L3_TRAP_STROKE = '#5a066a';
+    const L3_PENALTY     = 5;          // Punkteabzug bei Fallen-Treffer
+
+    function level3Start() {
+        if (!active || level3.active) return;
+        level3.active = true;
+        level3.sprites = [];
+        level3.goodCount = 0;
+
+        floatingTexts.push({
+            x: window.innerWidth / 2, y: window.innerHeight / 2,
+            text: 'LEVEL 3',
+            life: 3000, maxLife: 3000,
+            color: '#B10DC9', stroke: '#5a066a', big: true
+        });
+
+        // Grid-Innenlinien ausblenden (gleich wie Level 2)
+        level2HideGrid();
+
+        let bounds = level2GetBounds();
+        let bw = bounds.right - bounds.left, bh = bounds.bottom - bounds.top;
+        let goodCount = Math.min(10, Math.max(5, Math.floor(bw * bh / 18000)));
+        let trapCount = Math.max(2, Math.floor(goodCount * 0.4));
+
+        // Positive Sprites (2er und 3er)
+        for (let n = 0; n < goodCount; n++) {
+            let angle = Math.random() * Math.PI * 2;
+            let speed = L2_SPEED * (0.7 + Math.random() * 0.6);
+            let val = Math.random() < 0.5 ? 2 : 3;
+            level3.sprites.push({
+                x: bounds.left + 30 + Math.random() * (bw - 60),
+                y: bounds.top + 30 + Math.random() * (bh - 60),
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                value: val,
+                r: L2_SPRITE_R,
+                angle: Math.random() * Math.PI * 2,
+                va: (Math.random() - 0.5) * 0.03,
+                trap: false
+            });
+            level3.goodCount++;
+        }
+
+        // Fallen (☠) — gleiche Größe, aber klar erkennbar
+        for (let n = 0; n < trapCount; n++) {
+            let angle = Math.random() * Math.PI * 2;
+            let speed = L2_SPEED * (0.7 + Math.random() * 0.6);
+            level3.sprites.push({
+                x: bounds.left + 30 + Math.random() * (bw - 60),
+                y: bounds.top + 30 + Math.random() * (bh - 60),
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                value: 0,
+                r: L2_SPRITE_R,
+                angle: Math.random() * Math.PI * 2,
+                va: (Math.random() - 0.5) * 0.04,
+                trap: true
+            });
+        }
+    }
+
+    function stepLevel3Sprites() {
+        if (!level3.active) return;
+        let bounds = level2GetBounds();
+        let margin = L2_SPRITE_R;
+
+        for (let i = 0; i < level3.sprites.length; i++) {
+            let s = level3.sprites[i];
+            s.x += s.vx;
+            s.y += s.vy;
+            s.angle += s.va;
+
+            if (s.x - margin < bounds.left)   { s.x = bounds.left + margin;  s.vx = Math.abs(s.vx); }
+            if (s.x + margin > bounds.right)  { s.x = bounds.right - margin; s.vx = -Math.abs(s.vx); }
+            if (s.y - margin < bounds.top)    { s.y = bounds.top + margin;   s.vy = Math.abs(s.vy); }
+            if (s.y + margin > bounds.bottom) { s.y = bounds.bottom - margin; s.vy = -Math.abs(s.vy); }
+
+            if (Math.random() < 0.005) {
+                let nudge = 0.05;
+                s.vx += (Math.random() - 0.5) * nudge;
+                s.vy += (Math.random() - 0.5) * nudge;
+                let spd = Math.sqrt(s.vx * s.vx + s.vy * s.vy);
+                let target = L2_SPEED * (0.7 + Math.random() * 0.6);
+                if (spd > 0.01) { s.vx *= target / spd; s.vy *= target / spd; }
+            }
+        }
+    }
+
+    function drawLevel3Sprites() {
+        if (!level3.active) return;
+        let t = performance.now() * 0.001;
+
+        for (let i = 0; i < level3.sprites.length; i++) {
+            let s = level3.sprites[i];
+            let col, label;
+
+            if (s.trap) {
+                col = L3_TRAP_COLOR;
+                label = '\u2620'; // ☠ Skull
+            } else {
+                col = L2_COLORS[s.value] || '#2ECC40';
+                label = '' + s.value;
+            }
+
+            ctx.save();
+            ctx.translate(s.x, s.y);
+            ctx.rotate(s.angle);
+
+            // Glow
+            ctx.shadowColor = col;
+            ctx.shadowBlur = s.trap ? (8 + Math.sin(t * 5 + i) * 6) : (10 + Math.sin(t * 3 + i) * 3);
+
+            // Kreis
+            ctx.beginPath();
+            ctx.arc(0, 0, s.r, 0, Math.PI * 2);
+            ctx.fillStyle = s.trap ? 'rgba(60,0,40,0.7)' : 'rgba(0,0,0,0.5)';
+            ctx.fill();
+            ctx.strokeStyle = col;
+            ctx.lineWidth = s.trap ? 2.5 : 2;
+            ctx.stroke();
+
+            // Pulsierender Ring
+            let pulse = 1 + Math.sin(t * 4 + i * 1.3) * 0.06;
+            ctx.beginPath();
+            ctx.arc(0, 0, s.r * pulse * 1.12, 0, Math.PI * 2);
+            ctx.strokeStyle = col;
+            ctx.lineWidth = 0.8;
+            ctx.globalAlpha = 0.25 + Math.sin(t * 3 + i) * 0.1;
+            ctx.stroke();
+            ctx.globalAlpha = 1;
+
+            // Label
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = col;
+            ctx.font = s.trap ? '16px Arial, sans-serif' : 'bold 15px Arial, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(label, 0, 1);
+
+            ctx.restore();
+        }
+    }
+
+    function level3CollideBall() {
+        if (!level3.active || !ball) return;
+        let br = chargeR();
+
+        for (let i = level3.sprites.length - 1; i >= 0; i--) {
+            let s = level3.sprites[i];
+            let dx = ball.x - s.x, dy = ball.y - s.y;
+            let dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist >= br + s.r) continue;
+
+            // Abprall
+            let nx = dist > 0.001 ? dx / dist : 0;
+            let ny = dist > 0.001 ? dy / dist : -1;
+            let overlap = br + s.r - dist;
+            ball.x += nx * overlap * 0.6;
+            ball.y += ny * overlap * 0.6;
+            let dot = ball.vx * nx + ball.vy * ny;
+            if (dot < 0) {
+                ball.vx -= (1 + chargeBounce()) * dot * nx;
+                ball.vy -= (1 + chargeBounce()) * dot * ny;
+            }
+
+            if (s.trap) {
+                // FALLE! Punkte abziehen
+                let penalty = Math.min(L3_PENALTY, score); // nicht unter 0
+                score -= penalty;
+                if (soundEnabled) playPling(0); // tiefer Ton
+                updateScorePanel();
+
+                floatingTexts.push({
+                    x: s.x, y: s.y - 10, text: penalty > 0 ? '-' + penalty : 'TRAP!',
+                    life: 2500, maxLife: 2500,
+                    color: L3_TRAP_COLOR, stroke: L3_TRAP_STROKE, big: true
+                });
+
+                // Rotes Partikel-Burst
+                for (let p = 0; p < 20; p++) {
+                    let pa = Math.random() * Math.PI * 2;
+                    particles.push({
+                        x: s.x, y: s.y,
+                        vx: Math.cos(pa) * (2 + Math.random() * 3),
+                        vy: Math.sin(pa) * (2 + Math.random() * 3),
+                        life: 800 + Math.random() * 500,
+                        maxLife: 800 + Math.random() * 500,
+                        size: 2 + Math.random() * 3,
+                        color: L3_TRAP_COLOR
+                    });
+                }
+
+                level3.sprites.splice(i, 1);
+            } else {
+                // Positive Treffer
+                let pts = s.value;
+                if (soundEnabled) playPling(pts);
+                score += pts;
+                addCharge(pts);
+                saveScore();
+                updateScorePanel();
+
+                floatingTexts.push({
+                    x: s.x, y: s.y - 10, text: '+' + pts,
+                    life: 2200, maxLife: 2200,
+                    color: L2_COLORS[pts] || '#2ECC40',
+                    stroke: L2_STROKES[pts] || '#145a1e'
+                });
+                for (let p = 0; p < 16; p++) {
+                    let pa = Math.random() * Math.PI * 2;
+                    particles.push({
+                        x: s.x, y: s.y,
+                        vx: Math.cos(pa) * (1.5 + Math.random() * 2.5),
+                        vy: Math.sin(pa) * (1.5 + Math.random() * 2.5),
+                        life: 600 + Math.random() * 400,
+                        maxLife: 600 + Math.random() * 400,
+                        size: 2 + Math.random() * 3,
+                        color: L2_COLORS[pts] || '#2ECC40'
+                    });
+                }
+
+                level3.sprites.splice(i, 1);
+                level3.goodCount--;
+
+                // Alle positiven getroffen? → Level geschafft!
+                if (level3.goodCount <= 0) {
+                    level3.active = false;
+                    level3.sprites = [];
+                    level2RestoreGrid();
+                    spawnConfetti();
+                }
+            }
+            return;
+        }
+    }
+
+    function level3Cleanup() {
+        level3.active = false;
+        level3.sprites = [];
+        level3.goodCount = 0;
+        level2RestoreGrid();
     }
 
     function spawnBorderParticles(rect, pts) {
@@ -1328,8 +1808,8 @@
             }
         }
 
-        // Zahlen-Jagd: Berührungen zählen
-        if (!hunt.active && !hunt.ready && !revealed) {
+        // Zahlen-Jagd: Berührungen zählen (nur wenn kein Level aktiv)
+        if (!hunt.active && !hunt.ready && !revealed && !level2.active && !level3.active) {
             if (hunt.touchCount === 0) hunt.firstTouchTime = performance.now();
             hunt.touchCount++;
             huntCheck();
@@ -1839,6 +2319,7 @@
     //  Zahlen-Jagd: Logik
     // ═══════════════════════════════════════════════════════════════
     function isOverviewEmpty() {
+        if (!kt.loggedIn) return false;
         let cells = document.querySelectorAll(CFG.BLOCK_SEL);
         if (cells.length === 0) return false;
         for (let i = 0; i < cells.length; i++) {
@@ -1849,7 +2330,7 @@
     }
 
     function huntCheck() {
-        if (hunt.active || hunt.ready || revealed) return;
+        if (hunt.active || hunt.ready || revealed || level2.active || level3.active) return;
         if (!isOverviewEmpty()) return;
         let elapsed = performance.now() - hunt.firstTouchTime;
         if (hunt.touchCount >= 5 && elapsed >= 7500) {
@@ -1871,12 +2352,13 @@
         hunt.timerEl = document.createElement('div');
         hunt.timerEl.id = 'kt-hunt-timer';
         let s = hunt.timerEl.style;
-        // Neben die Tabelle positionieren
-        let grid = document.querySelector('.ui-jqgrid');
-        let gridRect = grid ? grid.getBoundingClientRect() : null;
-        let rightPos = gridRect ? (window.innerWidth - gridRect.right - 20) : 12;
-        if (rightPos < 12) rightPos = 12;
-        s.cssText = 'position:fixed;top:50%;right:' + rightPos + 'px;transform:translateY(-50%);z-index:10001;' +
+        // Rechts neben die Tabelle positionieren
+        let tbl = document.querySelector('td.Pts1');
+        let tblEl = tbl ? tbl.closest('table') : null;
+        let tblRect = tblEl ? tblEl.getBoundingClientRect() : null;
+        let leftPos = tblRect ? (tblRect.right + 20) : (window.innerWidth - 100);
+        let topPos = tblRect ? (tblRect.top + tblRect.height / 2) : (window.innerHeight / 2);
+        s.cssText = 'position:fixed;top:' + topPos + 'px;left:' + leftPos + 'px;transform:translateY(-50%);z-index:10001;' +
             'text-align:center;pointer-events:none;opacity:0;transition:opacity 0.5s';
         document.body.appendChild(hunt.timerEl);
         requestAnimationFrame(function() {
@@ -2123,13 +2605,18 @@
         pushBall();
         step();
         stepSplitBalls(dt);
+        stepLevel2Sprites();
+        stepLevel3Sprites();
         huntCollideBall();
         level2CollideBall();
+        level3CollideBall();
         decayCharge(dt);
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         if (charge > 0.5) drawElectricArcs();
         drawGlowLines();
+        drawLevel2Sprites();
+        drawLevel3Sprites();
         drawParticles(dt);
         drawSplitBalls();
         drawBall();

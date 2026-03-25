@@ -287,13 +287,15 @@ class KT
 	{
 		/* Check if user has been remembered via token */
 		if (isset($_COOKIE['remember_token']) && !isset($_SESSION['username'])) {
-			$token = $_COOKIE['remember_token'];
-			$sql = sprintf("SELECT user FROM %s WHERE remember_token = ?", $this->TABLE['teilnehmer']);
-			$result = $this->db->prepare($sql, 's', [$token]);
-			if ($result && $result->num_rows > 0) {
-				$row = $result->fetch_assoc();
-				$_SESSION['username'] = $row['user'];
-			}
+			try {
+				$token = $_COOKIE['remember_token'];
+				$sql = sprintf("SELECT user FROM %s WHERE remember_token = ?", $this->TABLE['teilnehmer']);
+				$result = $this->db->prepare($sql, 's', [$token]);
+				if ($result && $result->num_rows > 0) {
+					$row = $result->fetch_assoc();
+					$_SESSION['username'] = $row['user'];
+				}
+			} catch (\Exception $e) { /* Spalte existiert evtl. noch nicht */ }
 		}
 
 		/* Username has been set in session */
@@ -325,23 +327,13 @@ class KT
 		$dbarray = $result->fetch_array();
 		$dbPassword = $dbarray['password'];
 
-		/* Support both bcrypt (new) and MD5 (legacy) */
+		/* Support both bcrypt and MD5 */
 		if (password_get_info($dbPassword)['algo'] !== null && password_get_info($dbPassword)['algoName'] !== 'unknown') {
 			// bcrypt hash
-			if (password_verify($password, $dbPassword)) {
-				return 0;
-			}
-			return 2;
+			return password_verify($password, $dbPassword) ? 0 : 2;
 		} else {
-			// Legacy MD5 hash
-			if (md5($password) === $dbPassword) {
-				// Migrate to bcrypt
-				$newHash = password_hash($password, PASSWORD_DEFAULT);
-				$sql = sprintf("UPDATE %s SET password = ? WHERE tnid = ?", $this->TABLE['teilnehmer']);
-				$this->db->prepareExecute($sql, 'si', [$newHash, $dbarray['tnid']]);
-				return 0;
-			}
-			return 2;
+			// MD5 hash
+			return (md5($password) === $dbPassword) ? 0 : 2;
 		}
 	}
 
@@ -361,8 +353,10 @@ class KT
 	function generateRememberToken($tnid)
 	{
 		$token = bin2hex(random_bytes(32));
-		$sql = sprintf("UPDATE %s SET remember_token = ? WHERE tnid = ?", $this->TABLE['teilnehmer']);
-		$this->db->prepareExecute($sql, 'si', [$token, $tnid]);
+		try {
+			$sql = sprintf("UPDATE %s SET remember_token = ? WHERE tnid = ?", $this->TABLE['teilnehmer']);
+			$this->db->prepareExecute($sql, 'si', [$token, $tnid]);
+		} catch (\Exception $e) { /* Spalte existiert evtl. noch nicht */ }
 		return $token;
 	}
 
@@ -370,14 +364,17 @@ class KT
 	{
 		// Remember-Token loeschen
 		if ($this->user) {
-			$sql = sprintf("UPDATE %s SET remember_token = NULL WHERE tnid = ?", $this->TABLE['teilnehmer']);
-			$this->db->prepareExecute($sql, 'i', [$this->user['tnid']]);
+			try {
+				$sql = sprintf("UPDATE %s SET remember_token = NULL WHERE tnid = ?", $this->TABLE['teilnehmer']);
+				$this->db->prepareExecute($sql, 'i', [$this->user['tnid']]);
+			} catch (\Exception $e) { /* Spalte existiert evtl. noch nicht */ }
 		}
 
-		if (isset($_COOKIE['remember_token'])) {
-			$cookieOptions = ['expires' => time() - 3600, 'path' => '/', 'secure' => true, 'httponly' => true, 'samesite' => 'Strict'];
-			setcookie("remember_token", "", $cookieOptions);
-		}
+		$cookieOptions = ['expires' => time() - 3600, 'path' => '/', 'httponly' => true, 'samesite' => 'Strict'];
+		if (isset($_COOKIE['remember_token'])) setcookie("remember_token", "", $cookieOptions);
+		if (isset($_COOKIE['cookname']))        setcookie("cookname", "", $cookieOptions);
+		if (isset($_COOKIE['cookpass']))        setcookie("cookpass", "", $cookieOptions);
+		if (isset($_COOKIE['cooktoken']))       setcookie("cooktoken", "", $cookieOptions);
 
 		unset($_SESSION['username']);
 		$this->user = null;

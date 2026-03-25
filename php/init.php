@@ -12,5 +12,6 @@ if (!($_SESSION['_KT_'] ?? null) instanceof KT)
 
 $kt = $_SESSION['_KT_'];
 $kt->initData();
+if (!$kt->user && isset($_SESSION['username'])) $kt->setUser($_SESSION['username']);
 	 	//print_r($kt);
 ?>

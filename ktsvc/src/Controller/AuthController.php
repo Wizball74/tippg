@@ -52,27 +52,45 @@ class AuthController {
         }
 
         // Session-basierte Auth
-        if (isset($_SESSION['username']) && isset($_SESSION['password'])) {
+        if (isset($_SESSION['username'])) {
             $user = $_SESSION['username'];
-            $password = $_SESSION['password'];
+            // Session ist bereits authentifiziert, kein Passwort-Check nötig
+            $this->gateway->updateLogin($user);
+            $userdata = $this->getUser($user);
+            if ($userdata) {
+                unset($userdata['password']);
+                $this->api->RespondOk($userdata);
+                return;
+            }
         }
-        // Cookie-basierte Auth (Fallback)
-        elseif (isset($_COOKIE['cookname']) && isset($_COOKIE['cookpass'])) {
+        // Cookie-basierte Auth (Fallback): Token statt Passwort
+        if (isset($_COOKIE['cookname']) && isset($_COOKIE['cooktoken'])) {
             $user = $_COOKIE['cookname'];
-            $password = $_COOKIE['cookpass'];
+            $tokenUser = $this->gateway->findByRememberToken($_COOKIE['cooktoken']);
+            if ($tokenUser && $tokenUser['user'] === $user) {
+                $_SESSION['username'] = $user;
+                $this->gateway->updateLogin($user);
+                $userdata = $this->getUser($user);
+                unset($userdata['password']);
+                $this->api->RespondOk($userdata);
+                return;
+            }
+        }
+        // Legacy Cookie-basierte Auth (alte cookpass Cookies)
+        if (isset($_COOKIE['cookname']) && isset($_COOKIE['cookpass'])) {
+            $user = $_COOKIE['cookname'];
+            if ($this->confirmUser($user, $_COOKIE['cookpass'], true)) {
+                $_SESSION['username'] = $user;
+                $this->gateway->updateLogin($user);
+                $userdata = $this->getUser($user);
+                unset($userdata['password']);
+                $this->api->RespondOk($userdata);
+                return;
+            }
         }
 
-        if (!$user || !$this->confirmUser($user, $password)) {
-            $this->api->RespondNotAuthorized();
-            return;
-        }
-
-        $this->gateway->updateLogin($user);
-
-        $userdata = $this->getUser($user);
-        unset($userdata['password']);
-
-        $this->api->RespondOk($userdata);
+        // Kein Auth-Weg hat funktioniert
+        $this->api->RespondNotAuthorized();
     }
         
     /**
@@ -82,17 +100,23 @@ class AuthController {
      * @param  mixed $password
      * @return bool
      */
-    function confirmUser($username, $password) : bool
+    function confirmUser($username, $password, $isHashed = false) : bool
     {
         /* Verify that user is in database */
         $result = $this->getUser($username);
-        if(!$result) { return false; } //Indicates username failure
-        
-        /* Validate that password is correct */
-        $data = $result;
-        if($password == $data['password']) { return true; } //Success! Username and password confirmed
-        
-        return false; //Indicates password failure
+        if(!$result) { return false; }
+
+        $dbPassword = $result['password'];
+
+        /* bcrypt hash in DB → password_verify mit Klartext */
+        if (password_get_info($dbPassword)['algoName'] !== 'unknown') {
+            if ($isHashed) { return false; }
+            return password_verify($password, $dbPassword);
+        }
+
+        /* MD5 hash vergleichen */
+        $md5 = $isHashed ? $password : md5($password);
+        return ($md5 === $dbPassword);
     }
     
     /**
@@ -102,17 +126,13 @@ class AuthController {
      */
     function logout() : bool
     {
-        if(isset($_COOKIE['cookname'])
-            && isset($_COOKIE['cookpass']))
-        {
-            $cookieOptions = ['expires' => time() - 3600, 'path' => '/', 'httponly' => true, 'samesite' => 'Strict'];
-            setcookie("cookname", "", $cookieOptions);
-            setcookie("cookpass", "", $cookieOptions);
-        } // if
+        $cookieOptions = ['expires' => time() - 3600, 'path' => '/', 'httponly' => true, 'samesite' => 'Strict'];
+        if(isset($_COOKIE['cookname'])) { setcookie("cookname", "", $cookieOptions); }
+        if(isset($_COOKIE['cookpass'])) { setcookie("cookpass", "", $cookieOptions); }
+        if(isset($_COOKIE['cooktoken'])) { setcookie("cooktoken", "", $cookieOptions); }
 
         /* Kill session variables */
         unset($_SESSION['username']);
-        unset($_SESSION['password']);
 
         $_SESSION = array(); // reset session array
         session_destroy();   // destroy session.
@@ -125,11 +145,11 @@ class AuthController {
      * @param  mixed $request
      * @return void
      */
-    function login() {       
+    function login() {
         $user = trim($this->api->params['loginUsername']);
-        $md5pass = md5($this->api->params['loginPassword']);
+        $plainpass = $this->api->params['loginPassword'];
 
-        $result = $this->confirmUser($user, $md5pass);
+        $result = $this->confirmUser($user, $plainpass);
         if(!$result)
         {
              $this->api->RespondNotAuthorized();
@@ -138,6 +158,9 @@ class AuthController {
         {
             if(isset($this->api->params['remember']))
             {
+                // Token-basiertes Remember statt Passwort im Cookie
+                $token = bin2hex(random_bytes(32));
+                $this->gateway->updateRememberToken($user, $token);
                 $cookieOptions = [
                     'expires'  => time() + 60 * 60 * 24 * 30,
                     'path'     => '/',
@@ -145,7 +168,7 @@ class AuthController {
                     'samesite' => 'Strict',
                 ];
                 setcookie("cookname", $user, $cookieOptions);
-                setcookie("cookpass", $md5pass, $cookieOptions);
+                setcookie("cooktoken", $token, $cookieOptions);
             }
 
             $this->gateway->updateLogin($user);
@@ -154,6 +177,6 @@ class AuthController {
             unset($userdata['password']);
 
             $this->api->RespondOk($userdata);
-        }       
+        }
     }
 }
