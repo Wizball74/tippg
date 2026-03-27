@@ -60,7 +60,16 @@
       "Bash(python3 << 'PYEOF'\nfrom PIL import Image, ImageDraw, ImageFont\n\nimg = Image.open\\('D:/GIT/tippg/css/images/logos.png'\\)\n\n# Top Union Berlin candidates \\(red+white, shield with iron imagery\\):\nunion_cells = [\n    \\(0, 78\\), \\(2, 82\\), \\(0, 87\\), \\(2, 35\\), \\(2, 65\\), \\(0, 27\\),\n    \\(2, 62\\), \\(0, 52\\), \\(1, 76\\), \\(0, 70\\), \\(0, 73\\), \\(0, 62\\),\n]\n\n# Top Heidenheim candidates \\(blue+red circle\\):\nheiden_cells = [\n    \\(0, 41\\), \\(2, 70\\), \\(0, 106\\), \\(2, 97\\), \\(0, 47\\), \\(2, 73\\),\n    \\(2, 105\\), \\(1, 4\\), \\(0, 18\\), \\(0, 15\\), \\(2, 43\\), \\(0, 69\\),\n]\n\ndef make_grid\\(cells, title, filename\\):\n    cell_size = 72\n    margin = 4\n    label_h = 16\n    cols = 6\n    rows = \\(len\\(cells\\) + cols - 1\\) // cols\n    w = cols * \\(cell_size + margin\\) + margin\n    h = rows * \\(cell_size + margin + label_h\\) + margin\n    out = Image.new\\('RGB', \\(w, h\\), \\(255, 255, 255\\)\\)\n    draw = ImageDraw.Draw\\(out\\)\n    \n    for i, \\(col, row\\) in enumerate\\(cells\\):\n        cell = img.crop\\(\\(col*18, row*18, col*18+18, row*18+18\\)\\)\n        enlarged = cell.resize\\(\\(cell_size, cell_size\\), Image.NEAREST\\)\n        cx = margin + \\(i % cols\\) * \\(cell_size + margin\\)\n        cy = margin + \\(i // cols\\) * \\(cell_size + margin + label_h\\)\n        out.paste\\(enlarged, \\(cx, cy\\)\\)\n        x = -col * 18\n        y = -row * 18\n        draw.text\\(\\(cx, cy + cell_size\\), f\"c{col}r{row} {x},{y}\", fill=\\(0,0,0\\)\\)\n    \n    out.save\\(filename\\)\n\nmake_grid\\(union_cells, \"Union Berlin candidates\", \"/tmp/union_candidates.png\"\\)\nmake_grid\\(heiden_cells, \"Heidenheim candidates\", \"/tmp/heiden_candidates.png\"\\)\nprint\\(\"Done\"\\)\nPYEOF)",
       "WebSearch",
       "Bash(git tag:*)",
-      "Bash(start:*)"
+      "Bash(start:*)",
+      "Bash(cmd.exe /c \"C:\\\\xampp\\\\mysql\\\\bin\\\\mysql.exe\" -u root tippgde_db1 -e \"SELECT tid, Name, kurz, Logo FROM kt3_teams WHERE Name LIKE '%Union%' OR Name LIKE '%Heidenheim%';\")",
+      "Bash(cmd //c \"C:\\\\\\\\xampp\\\\\\\\mysql\\\\\\\\bin\\\\\\\\mysql.exe -u root tippgde_db1 -e \\\\\"SELECT tid, Name, Logo FROM kt3_teams WHERE Name LIKE '%%Union%%' OR Name LIKE '%%Heidenheim%%';\\\\\"\")",
+      "Bash(/tmp/trlist.php:*)",
+      "Bash(\"C:/Program Files/xampp/php/php.exe\" /tmp/trlist.php)",
+      "Bash(php:*)",
+      "Bash(\"/c/Program Files/xampp/php/php.exe\" -l \"C:/Daten/GIT/tippg/php/Pinnwand.php\")",
+      "Bash('/c/Program Files/xampp/php/php.exe' -v)",
+      "Bash(git commit:*)",
+      "Bash(find /c/Daten/GIT/tippg -name *.sql -type f)"
     ]
   }
 }

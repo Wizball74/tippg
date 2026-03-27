@@ -23,7 +23,7 @@
         return {
             caption: "Ergebnisse abrufen",
             buttonicon: "none",
-            tbar: "tb_",
+            tbar: "t_",
             onClickButton: function () {
                 $j.ajax({
                     url: "php/getDFBErgebnisse.php",
@@ -44,7 +44,7 @@
             position: "last"
         };
     }
-    function isAdmin() { return $j('#mainmenu a[id*="Admin"]').length > 0; }
+    function isAdmin() { return $j('#mainmenu a.dropdown-toggle').filter(function() { return $j(this).text().indexOf('Admin') >= 0; }).length > 0; }
 
     function getGridData(gridid, idcol) {
         var grid = $j(gridid),

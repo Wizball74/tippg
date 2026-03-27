@@ -82,6 +82,43 @@ class TeilnehmerGateway {
             return true;
         } catch (\PDOException $e) {
             return false;
-        }    
-    }   
+        }
+    }
+
+    public function updatePassword($userName, $hash)
+    {
+        $statement = "UPDATE {$this->table} SET password = ? WHERE user = ?";
+        try {
+            $statement = $this->db->prepare($statement);
+            $statement->execute(array($hash, $userName));
+            return true;
+        } catch (\PDOException $e) {
+            return false;
+        }
+    }
+
+    public function updateRememberToken($userName, $token)
+    {
+        $statement = "UPDATE {$this->table} SET remember_token = ? WHERE user = ?";
+        try {
+            $statement = $this->db->prepare($statement);
+            $statement->execute(array($token, $userName));
+            return true;
+        } catch (\PDOException $e) {
+            return false;
+        }
+    }
+
+    public function findByRememberToken($token)
+    {
+        $statement = "SELECT * FROM {$this->table} WHERE remember_token = ?";
+        try {
+            $statement = $this->db->prepare($statement);
+            $statement->execute(array($token));
+            $result = $statement->fetch(\PDO::FETCH_ASSOC);
+            return $result ?: null;
+        } catch (\PDOException $e) {
+            return null;
+        }
+    }
 }

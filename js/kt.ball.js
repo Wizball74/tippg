@@ -12,8 +12,8 @@
 
     const CFG = {
         R:          10,       // Ball-Radius
-        GRAVITY:    0.16,     // Schwerkraft pro Frame
-        BOUNCE:     0.68,     // Rückprall-Faktor
+        GRAVITY:    0.17,     // Schwerkraft pro Frame
+        BOUNCE:     0.7,     // Rückprall-Faktor
         FRICTION:   0.997,    // Luftwiderstand (multipliziert pro Frame)
         CURSOR_R:   28,       // Cursor-Kollisionsradius (Schuh-Trefferfläche)
         MAX_V:      15,       // Maximalgeschwindigkeit
@@ -22,6 +22,16 @@
         BOTTOM_M:   50,       // Abstand zum unteren Fensterrand (Taskleiste)
         BLOCK_SEL: 'td.Pts1',
         LS_KEY: 'kt_ball_data'
+    };
+
+    // Console-API: ktBall.GRAVITY / .BOUNCE / .FRICTION lesen & setzen
+    window.ktBall = {
+        get GRAVITY()  { return CFG.GRAVITY; },
+        set GRAVITY(v) { CFG.GRAVITY = +v; },
+        get BOUNCE()   { return CFG.BOUNCE; },
+        set BOUNCE(v)  { CFG.BOUNCE = +v; },
+        get FRICTION()  { return CFG.FRICTION; },
+        set FRICTION(v) { CFG.FRICTION = +v; }
     };
 
     // State
@@ -812,12 +822,11 @@
 
     // ═══════════════════════════════════════════════════════════════
     function spawnBall() {
-        let tb = document.querySelector('.ui-jqgrid-titlebar');
-        if (!tb) return;
-        let r = tb.getBoundingClientRect();
+        if (!document.querySelector('.ui-jqgrid-titlebar')) return;
         // Oben außerhalb des Viewports starten, fällt dann rein
+        let w = window.innerWidth;
         ball = {
-            x: r.left + r.width * (0.3 + Math.random() * 0.4),
+            x: w * (0.1 + Math.random() * 0.8),
             y: -CFG.R - 30,
             vx: 0, vy: 0,
             quat: [1, 0, 0, 0],
@@ -2105,6 +2114,8 @@
                 charge = 0;
                 removeScorePanel();
                 splitBalls = [];
+                hunt.touchCount = 0;
+                hunt.firstTouchTime = 0;
             }, 800);
         });
     }
