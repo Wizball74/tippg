@@ -253,13 +253,27 @@
                     {
                         action[idx] = val;
                         menuitem = $j('<li/>');
-                        menuitem.append($j('<a/>').addClass('mi').attr('href', '#').attr('id', pre + (idx++)).html(val.title));
-                        //menuitem.append($j('<div/>').addClass('hdr').html(val.title));
+                        var linkHtml = val.title;
+                        if (val.smenu === 'Pinnwand') linkHtml += '<span id="pinBadge" class="pin-badge" style="display:none"></span>';
+                        menuitem.append($j('<a/>').addClass('mi').attr('href', '#').attr('id', pre + (idx++)).html(linkHtml));
                     }
-                    //console.log(menuitem);
                     menu.append(menuitem);
 
                 });
+
+                // Pinnwand: ungelesene Beitraege zaehlen
+                (function() {
+                    var since = localStorage.getItem('kt_pin_seen') || '';
+                    if (!since) { localStorage.setItem('kt_pin_seen', new Date().toISOString().slice(0,19).replace('T',' ')); return; }
+                    $j.ajax({ url: 'php/Pinnwand.php', type: 'POST', data: { action: 'count', since: since },
+                        success: function(data) {
+                            var res = data.d || data;
+                            if (res.ok && res.count > 0) {
+                                $j('#pinBadge').text(res.count).show();
+                            }
+                        }
+                    });
+                })();
 
                 // Theme-Switcher in die Navbar
                 (function() {

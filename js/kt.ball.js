@@ -2873,10 +2873,12 @@
             s.background = 'rgba(255,255,255,0.1)';
         }
 
+        var sp = scorePanel;
         requestAnimationFrame(function () {
             requestAnimationFrame(function () {
-                scorePanel.style.opacity = '1';
-                scorePanel.style.transform = 'translateY(0)';
+                if (!sp) return;
+                sp.style.opacity = '1';
+                sp.style.transform = 'translateY(0)';
             });
         });
 
@@ -2947,14 +2949,16 @@
 
     function pulseScorePanel() {
         if (!scorePanel) return;
-        scorePanel.style.transition = 'none';
-        scorePanel.style.transform = 'translateY(0) scale(1.12)';
-        scorePanel.style.boxShadow = '0 0 16px rgba(255,180,50,0.6)';
+        var sp = scorePanel;
+        sp.style.transition = 'none';
+        sp.style.transform = 'translateY(0) scale(1.12)';
+        sp.style.boxShadow = '0 0 16px rgba(255,180,50,0.6)';
         requestAnimationFrame(function () {
             requestAnimationFrame(function () {
-                scorePanel.style.transition = 'transform 0.4s ease-out, box-shadow 0.6s ease-out';
-                scorePanel.style.transform = 'translateY(0) scale(1)';
-                scorePanel.style.boxShadow = 'none';
+                if (!sp) return;
+                sp.style.transition = 'transform 0.4s ease-out, box-shadow 0.6s ease-out';
+                sp.style.transform = 'translateY(0) scale(1)';
+                sp.style.boxShadow = 'none';
             });
         });
     }

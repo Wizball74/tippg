@@ -23,8 +23,8 @@ switch ($action) {
 		break;
 	case 'save':
 		$text = isset($_POST['text']) ? trim($_POST['text']) : '';
-		$color = isset($_POST['color']) ? trim($_POST['color']) : '#fff9c4';
-		$kt->SavePinnwandPost($text, $color);
+		$style = isset($_POST['style']) ? trim($_POST['style']) : '';
+		$kt->SavePinnwandPost($text, $style);
 		break;
 	case 'savePosition':
 		$id = isset($_POST['id']) ? intval($_POST['id']) : 0;
@@ -48,6 +48,9 @@ switch ($action) {
 		break;
 	case 'upload':
 		$kt->UploadPinnwandImage();
+		break;
+	case 'count':
+		$kt->GetPinnwandCount();
 		break;
 	default:
 		$kt->jsonout(array('ok' => false, 'message' => 'Unbekannte Aktion.'));

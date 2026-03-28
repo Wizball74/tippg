@@ -33,7 +33,11 @@
                         var res = data.d || data;
                         if (res.ok) {
                             var count = res.data ? res.data.length : 0;
-                            showMessage({ ok: true, message: count + ' Ergebnis(se) abgerufen' }, 3);
+                            var parts = [count + ' abgerufen'];
+                            if (res.neu) parts.push(res.neu + ' neu eingetragen');
+                            if (res.aktualisiert) parts.push(res.aktualisiert + ' aktualisiert');
+                            if (res.vorhanden) parts.push(res.vorhanden + ' bereits vorhanden');
+                            showMessage({ ok: true, message: parts.join(', ') }, 5);
                             if (afterFetch) afterFetch(res);
                         } else {
                             showMessage(res, 5);
@@ -1267,56 +1271,59 @@
     }
 
     /**********************************************************************************************
-    * Pinnwand (Post-It Board)
+    * Pinnwand (Social Feed)
     */
     kt.Pinnwand = kt.Pinnwand || {};
     $j.extend(kt.Pinnwand, {
         _uploadedImage: null,
-        _zCounter: 10,
         _styles: [
-            { key: '',        icon: '\u21BA', title: 'Standard' },
-            { key: 'polaroid', icon: '\u2B1C', title: 'Polaroid' },
-            { key: 'vintage',  icon: '\u2615', title: 'Vintage' },
+            { key: '',         icon: '\u2709', title: 'Standard' },
+            { key: 'elegant',  icon: '\uD83D\uDC51', title: 'Edel' },
             { key: 'neon',     icon: '\uD83D\uDCA1', title: 'Neon' },
-            { key: 'doodle',   icon: '\u270F', title: 'Doodle' },
-            { key: 'frame',    icon: '\uD83D\uDDBC', title: 'Rahmen' },
+            { key: 'retro',    icon: '\uD83D\uDCBB', title: 'Retro' },
             { key: 'dark',     icon: '\uD83C\uDF11', title: 'Tafel' },
             { key: 'glass',    icon: '\uD83D\uDC8E', title: 'Glas' },
-            { key: 'wobble',   icon: '\uD83C\uDF0A', title: 'Wackeln' },
-            { key: 'elegant',  icon: '\uD83D\uDC51', title: 'Edel' },
-            { key: 'retro',    icon: '\uD83D\uDC9A', title: 'Retro' },
+            { key: 'doodle',   icon: '\u270F',  title: 'Doodle' },
+            { key: 'polaroid', icon: '\uD83D\uDDBC', title: 'Polaroid' },
+            { key: 'vintage',  icon: '\u2615',  title: 'Vintage' },
+            { key: 'frame',    icon: '\uD83D\uDDBC', title: 'Rahmen' },
             { key: 'tape',     icon: '\uD83D\uDCCC', title: 'Gepinnt' },
             { key: 'shadow',   icon: '\uD83D\uDD76', title: 'Schatten' }
         ],
-        _allStyleClasses: ['pin-style-polaroid','pin-style-vintage','pin-style-neon','pin-style-doodle','pin-style-frame','pin-style-dark','pin-style-glass','pin-style-wobble','pin-style-elegant','pin-style-retro','pin-style-tape','pin-style-shadow'],
-        _colors: ['#fff9c4','#c8e6c9','#bbdefb','#f8bbd0','#e1bee7','#ffe0b2'],
-        _colorNames: ['Gelb','Gr\u00FCn','Blau','Rosa','Lila','Orange'],
 
         Anzeigen: function () {
+            // Gelesen-Timestamp setzen, Badge ausblenden
+            localStorage.setItem('kt_pin_seen', new Date().toISOString().slice(0,19).replace('T',' '));
+            $j('#pinBadge').hide();
+
             var nick = (kt.username || '').split(',');
             nick = nick.length > 1 ? nick[1].trim() : nick[0].trim();
             var P = kt.Pinnwand, esc = P._esc;
 
-            var colorHtml = '<div class="pin-color-picker"><span>Farbe:</span>';
-            $j.each(P._colors, function (i, c) {
-                colorHtml += '<label class="pin-color-dot" style="background:' + c + '" title="' + P._colorNames[i] + '">'
-                    + '<input type="radio" name="pwColor" value="' + c + '"' + (i === 0 ? ' checked' : '') + '>'
-                    + '</label>';
+            var styleHtml = '<div class="pin-style-picker">';
+            $j.each(P._styles, function (i, s) {
+                styleHtml += '<button type="button" class="pin-style-dot' + (i === 0 ? ' active' : '') + '" data-style="' + s.key + '" title="' + s.title + '">'
+                    + s.icon + '</button>';
             });
-            colorHtml += '</div>';
+            styleHtml += '<input type="hidden" id="pwStyle" value="">';
+            styleHtml += '</div>';
 
             var html = '<div class="pin-form">'
-                + '<textarea id="pwText" placeholder="Was gibt\'s Neues, ' + esc(nick) + '?" maxlength="2000" rows="2"></textarea>'
+                + '<div class="pin-form-inner">'
+                + '<div class="pin-avatar pin-avatar-form">' + esc(P._initials(nick)) + '</div>'
+                + '<div class="pin-form-body">'
+                + '<textarea id="pwText" placeholder="Was gibt\'s Neues, ' + esc(nick) + '?" maxlength="2000" rows="1"></textarea>'
                 + '<div id="pwPreview" class="pin-preview" style="display:none"></div>'
                 + '<div class="pin-form-actions">'
-                + colorHtml
+                + styleHtml
                 + '<label class="pin-upload-btn" title="Bild anhaengen">'
                 + '  <input type="file" id="pwFile" accept="image/*" style="display:none">'
-                + '  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>'
-                + '  <span>Bild</span>'
+                + '  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>'
                 + '</label>'
                 + '<span id="pwFileName" class="pin-filename"></span>'
                 + '<button id="pwSend" class="pin-send">Posten</button>'
+                + '</div>'
+                + '</div>'
                 + '</div>'
                 + '</div>'
                 + '<div id="pwBoard" class="pin-board"><div class="pin-loading">Lade Beitraege...</div></div>'
@@ -1328,8 +1335,28 @@
             kt.Pinnwand._load();
         },
 
+        _allStyleClasses: 'pin-style-elegant pin-style-neon pin-style-retro pin-style-dark pin-style-glass pin-style-doodle pin-style-polaroid pin-style-vintage pin-style-frame pin-style-tape pin-style-shadow',
+
         _bindEvents: function () {
             var P = kt.Pinnwand;
+
+            // Style-Picker
+            $j('.pin-style-picker').on('click', '.pin-style-dot', function () {
+                $j('.pin-style-dot').removeClass('active');
+                $j(this).addClass('active');
+                var style = $j(this).data('style');
+                $j('#pwStyle').val(style);
+                // Preview auf dem Formular
+                var form = $j('.pin-form');
+                form.removeClass(P._allStyleClasses);
+                if (style) form.addClass('pin-style-' + style);
+            });
+
+            // Auto-resize textarea
+            $j('#pwText').on('input', function () {
+                this.style.height = 'auto';
+                this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+            });
 
             // Bild-Upload
             $j('#pwFile').on('change', function () {
@@ -1353,14 +1380,16 @@
                 var text = $j('#pwText').val().trim();
                 if (!text) { showError('Bitte Text eingeben.', 3); return; }
                 $j(this).prop('disabled', true);
-                var color = $j('input[name="pwColor"]:checked').val() || '#fff9c4';
-                $j.ajax({ url: 'php/Pinnwand.php', type: 'POST', data: { action: 'save', text: text, color: color },
+                var style = $j('#pwStyle').val() || '';
+                $j.ajax({ url: 'php/Pinnwand.php', type: 'POST', data: { action: 'save', text: text, style: style },
                     success: function (data) {
                         var res = data.d || data;
                         $j('#pwSend').prop('disabled', false);
                         if (res.ok) {
-                            $j('#pwText').val(''); $j('#pwFile').val(''); $j('#pwFileName').text('');
+                            $j('#pwText').val('').css('height', ''); $j('#pwFile').val(''); $j('#pwFileName').text('');
                             $j('#pwPreview').hide().empty(); P._uploadedImage = null;
+                            $j('#pwStyle').val(''); $j('.pin-style-dot').removeClass('active').first().addClass('active');
+                            $j('.pin-form').removeClass(P._allStyleClasses);
                             P._render(res);
                         } else { showError(res.message, 5); }
                     }
@@ -1400,58 +1429,43 @@
             $j.each(posts, function (i, post) {
                 var isMine = (post.tnid == myTnid),
                     nick = P._esc(post.nick),
-                    color = post.color || '#fff9c4',
-                    hasPos = (post.pos_x != null && post.pos_x !== ''),
                     styleClass = post.card_style ? ' pin-style-' + post.card_style : '',
-                    ownClass = isMine ? ' pin-card-own' : '';
+                    ownClass = isMine ? ' pin-card-own' : '',
+                    stickyClass = post.sticky == 1 ? ' pin-card-pinned' : '';
 
-                var style = 'background:' + color + ';';
-                if (hasPos) {
-                    style += 'left:' + post.pos_x + '%;top:' + post.pos_y + '%;transform:rotate(' + (post.rotation || 0) + 'deg);';
+                html += '<div class="pin-card' + ownClass + stickyClass + styleClass + '" data-id="' + post.id + '" data-owner="' + post.tnid + '">';
+
+                // Header: Avatar + Name + Date + Actions
+                html += '<div class="pin-card-header">';
+                html += '<div class="pin-avatar">' + P._esc(P._initials(nick)) + '</div>';
+                html += '<div class="pin-card-meta">';
+                html += '<span class="pin-card-author">' + nick + '</span>';
+                html += '<span class="pin-card-date">' + (post.created_fmt || '') + '</span>';
+                html += '</div>';
+
+                // Actions (hover-only)
+                if (isMine || isAdmin) {
+                    html += '<div class="pin-card-actions">';
+                    if (isAdmin) {
+                        html += '<button type="button" class="pin-action-btn pin-card-sticky-btn" title="' + (post.sticky == 1 ? 'Loesen' : 'Anpinnen') + '">'
+                            + (post.sticky == 1 ? '&#128204;' : '&#128392;') + '</button>';
+                    }
+                    html += '<button type="button" class="pin-action-btn pin-card-delete" title="Loeschen">&times;</button>';
+                    html += '</div>';
                 }
+                html += '</div>';
 
-                html += '<div class="pin-card' + ownClass + styleClass + '" data-id="' + post.id + '" data-owner="' + post.tnid + '" data-has-pos="' + (hasPos ? '1' : '0') + '" style="' + style + '">';
-
-                // Sticky-Badge
+                // Sticky indicator
                 if (post.sticky == 1) {
                     html += '<div class="pin-sticky-badge">&#128204; Angepinnt</div>';
                 }
 
-                // Nachricht
+                // Message
                 html += '<div class="pin-card-message">' + P._formatText(post.text) + '</div>';
 
                 // Bild
                 if (post.image) {
                     html += '<img src="' + P._esc(post.image) + '" alt="Bild" class="pin-card-image" loading="lazy">';
-                }
-
-                // Footer
-                html += '<div class="pin-card-footer">'
-                    + '<span class="pin-card-author">' + nick + '</span>'
-                    + '<span class="pin-card-date">' + (post.created_fmt || '') + '</span>'
-                    + '</div>';
-
-                // Eigene Karte: Rotate, OnTop, Style-Buttons
-                if (isMine) {
-                    html += '<button type="button" class="pin-rotate-handle" title="Drehen">&#8635;</button>';
-                    html += '<button type="button" class="pin-ontop-handle" title="Nach vorne">&#9733;</button>';
-                    html += '<div class="pin-style-buttons">';
-                    $j.each(P._styles, function (si, s) {
-                        var act = (post.card_style || '') === s.key ? ' active' : '';
-                        html += '<button type="button" class="pin-style-btn' + act + '" data-style="' + s.key + '" title="' + s.title + '">' + s.icon + '</button>';
-                    });
-                    html += '</div>';
-                }
-
-                // Delete (eigene + admin)
-                if (isMine || isAdmin) {
-                    html += '<button type="button" class="pin-card-delete" title="Loeschen">&times;</button>';
-                }
-
-                // Admin: Sticky-Toggle
-                if (isAdmin) {
-                    var sIcon = post.sticky == 1 ? '&#128204;' : '&#9744;';
-                    html += '<button type="button" class="pin-card-sticky-btn" title="' + (post.sticky == 1 ? 'Loesen' : 'Anpinnen') + '">' + sIcon + '</button>';
                 }
 
                 html += '</div>';
@@ -1466,167 +1480,7 @@
                 board = document.getElementById('pwBoard');
             if (!board) return;
 
-            // Vorherige Handler entfernen
             $j(board).off('.pinboard');
-            $j(document).off('.pinboard');
-
-            var cards = board.querySelectorAll('.pin-card');
-            var isMobile = window.innerWidth <= 767;
-
-            // Zufällige Positionen für Karten ohne gespeicherte Position
-            if (!isMobile) {
-                for (var ci = 0; ci < cards.length; ci++) {
-                    var card = cards[ci];
-                    if (card.dataset.hasPos === '0') {
-                        var rx = 5 + Math.random() * 55;
-                        var ry = 5 + Math.random() * 65;
-                        var rr = (Math.random() - 0.5) * 6;
-                        card.style.left = rx + '%';
-                        card.style.top = ry + '%';
-                        card.style.transform = 'rotate(' + rr + 'deg)';
-                        card.dataset.hasPos = '1';
-                        if (card.dataset.owner == myTnid) {
-                            P._savePos(card.dataset.id, rx, ry, rr);
-                        }
-                    }
-                }
-                P._ensureBoardHeight();
-            }
-
-            // --- Delegated Events auf Board ---
-
-            function isOwn(c) { return c.dataset.owner == myTnid; }
-
-            function getRotation(c) {
-                var m = (c.style.transform || '').match(/rotate\(([-\d.]+)deg\)/);
-                return m ? parseFloat(m[1]) : 0;
-            }
-
-            function getPos(e) {
-                if (e.touches && e.touches.length > 0) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
-                return { x: e.clientX, y: e.clientY };
-            }
-
-            // Drag
-            var dragCard = null, dragOffsetX = 0, dragOffsetY = 0, dragMoved = false;
-
-            function onDragStart(e) {
-                if (isMobile) return;
-                var target = e.target;
-                if ($j(target).closest('button, .pin-rotate-handle, .pin-ontop-handle, .pin-card-image, .pin-style-btn').length) return;
-                var c = $j(target).closest('.pin-card')[0];
-                if (!c || !isOwn(c)) return;
-                e.preventDefault();
-                dragCard = c; dragMoved = false;
-                c.classList.add('dragging');
-                P._zCounter++;
-                c.style.zIndex = P._zCounter;
-                var pos = getPos(e), rect = c.getBoundingClientRect();
-                dragOffsetX = pos.x - rect.left;
-                dragOffsetY = pos.y - rect.top;
-            }
-
-            function onDragMove(e) {
-                if (!dragCard) return;
-                e.preventDefault(); dragMoved = true;
-                var pos = getPos(e), bRect = board.getBoundingClientRect();
-                var x = pos.x - bRect.left - dragOffsetX;
-                var y = pos.y - bRect.top - dragOffsetY;
-                x = Math.max(0, Math.min(x, bRect.width - dragCard.offsetWidth));
-                y = Math.max(0, y);
-                dragCard.style.left = (x / bRect.width * 100) + '%';
-                dragCard.style.top = (y / bRect.height * 100) + '%';
-            }
-
-            function onDragEnd() {
-                if (!dragCard) return;
-                dragCard.classList.remove('dragging');
-                if (dragMoved) {
-                    P._savePos(dragCard.dataset.id, parseFloat(dragCard.style.left), parseFloat(dragCard.style.top), getRotation(dragCard));
-                    P._ensureBoardHeight();
-                }
-                dragCard = null;
-            }
-
-            // Rotate
-            var rotCard = null, rotStartAngle = 0, rotInitial = 0;
-
-            function onRotateStart(e) {
-                if (isMobile) return;
-                var handle = $j(e.target).closest('.pin-rotate-handle')[0];
-                if (!handle) return;
-                var c = $j(handle).closest('.pin-card')[0];
-                if (!c || !isOwn(c)) return;
-                e.preventDefault(); e.stopPropagation();
-                rotCard = c; rotInitial = getRotation(c);
-                P._zCounter++; c.style.zIndex = P._zCounter;
-                var pos = getPos(e), rect = c.getBoundingClientRect();
-                rotStartAngle = Math.atan2(pos.y - (rect.top + rect.height / 2), pos.x - (rect.left + rect.width / 2)) * (180 / Math.PI);
-            }
-
-            function onRotateMove(e) {
-                if (!rotCard) return;
-                e.preventDefault();
-                var pos = getPos(e), rect = rotCard.getBoundingClientRect();
-                var angle = Math.atan2(pos.y - (rect.top + rect.height / 2), pos.x - (rect.left + rect.width / 2)) * (180 / Math.PI);
-                rotCard.style.transform = 'rotate(' + (rotInitial + angle - rotStartAngle) + 'deg)';
-            }
-
-            function onRotateEnd() {
-                if (!rotCard) return;
-                P._savePos(rotCard.dataset.id, parseFloat(rotCard.style.left), parseFloat(rotCard.style.top), getRotation(rotCard));
-                rotCard = null;
-            }
-
-            // Mouse events
-            $j(board).on('mousedown.pinboard', function (e) {
-                if ($j(e.target).closest('.pin-rotate-handle').length) onRotateStart(e.originalEvent || e);
-                else onDragStart(e.originalEvent || e);
-            });
-            $j(document).on('mousemove.pinboard', function (e) {
-                if (rotCard) onRotateMove(e.originalEvent || e);
-                else if (dragCard) onDragMove(e.originalEvent || e);
-            });
-            $j(document).on('mouseup.pinboard', function () {
-                if (rotCard) onRotateEnd(); else if (dragCard) onDragEnd();
-            });
-
-            // Touch events (nur einmal binden)
-            if (!board._pinTouchBound) {
-                board._pinTouchBound = true;
-                board.addEventListener('touchstart', function (e) {
-                    if ($j(e.target).closest('.pin-rotate-handle').length) onRotateStart(e);
-                    else onDragStart(e);
-                }, { passive: false });
-                document.addEventListener('touchmove', function (e) {
-                    if (rotCard) onRotateMove(e); else if (dragCard) onDragMove(e);
-                }, { passive: false });
-                document.addEventListener('touchend', function () {
-                    if (rotCard) onRotateEnd(); else if (dragCard) onDragEnd();
-                });
-            }
-
-            // On-Top
-            $j(board).on('click.pinboard', '.pin-ontop-handle', function () {
-                var c = $j(this).closest('.pin-card')[0];
-                if (!c || !isOwn(c)) return;
-                P._zCounter++; c.style.zIndex = P._zCounter;
-                c.classList.remove('pin-ontop');
-                void c.offsetWidth;
-                c.classList.add('pin-ontop');
-            });
-
-            // Style switch
-            $j(board).on('click.pinboard', '.pin-style-btn', function () {
-                var c = $j(this).closest('.pin-card')[0];
-                if (!c || !isOwn(c)) return;
-                var style = this.dataset.style;
-                $j.each(P._allStyleClasses, function (x, cls) { c.classList.remove(cls); });
-                if (style) c.classList.add('pin-style-' + style);
-                $j(c).find('.pin-style-btn').removeClass('active');
-                $j(this).addClass('active');
-                $j.ajax({ url: 'php/Pinnwand.php', type: 'POST', data: { action: 'saveStyle', id: c.dataset.id, style: style } });
-            });
 
             // Delete
             $j(board).on('click.pinboard', '.pin-card-delete', function () {
@@ -1646,21 +1500,11 @@
             });
         },
 
-        _savePos: function (id, posX, posY, rotation) {
-            $j.ajax({ url: 'php/Pinnwand.php', type: 'POST',
-                data: { action: 'savePosition', id: id, posX: posX, posY: posY, rotation: rotation }
-            });
-        },
-
-        _ensureBoardHeight: function () {
-            var board = document.getElementById('pwBoard');
-            if (!board) return;
-            var maxBottom = 600;
-            $j(board).children('.pin-card').each(function () {
-                var bottom = this.offsetTop + this.offsetHeight + 20;
-                if (bottom > maxBottom) maxBottom = bottom;
-            });
-            board.style.minHeight = maxBottom + 'px';
+        _initials: function (name) {
+            if (!name) return '?';
+            var parts = name.replace(/,/g, ' ').trim().split(/\s+/);
+            if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+            return parts[0].substring(0, 2).toUpperCase();
         },
 
         _esc: function (s) {

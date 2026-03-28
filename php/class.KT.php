@@ -2982,7 +2982,39 @@ class KT
 		$md = $_POST['md'];
 		$data = $this->parseResults($trid, $md);
 
-		$json = array('ok' => true, 'data' => $data);
+		// Ergebnisse direkt in kt3_spielplan eintragen
+		$neu = 0;
+		$aktualisiert = 0;
+		$vorhanden = 0;
+		foreach ($data as $row) {
+			if (empty($row['sid']) || empty($row['Res']) || $row['Res'] === '-:-') continue;
+
+			// Aktuelles Ergebnis aus DB lesen
+			$sql = sprintf("SELECT Ergebnis FROM %s WHERE sid = ?", $this->TABLE['spielplan']);
+			$existing = $this->db->prepareGetData($sql, 'i', [$row['sid']]);
+			if (empty($existing)) continue;
+
+			$dbRes = $existing[0]['Ergebnis'];
+
+			if ($dbRes === '-:-') {
+				// Noch kein Ergebnis -> neu eintragen
+				$this->db->prepareExecute(
+					sprintf("UPDATE %s SET Ergebnis = ? WHERE sid = ?", $this->TABLE['spielplan']),
+					'si', [$row['Res'], $row['sid']]);
+				$neu++;
+			} elseif ($dbRes !== $row['Res']) {
+				// Ergebnis weicht ab -> aktualisieren
+				$this->db->prepareExecute(
+					sprintf("UPDATE %s SET Ergebnis = ? WHERE sid = ?", $this->TABLE['spielplan']),
+					'si', [$row['Res'], $row['sid']]);
+				$aktualisiert++;
+			} else {
+				// Identisch -> bereits vorhanden
+				$vorhanden++;
+			}
+		}
+
+		$json = array('ok' => true, 'data' => $data, 'neu' => $neu, 'aktualisiert' => $aktualisiert, 'vorhanden' => $vorhanden);
 		$this->jsonout($json);
 	}
 
@@ -3315,15 +3347,28 @@ class KT
 		));
 	}
 
-	function SavePinnwandPost($text, $color = '#fff9c4')
+	function GetPinnwandCount()
+	{
+		$since = $_POST['since'] ?? '';
+		if (!$since || !$this->db->tableExists($this->TABLE['pinnwand'])) {
+			$this->jsonout(array('ok' => true, 'count' => 0));
+			return;
+		}
+		$sql = sprintf("SELECT COUNT(*) AS cnt FROM %s WHERE created > ?", $this->TABLE['pinnwand']);
+		$rows = $this->db->prepareGetData($sql, 's', [$since]);
+		$count = $rows ? intval($rows[0]['cnt']) : 0;
+		$this->jsonout(array('ok' => true, 'count' => $count));
+	}
+
+	function SavePinnwandPost($text, $style = '')
 	{
 		if (empty($text)) {
 			$this->jsonout(array('ok' => false, 'message' => 'Text darf nicht leer sein.'));
 			return;
 		}
 
-		$allowedColors = ['#fff9c4','#c8e6c9','#bbdefb','#f8bbd0','#e1bee7','#ffe0b2'];
-		if (!in_array($color, $allowedColors)) $color = '#fff9c4';
+		$allowedStyles = ['','polaroid','vintage','neon','doodle','frame','dark','glass','elegant','retro','tape','shadow'];
+		if (!in_array($style, $allowedStyles)) $style = '';
 
 		// Bild verarbeiten (falls in Session zwischengespeichert)
 		$image = null;
@@ -3335,9 +3380,9 @@ class KT
 		$nick = $this->user['name'];
 		$tnid = $this->user['tnid'];
 
-		$sql = sprintf("INSERT INTO %s (tnid, nick, `text`, image, color) VALUES (?, ?, ?, ?, ?)", $this->TABLE['pinnwand']);
+		$sql = sprintf("INSERT INTO %s (tnid, nick, `text`, image, card_style) VALUES (?, ?, ?, ?, ?)", $this->TABLE['pinnwand']);
 		$image = $image ?: '';
-		$this->db->prepareExecute($sql, 'issss', [$tnid, $nick, $text, $image, $color]);
+		$this->db->prepareExecute($sql, 'issss', [$tnid, $nick, $text, $image, $style]);
 
 		$this->GetPinnwand();
 	}
