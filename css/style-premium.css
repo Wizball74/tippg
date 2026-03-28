@@ -829,10 +829,10 @@ a.navbar-brand {
     border: none;
     border-radius: 6px;
     cursor: pointer;
-    padding: 3px 8px;
+    padding: 5px 12px;
     font-size: 0.85em !important;
     font-weight: 500;
-    margin: 2px !important;
+    margin: 2px 4px 2px 2px !important;
     transition: background 0.15s ease;
 }
 
@@ -840,9 +840,9 @@ a.navbar-brand {
     background: #666;
 }
 
-.btnGrid img { height: 12px; }
+.btnGrid img { height: 14px; vertical-align: middle; margin-right: 4px; }
 .ui-jqgrid .btnGrid span { display: block; margin: 1px 6px 1px 2px; float: left; }
-.ui-jqgrid-toolbar .btnGrid { padding: 2px 8px; }
+.ui-jqgrid-toolbar .btnGrid { padding: 4px 10px; }
 
 .btnGridImg {
     color: #d0d0d0;
@@ -850,11 +850,11 @@ a.navbar-brand {
     background: transparent;
     border: 0 none;
     cursor: pointer;
-    padding: 0;
+    padding: 4px 8px;
     font-size: 0.85em !important;
     margin: 2px 4px 1px 2px !important;
 }
-.btnGridImg img { height: 16px; }
+.btnGridImg img { height: 16px; vertical-align: middle; margin-right: 4px; }
 
 .ui-state-default .ui-icon.icon-print { background-image: url(images/print.png); }
 .ui-state-default .ui-icon.icon-disk { background-image: url(images/save.png); }
