@@ -375,6 +375,13 @@ body {
 .kt-theme-active .kt-theme-label { color: #c0a050 !important; }
 .kt-theme-menu li + li { border-top: 1px solid #3a3a3a; }
 
+/* ===== Tables (Bootstrap Dark-Override) ===== */
+.table { color: #d0d0d0; }
+.table > thead > tr > th { border-bottom-color: #444; color: #999; }
+.table > tbody > tr > td { border-top-color: #333; }
+.table-striped > tbody > tr:nth-of-type(odd) { background: rgba(255,255,255,0.04); }
+.table-striped > tbody > tr:nth-of-type(even) { background: transparent; }
+
 /* ===== NAVBAR ===== */
 .navbar-default {
     background: #2a2a2aee;
