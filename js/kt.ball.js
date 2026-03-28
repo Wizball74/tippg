@@ -719,6 +719,7 @@
 
     // ═══════════════════════════════════════════════════════════════
     kt.initBall = function () {
+        if (active) return; // bereits gestartet
         if (localStorage.getItem('kt_ball_off') === '1') return;
         if (window.innerWidth < CFG.MIN_VP) return;
 
