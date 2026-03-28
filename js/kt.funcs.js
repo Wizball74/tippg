@@ -169,21 +169,21 @@
                         var tbar = $j("#t_grid" + id);
                         if (!tbar.length || tbar.find('.tipToggle').length) return;
                         if (!$j(gridid + ' :input[id$="_Tip"]').length) return;
-                        var activeClass = tipMode === 'modern' ? ' toggle-on' : '';
+                        // Toolbar auf Mobile sichtbar machen
+                        tbar.closest('.ui-userdata-top').addClass('has-tipToggle');
+                        var imgSrc = tipMode === 'modern' ? 'îmg/inputFields2.png' : 'îmg/inputFields1.png';
                         var td = $j('<td class="tipToggle"></td>').html(
-                            '<div class="toggleContainer' + activeClass + '">' +
-                            '<div>Klassisch</div><div>Schnell</div>' +
-                            '</div>'
+                            '<img class="tipToggleImg" src="' + imgSrc + '" alt="Eingabemodus" />'
                         );
                         var row = tbar.find('table tr');
                         if (row.length) row.append(td);
-                        td.find('.toggleContainer').on('click', function(e) {
+                        td.find('.tipToggleImg').on('click', function(e) {
                             e.preventDefault();
                             e.stopPropagation();
                             var cur = localStorage.getItem('kt_tip_mode') || 'modern';
                             var newMode = cur === 'modern' ? 'classic' : 'modern';
                             localStorage.setItem('kt_tip_mode', newMode);
-                            $j(this).toggleClass('toggle-on', newMode === 'modern');
+                            this.src = newMode === 'modern' ? 'îmg/inputFields2.png' : 'îmg/inputFields1.png';
                             switchTipMode(newMode, gridid);
                         });
                     })();

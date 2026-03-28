@@ -1,3 +1,325 @@
+/* Board */
+.pin-board { position: relative; min-height: 600px; }
+
+/* Card */
+.pin-card {
+    position: absolute; width: 320px;
+    padding: 1.2rem 1.2rem 0.85rem; border-radius: 10px;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.3);
+    word-break: break-word; cursor: default;
+    transition: box-shadow 0.2s; user-select: none; -webkit-user-select: none;
+}
+.pin-card-own { cursor: grab; }
+.pin-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.35); }
+.pin-card.dragging {
+    cursor: grabbing; z-index: 100;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4); transition: none;
+}
+
+/* Sticky-Badge */
+.pin-sticky-badge {
+    position: absolute; top: -10px; left: 8px;
+    font-size: 11px; font-weight: 600; color: #d4a017;
+    background: linear-gradient(135deg, #2a2820, #2e2b1f);
+    border: 1px solid #5a4f2a; border-radius: 10px;
+    padding: 1px 8px; letter-spacing: 0.3px;
+}
+
+/* On-Top Glow */
+@keyframes pin-glow {
+    0%   { box-shadow: 0 0 8px 2px rgba(255,215,0,0.6); }
+    50%  { box-shadow: 0 0 20px 6px rgba(255,215,0,0.9); }
+    100% { box-shadow: 0 4px 16px rgba(0,0,0,0.35); }
+}
+.pin-card.pin-ontop { animation: pin-glow 0.8s ease-out; }
+
+/* Handles */
+.pin-rotate-handle, .pin-ontop-handle {
+    position: absolute; bottom: 0.4rem; width: 30px; height: 30px;
+    border-radius: 50%; border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(40,40,40,0.8); color: #aaa;
+    font-size: 1rem; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    line-height: 1; padding: 0; opacity: 0;
+    transition: opacity 0.2s, background 0.2s;
+}
+.pin-rotate-handle { left: 0.4rem; cursor: grab; }
+.pin-ontop-handle { left: 2.4rem; font-size: 0.95rem; }
+.pin-card:hover .pin-rotate-handle,
+.pin-card:hover .pin-ontop-handle { opacity: 1; }
+.pin-rotate-handle:hover { background: rgba(60,60,60,0.95); color: #ddd; }
+.pin-ontop-handle:hover { background: rgba(255,215,0,0.15); color: #d4a017; }
+
+/* Card Content */
+.pin-card-message { font-size: 1.05rem; line-height: 1.55; white-space: pre-wrap; margin-bottom: 0.6rem; }
+.pin-card-image {
+    display: block; max-width: 100%; max-height: 160px;
+    object-fit: cover; border-radius: 6px; margin-bottom: 0.6rem;
+    cursor: pointer;
+}
+.pin-card-footer {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 0.85rem; color: #888;
+    border-top: 1px solid rgba(255,255,255,0.1); padding-top: 0.5rem;
+}
+.pin-card-author { font-weight: 600; }
+
+/* Delete */
+.pin-card-delete {
+    position: absolute; top: 0.4rem; right: 0.4rem;
+    background: none; border: none; color: #777;
+    font-size: 1.2rem; cursor: pointer; padding: 0.2rem 0.4rem;
+    border-radius: 50%; line-height: 1;
+    transition: background 0.2s, color 0.2s;
+}
+.pin-card-delete:hover { background: rgba(255,60,60,0.2); color: #ff6b6b; }
+
+/* Admin Sticky-Toggle */
+.pin-card-sticky-btn {
+    position: absolute; top: 0.4rem; right: 2rem;
+    background: none; border: none; color: #777;
+    font-size: 1rem; cursor: pointer; padding: 0.2rem 0.4rem;
+    border-radius: 50%; line-height: 1;
+    transition: background 0.2s, color 0.2s;
+}
+.pin-card-sticky-btn:hover { background: rgba(255,215,0,0.15); color: #d4a017; }
+
+/* Color Picker */
+.pin-color-picker { display: flex; align-items: center; gap: 5px; }
+
+/* Style Buttons */
+.pin-style-buttons {
+    position: absolute; inset: 0; pointer-events: none;
+    opacity: 0; transition: opacity 0.2s; z-index: 10;
+}
+.pin-card:hover .pin-style-buttons { opacity: 1; }
+.pin-style-btn {
+    position: absolute; pointer-events: auto;
+    width: 28px; height: 28px; border-radius: 50%;
+    border: 1px solid rgba(255,255,255,0.15);
+    background: rgba(50,50,50,0.9);
+    font-size: 0.8rem; cursor: pointer; color: #ccc;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0; line-height: 1;
+    transition: transform 0.15s, background 0.15s, box-shadow 0.15s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+}
+.pin-style-btn:hover {
+    transform: scale(1.35); background: #444;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.4); z-index: 11;
+}
+.pin-style-btn.active {
+    border-color: #6ba37a;
+    box-shadow: 0 0 0 2px #6ba37a, 0 2px 6px rgba(0,0,0,0.3);
+}
+/* Top edge */
+.pin-style-btn:nth-child(1)  { top: -14px; left: 16px; }
+.pin-style-btn:nth-child(2)  { top: -14px; left: 66px; }
+.pin-style-btn:nth-child(3)  { top: -14px; left: 116px; }
+.pin-style-btn:nth-child(4)  { top: -14px; left: 166px; }
+.pin-style-btn:nth-child(5)  { top: -14px; left: 216px; }
+/* Right edge */
+.pin-style-btn:nth-child(6)  { right: -14px; top: 18%; }
+.pin-style-btn:nth-child(7)  { right: -14px; top: 44%; }
+.pin-style-btn:nth-child(8)  { right: -14px; top: 70%; }
+/* Bottom edge */
+.pin-style-btn:nth-child(9)  { bottom: -14px; right: 24px; }
+.pin-style-btn:nth-child(10) { bottom: -14px; right: 84px; }
+/* Left edge */
+.pin-style-btn:nth-child(11) { left: -14px; top: 18%; }
+.pin-style-btn:nth-child(12) { left: -14px; top: 44%; }
+.pin-style-btn:nth-child(13) { left: -14px; top: 70%; }
+
+/* ===== Card Styles ===== */
+
+/* 1. Polaroid */
+.pin-style-polaroid {
+    background: #fff !important;
+    padding: 0.6rem 0.6rem 2.2rem !important;
+    border-radius: 2px !important;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.3) !important;
+}
+.pin-style-polaroid .pin-card-image { border-radius: 0; }
+
+/* 2. Vintage */
+.pin-style-vintage {
+    filter: sepia(0.25) saturate(0.85) brightness(0.95);
+    box-shadow: inset 0 0 50px rgba(139,69,19,0.12), 0 3px 12px rgba(0,0,0,0.3) !important;
+}
+.pin-style-vintage::after {
+    content: ''; position: absolute; inset: 0; border-radius: inherit;
+    background: radial-gradient(ellipse at center, transparent 50%, rgba(80,40,10,0.1) 100%);
+    pointer-events: none;
+}
+
+/* 3. Neon */
+@keyframes pin-neon-pulse {
+    0%, 100% { box-shadow: 0 0 7px #0ff, 0 0 20px rgba(0,255,255,0.4), inset 0 0 15px rgba(0,255,255,0.05); }
+    33%      { box-shadow: 0 0 7px #f0f, 0 0 20px rgba(255,0,255,0.4), inset 0 0 15px rgba(255,0,255,0.05); }
+    66%      { box-shadow: 0 0 7px #ff0, 0 0 20px rgba(255,255,0,0.4), inset 0 0 15px rgba(255,255,0,0.05); }
+}
+.pin-style-neon {
+    background: #1a1a2e !important;
+    border: 1px solid rgba(0,255,255,0.6);
+    animation: pin-neon-pulse 4s ease-in-out infinite;
+    border-radius: 4px !important;
+}
+.pin-style-neon .pin-card-message { color: #e0e0ff; }
+.pin-style-neon .pin-card-author { color: rgba(224,224,255,0.8); }
+.pin-style-neon .pin-card-date { color: rgba(200,200,255,0.5); }
+.pin-style-neon .pin-card-footer { border-top-color: rgba(255,255,255,0.1); }
+.pin-style-neon .pin-card-delete { color: rgba(255,255,255,0.4); }
+.pin-style-neon .pin-card-delete:hover { background: rgba(255,60,60,0.3); color: #ff6b6b; }
+
+/* 4. Doodle */
+.pin-style-doodle {
+    border: 3px dashed #888 !important;
+    border-radius: 2px !important;
+    box-shadow: 5px 5px 0 rgba(0,0,0,0.25) !important;
+}
+
+/* 5. Frame */
+.pin-style-frame {
+    border: 6px ridge #c5a55a !important;
+    border-radius: 2px !important;
+    box-shadow: inset 3px 3px 8px rgba(0,0,0,0.25), inset -3px -3px 8px rgba(255,255,200,0.08), 0 6px 25px rgba(0,0,0,0.4) !important;
+}
+.pin-style-frame::before {
+    content: ''; position: absolute; inset: -2px;
+    border: 2px solid rgba(197,165,90,0.4); border-radius: inherit; pointer-events: none;
+}
+
+/* 6. Dark / Tafel */
+.pin-style-dark {
+    background: #2b3d2b !important;
+    border: 4px solid #5a3a1a !important;
+    box-shadow: inset 0 0 40px rgba(0,0,0,0.25), 0 4px 12px rgba(0,0,0,0.4) !important;
+}
+.pin-style-dark .pin-card-message { color: rgba(255,255,255,0.88); }
+.pin-style-dark .pin-card-author { color: rgba(255,255,255,0.65); }
+.pin-style-dark .pin-card-date { color: rgba(255,255,255,0.4); }
+.pin-style-dark .pin-card-footer { border-top-color: rgba(255,255,255,0.12); }
+.pin-style-dark .pin-card-delete { color: rgba(255,255,255,0.4); }
+.pin-style-dark .pin-card-delete:hover { background: rgba(255,60,60,0.3); color: #ff6b6b; }
+
+/* 7. Glass */
+.pin-style-glass {
+    background: rgba(255,255,255,0.08) !important;
+    backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(255,255,255,0.15) !important;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.15) !important;
+}
+
+/* 8. Wobble */
+@keyframes pin-wobble-float {
+    0%, 100% { translate: 0 0; }
+    20%  { translate: 2px -3px; }
+    40%  { translate: -2px 1px; }
+    60%  { translate: 1px 2px; }
+    80%  { translate: -1px -2px; }
+}
+.pin-style-wobble { animation: pin-wobble-float 4s ease-in-out infinite; }
+
+/* 9. Elegant */
+.pin-style-elegant {
+    border: 1px solid #c5a55a !important;
+    box-shadow: 0 3px 20px rgba(197,165,90,0.15) !important;
+    background: linear-gradient(170deg, rgba(255,255,255,0.1), transparent) !important;
+    background-color: inherit !important;
+}
+.pin-style-elegant .pin-card-message {
+    font-family: Georgia, 'Times New Roman', serif;
+    font-style: italic; line-height: 1.7;
+}
+.pin-style-elegant .pin-card-footer { border-top-color: rgba(197,165,90,0.3); }
+
+/* 10. Retro */
+@keyframes pin-retro-flicker {
+    0%, 100% { opacity: 1; }
+    92%  { opacity: 1; }
+    93%  { opacity: 0.8; }
+    94%  { opacity: 1; }
+}
+.pin-style-retro {
+    background: #0a100a !important;
+    border: 1px solid #33ff33 !important;
+    border-radius: 0 !important;
+    box-shadow: 0 0 15px rgba(51,255,51,0.15), inset 0 0 30px rgba(0,0,0,0.5) !important;
+    animation: pin-retro-flicker 5s infinite;
+}
+.pin-style-retro .pin-card-message {
+    color: #33ff33; font-family: 'Courier New', Courier, monospace;
+    text-shadow: 0 0 5px rgba(51,255,51,0.4);
+}
+.pin-style-retro .pin-card-author { color: rgba(51,255,51,0.7); }
+.pin-style-retro .pin-card-date { color: rgba(51,255,51,0.4); }
+.pin-style-retro .pin-card-footer { border-top-color: rgba(51,255,51,0.2); }
+.pin-style-retro .pin-card-delete { color: rgba(51,255,51,0.4); }
+.pin-style-retro .pin-card-delete:hover { background: rgba(255,0,0,0.2); color: #ff6b6b; }
+
+/* 11. Tape */
+.pin-style-tape {
+    border-radius: 1px !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25) !important;
+}
+.pin-style-tape::before {
+    content: '\1F4CC'; position: absolute; top: -12px; left: 50%;
+    transform: translateX(-50%); font-size: 1.2rem;
+    filter: drop-shadow(0 1px 2px rgba(0,0,0,0.3));
+    pointer-events: none; z-index: 2;
+}
+.pin-style-tape::after {
+    content: ''; position: absolute; bottom: 0; right: 0;
+    width: 0; height: 0; border-style: solid;
+    border-width: 0 0 22px 22px;
+    border-color: transparent transparent #2a2a2a transparent;
+    border-bottom-right-radius: 1px;
+    box-shadow: -2px -2px 4px rgba(0,0,0,0.15); pointer-events: none;
+}
+
+/* 12. Shadow */
+.pin-style-shadow {
+    box-shadow:
+        0 1px 1px rgba(0,0,0,0.15), 0 2px 2px rgba(0,0,0,0.15),
+        0 4px 4px rgba(0,0,0,0.15), 0 8px 8px rgba(0,0,0,0.15),
+        0 16px 16px rgba(0,0,0,0.15), 0 32px 32px rgba(0,0,0,0.12) !important;
+}
+
+/* Lightbox */
+.pin-lightbox-overlay {
+    position: fixed; inset: 0; z-index: 9999;
+    background: rgba(0,0,0,0.85);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+}
+.pin-lightbox-overlay img {
+    max-width: 90vw; max-height: 90vh; border-radius: 8px;
+    box-shadow: 0 0 40px rgba(0,0,0,0.5);
+}
+
+/* Empty / Loading */
+.pin-empty { text-align: center; color: #666; padding: 48px 0; }
+.pin-empty-icon { font-size: 48px; margin-bottom: 12px; opacity: 0.4; }
+.pin-empty p { margin: 4px 0; font-size: 15px; }
+.pin-empty-sub { font-size: 13px; color: #555; }
+.pin-loading { text-align: center; color: #777; padding: 32px 0; font-size: 14px; }
+
+/* Mobile */
+@media (max-width: 767px) {
+    .pin-form { padding: 12px; }
+    .pin-form-actions { flex-wrap: wrap; }
+    .pin-send { width: 100%; text-align: center; padding: 10px; border-radius: 8px; }
+    .pin-board { min-height: auto; }
+    .pin-card {
+        position: relative !important; width: auto !important;
+        left: auto !important; top: auto !important;
+        transform: none !important; margin-bottom: 12px;
+    }
+    .pin-card-own { cursor: default; }
+    .pin-rotate-handle, .pin-ontop-handle { display: none; }
+    .pin-style-buttons { display: none; }
+}
+
 /* Pinnwand Post-It Board (Dark-Overrides) */
 .pin-form { background: #252525; border-color: #3a3a3a; box-shadow: 0 1px 4px rgba(0,0,0,0.2); }
 .pin-form textarea { color: #d0d0d0 !important; background: transparent !important; border-bottom-color: #444; }
@@ -49,23 +371,13 @@
 .tip-sep { font-weight: bold; margin: 0 1px; color: #888; }
 
 /* Tipp-Modus Toggle */
-.tipToggle { padding-left: 12px; vertical-align: middle; }
-.toggleContainer {
-    position: relative; display: grid; grid-template-columns: 1fr 1fr;
-    width: fit-content; border: 2px solid #555; border-radius: 14px;
-    background: #555; font-size: 11px; font-weight: 600;
-    cursor: pointer; user-select: none;
+.tipToggle { width: 99%; text-align: right; padding-right: 8px; vertical-align: middle; }
+.tipToggleImg {
+    height: 24px; cursor: pointer; opacity: 0.7;
+    transition: opacity 0.2s, transform 0.15s;
+    filter: invert(1) opacity(0.7);
 }
-.toggleContainer::before {
-    content: ''; position: absolute; width: 50%; height: 100%;
-    left: 0; border-radius: 12px; background: #d0d0d0; transition: left 0.3s;
-}
-.toggleContainer.toggle-on::before { left: 50%; }
-.toggleContainer div { padding: 4px 10px; text-align: center; z-index: 1; white-space: nowrap; }
-.toggleContainer div:first-child { color: #222; transition: color 0.3s; }
-.toggleContainer div:last-child { color: #ccc; transition: color 0.3s; }
-.toggleContainer.toggle-on div:first-child { color: #ccc; }
-.toggleContainer.toggle-on div:last-child { color: #222; }
+.tipToggleImg:hover { opacity: 1; transform: scale(1.1); }
 
 /* ===== RESET & BASE ===== */
 body {
@@ -766,7 +1078,6 @@ a.navbar-brand {
 
     /* Toggle mobile */
     .tipToggle { margin-left: 8px; }
-    .toggleContainer div { padding: 4px 8px; font-size: 10px; }
 
     /* Split-Felder mobile */
     .tip-half { width: 20px !important; font-size: 12px; padding: 4px 1px !important; }
@@ -809,6 +1120,7 @@ a.navbar-brand {
 
     .ui-userdata-top { display: none; }
     .ui-userdata-top.btn { display: block; }
+    .ui-userdata-top.has-tipToggle { display: block !important; }
 
     .navbar-default .navbar-nav .open .dropdown-menu {
         background: #2a2a2a;

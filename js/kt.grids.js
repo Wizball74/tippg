@@ -423,7 +423,8 @@
 
 				var printWindow;
 				printWindow = window.open('', 'productionReport');
-				printWindow.document.write('<head><link rel="stylesheet" href="./css/print.css" /><link rel="stylesheet" href="css/ui.jqgrid.css" /></head>');
+				var _v = window.KT_V ? '?v=' + KT_V : '';
+				printWindow.document.write('<head><link rel="stylesheet" href="./css/print.css' + _v + '" /><link rel="stylesheet" href="css/ui.jqgrid.css' + _v + '" /></head>');
 				printWindow.document.write('<html><body style="background-color:#ffffff"><div id="print">');
 				printWindow.document.write(html);
 				printWindow.document.write('</div></body></html>');

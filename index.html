@@ -7,6 +7,9 @@
     <!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->
     <title>Die Online-Tippgemeinschaft</title>
 
+    <!-- Asset-Version: bei Deploy hochzaehlen → Cache-Bust -->
+    <script>var KT_V = '2026032701';</script>
+
     <!-- Bootstrap -->
     <!--<link href="css/bootstrap.min.css" rel="stylesheet">-->
     <link href="css/bootstrap.css" rel="stylesheet">
@@ -89,6 +92,18 @@
 
     <script type="text/javascript">
     (function() {
+        var v = '?v=' + KT_V;
+
+        // Cache-Bust: alle lokalen CSS- und JS-Referenzen versionieren
+        var els = document.querySelectorAll('link[rel="stylesheet"], script[src]');
+        for (var i = 0; i < els.length; i++) {
+            var attr = els[i].tagName === 'LINK' ? 'href' : 'src';
+            var val = els[i].getAttribute(attr);
+            if (val && val.indexOf('://') === -1 && val.indexOf('?v=') === -1) {
+                els[i].setAttribute(attr, val + v);
+            }
+        }
+
         var cssBase = document.getElementById('cssBase');
         var cssTheme = document.getElementById('cssTheme');
 
@@ -100,8 +115,8 @@
 
         function applyTheme(name) {
             var t = themes[name] || themes.classic;
-            cssBase.href = t.base;
-            cssTheme.href = t.theme;
+            cssBase.href = t.base + v;
+            cssTheme.href = t.theme + v;
         }
 
         // Gespeicherte Einstellung laden (Standard: klassisch)

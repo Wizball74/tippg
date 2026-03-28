@@ -394,23 +394,13 @@
 .tip-sep { font-weight: bold; margin: 0 1px; color: #555; }
 
 /* ===== Tipp-Modus Toggle ===== */
-.tipToggle { padding-left: 12px; vertical-align: middle; }
-.toggleContainer {
-    position: relative; display: grid; grid-template-columns: 1fr 1fr;
-    width: fit-content; border: 2px solid #4a7c59; border-radius: 14px;
-    background: #4a7c59; font-size: 11px; font-weight: 600;
-    cursor: pointer; user-select: none;
+.tipToggle { width: 99%; text-align: right; padding-right: 8px; vertical-align: middle; }
+.tipToggleImg {
+    height: 24px; cursor: pointer; opacity: 0.7;
+    transition: opacity 0.2s, transform 0.15s;
+    filter: sepia(1) saturate(3) hue-rotate(95deg) brightness(0.55);
 }
-.toggleContainer::before {
-    content: ''; position: absolute; width: 50%; height: 100%;
-    left: 0; border-radius: 12px; background: #fff; transition: left 0.3s;
-}
-.toggleContainer.toggle-on::before { left: 50%; }
-.toggleContainer div { padding: 4px 10px; text-align: center; z-index: 1; white-space: nowrap; }
-.toggleContainer div:first-child { color: #4a7c59; transition: color 0.3s; }
-.toggleContainer div:last-child { color: #fff; transition: color 0.3s; }
-.toggleContainer.toggle-on div:first-child { color: #fff; }
-.toggleContainer.toggle-on div:last-child { color: #4a7c59; }
+.tipToggleImg:hover { opacity: 1; transform: scale(1.1); }
 
 /* ===== RESET & BASE ===== */
 body {
@@ -1079,7 +1069,6 @@ a.navbar-brand:hover { color: #4a7c59 !important; }
 
     /* Toggle mobile */
     .tipToggle { margin-left: 8px; }
-    .toggleContainer div { padding: 4px 8px; font-size: 10px; }
 
     /* Split-Felder mobile */
     .tip-half { width: 20px !important; font-size: 12px; padding: 4px 1px !important; }
@@ -1122,6 +1111,7 @@ a.navbar-brand:hover { color: #4a7c59 !important; }
 
     .ui-userdata-top { display: none; }
     .ui-userdata-top.btn { display: block; }
+    .ui-userdata-top.has-tipToggle { display: block !important; }
 
     /* Dropdown menus mobile */
     .dropdown-menu {

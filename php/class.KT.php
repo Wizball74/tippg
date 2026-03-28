@@ -239,8 +239,8 @@ class KT
 			$menu['main'][] =   array('title' => 'Spielplan / Tabelle', 'smenu' => 'Spielplan',   'action' => 'Spielplan',  'cls' => 'right');
 			$menu['main'][] =   array('title' => 'Prämien',	            'smenu' => 'Praemien',    'action' => 'Uebersicht', 'cls' => 'left');
 			$menu['main'][] =   array('title' => 'Statistiken',         'smenu' => 'Stat',        'action' => 'Dashboard', 'cls' => 'left');
-			$menu['main'][] =   array('title' => 'Admin',	            'smenu' => 'Admin',       'action' => 'Profil',     'cls' => 'right');
 			$menu['main'][] =   array('title' => 'Pinnwand',            'smenu' => 'Pinnwand',    'action' => 'Anzeigen',   'cls' => 'left');
+			$menu['main'][] =   array('title' => 'Admin',	            'smenu' => 'Admin',       'action' => 'Profil',     'cls' => 'right');
 			$menu['main'][] =   array('title' => 'Abmelden',            'smenu' => 'login',       'action' => 'logout',    'cls' => 'full');
 
 
@@ -393,13 +393,17 @@ class KT
 		if ($this->user) {
 			// Tipprunde
 			$sql = sprintf(
-				"SELECT t.*, IF(st.sptag,st.sptag,34) as curmd FROM %s t
-								LEFT JOIN ( select trid, min(sptag) as sptag FROM %s where Ergebnis='-:-'
-								and  (Datum > (curdate() - INTERVAL 3 day))
-								and  (Datum < (curdate() + INTERVAL 3 day))
-								group by trid) st ON t.trid = st.trid",
-				$this->TABLE['tipprunde'],
-				$this->TABLE['spielplan']
+				"SELECT t.*,
+					COALESCE(
+						(SELECT MIN(sp.sptag) FROM %s sp
+						 WHERE sp.trid = t.trid AND sp.Ergebnis = '-:-'),
+						(SELECT MAX(sp2.sptag) FROM %s sp2
+						 WHERE sp2.trid = t.trid)
+					) as curmd
+				FROM %s t",
+				$this->TABLE['spielplan'],
+				$this->TABLE['spielplan'],
+				$this->TABLE['tipprunde']
 			);
 			if ($this->user['userlevel'] < 100) $sql = $sql . " WHERE t.aktiv ='J'"; // TODO: nur wenn eingeloggter Benutzer Teilnehmer ist
 			$sql = $sql . " ORDER BY t.trid DESC";
@@ -3180,6 +3184,10 @@ class KT
 		if (!in_array($game, ['breakout', 'hunt'])) {
 			$this->jsonResult2(false, Status::Error, 'Ungültiges Spiel.'); return;
 		}
+		if (!$this->db->tableExists($this->TABLE['gamescores'])) {
+			$this->jsonout(array('ok' => true));
+			return;
+		}
 		if ($score < 1) {
 			$this->jsonResult2(false, Status::Error, 'Ungültiger Score.'); return;
 		}
@@ -3232,6 +3240,11 @@ class KT
 		$md   = intval($_POST['md'] ?? ($_GET['md'] ?? 0));
 		$table = $this->TABLE['gamescores'];
 		$tnTable = $this->TABLE['teilnehmer'];
+
+		if (!$this->db->tableExists($table)) {
+			$this->jsonout(array('ok' => true, 'scores' => [], 'matchday' => []));
+			return;
+		}
 
 		if ($game === 'breakout') {
 			// All-Time: Gesamtscore über alle Spieltage

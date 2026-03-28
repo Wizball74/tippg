@@ -19,7 +19,7 @@
         MAX_V:      15,       // Maximalgeschwindigkeit
         MIN_VP:     992,      // Minimum-Viewport-Breite
         GHOST_MS:   2500,     // Max Ghost-Mode-Dauer
-        BOTTOM_M:   50,       // Abstand zum unteren Fensterrand (Taskleiste)
+        BOTTOM_M:   90,       // Abstand zum unteren Fensterrand (Taskleiste)
         BLOCK_SEL: 'td.Pts1',
         LS_KEY: 'kt_ball_data'
     };
@@ -39,6 +39,9 @@
     let active = false, animFrame;
     let cursor = { x: -999, y: -999, vx: 0, vy: 0, lx: 0, ly: 0, lt: 0 };
     let cursorFlash = 0;  // Aufleuchten bei Kontakt (0..1)
+    let cursorSink = 0;   // Quecksilber-Einsink-Tiefe (0..1)
+    let cursorVis = 0;    // Cursor-Sichtbarkeit (0 = unsichtbar, 1 = voll)
+    let lastKickTime = 0; // Zeitpunkt des letzten Schusses
     let ghostMode = false, ghostStart = 0;
     let revealed = false;
     let score = 0;
@@ -489,12 +492,10 @@
         if (intensity < 0.03 || !audioCtx) return;
         if (audioCtx.state === 'suspended') audioCtx.resume();
         try {
-            let v = 0.12 + intensity * 0.4;
-            let f = 110 + intensity * 90;
-            // Leder-Impact: Noise + tiefer Sinus + leichter Mittelton
-            sndNoise(v * 0.5, 0.035);
-            sndOsc('sine', f, 25, v, 0.001, 0, 0.15);
-            sndOsc('triangle', f * 2.5, f * 0.8, v * 0.15, 0.001, 0, 0.08);
+            let v = 0.04 + intensity * 0.12;
+            // Weiches "Tock": kurzer gedämpfter Sinus, kaum Noise
+            sndOsc('sine', 220 + intensity * 60, 80, v, 0.001, 0, 0.07);
+            sndNoise(v * 0.15, 0.015);
         } catch (e) {}
     }
 
@@ -891,11 +892,11 @@
                 platforms.push({ y: hdr.bottom, left: left, right: right });
             }
 
-            // Hervorgehobene Zeilen (rowUser, rowOpponent) – Unterkante
+            // Hervorgehobene Zeilen (rowUser, rowOpponent) – Unterkante (bunt/glow)
             let specials = grid.querySelectorAll('tr.rowUser, tr.rowOpponent');
             for (let s = 0; s < specials.length; s++) {
                 let sr = specials[s].getBoundingClientRect();
-                if (sr.height > 0) platforms.push({ y: sr.bottom, left: left, right: right });
+                if (sr.height > 0) platforms.push({ y: sr.bottom, left: left, right: right, glow: true });
             }
 
             // Toolbar / Pager – Oberkante (wenn sichtbar)
@@ -905,11 +906,11 @@
                 if (pr.height > 0) platforms.push({ y: pr.top, left: left, right: right });
             }
 
-            // Letzte Datenzeile – Unterkante (Tabellenboden)
+            // Letzte Datenzeile – Unterkante (Tabellenboden) — solide, kein Durchflug
             let rows = grid.querySelectorAll('.ui-jqgrid-bdiv tr[role="row"]');
             if (rows.length) {
                 let lr = rows[rows.length - 1].getBoundingClientRect();
-                platforms.push({ y: lr.bottom, left: left, right: right });
+                platforms.push({ y: lr.bottom, left: left, right: right, solid: true });
             }
         }
         // Pinnwand-Karten – Oberkante als Plattform
@@ -924,14 +925,30 @@
     }
 
     function collidePlatforms() {
-        if (ghostMode) return;
-        let T = 3; // Liniendicke für Kollision
+        let T = 3;
         let platforms = collectPlatforms();
+        let cr = chargeR();
 
         for (let i = 0; i < platforms.length; i++) {
             let p = platforms[i];
+
+            // Ghost-Mode: Ball fliegt durch → Effekt an Austrittsseite (nicht durch solide Linien)
+            if (ghostMode && !p.solid) {
+                if (ball.x >= p.left && ball.x <= p.right) {
+                    let prevY = ball.y - ball.vy;
+                    // Ball überquert Linie von oben nach unten
+                    if (prevY + cr <= p.y && ball.y + cr > p.y) {
+                        spawnPassthroughFx(ball.x, p.y, p.left, p.right, 1, p.glow);  // Austritt unten
+                    }
+                    // Ball überquert Linie von unten nach oben
+                    if (prevY - cr >= p.y && ball.y - cr < p.y) {
+                        spawnPassthroughFx(ball.x, p.y, p.left, p.right, -1, p.glow); // Austritt oben
+                    }
+                }
+                continue;
+            }
+
             let rect = { left: p.left, right: p.right, top: p.y - T / 2, bottom: p.y + T / 2 };
-            let cr = chargeR();
             let col = circleRectCollision(ball.x, ball.y, cr, rect);
             if (col) { resolveCollision(col); continue; }
 
@@ -943,6 +960,52 @@
                     ball.vy = -Math.abs(ball.vy) * CFG.BOUNCE;
                     ball.onGround = true;
                 }
+            }
+        }
+    }
+
+    function spawnPassthroughFx(bx, py, left, right, dir, isGlow) {
+        let spd = Math.sqrt(ball.vx * ball.vx + ball.vy * ball.vy);
+        let intensity = Math.min(spd / 4, 3);
+        let cx = Math.max(left, Math.min(bx, right));
+
+        if (isGlow) {
+            // Elektrisches Bruzzeln: Funken in Austrittsrichtung
+            let count = Math.floor(4 + intensity * 4);
+            for (let i = 0; i < count; i++) {
+                let a = (dir > 0 ? 0.5 : -0.5) * Math.PI + (Math.random() - 0.5) * Math.PI * 0.8;
+                let speed = 1 + Math.random() * intensity * 1.5;
+                particles.push({
+                    x: cx + (Math.random() - 0.5) * 20,
+                    y: py + dir * 2,
+                    vx: Math.cos(a) * speed + ball.vx * 0.15,
+                    vy: Math.sin(a) * speed,
+                    life: 150 + Math.random() * 250,
+                    maxLife: 150 + Math.random() * 250,
+                    size: 1.5 + Math.random() * 2,
+                    color: _glowColors[Math.floor(Math.random() * _glowColors.length)],
+                    rot: 0, spark: true
+                });
+            }
+        } else {
+            // Grauer Staub-Puff in Austrittsrichtung
+            let big = Math.random() < 0.12;  // ~12% Chance auf großen Puff
+            let count = big ? Math.floor(6 + intensity * 3) : Math.floor(3 + intensity * 2);
+            let sizeMul = big ? 2.2 : 1;
+            let lifeMul = big ? 1.8 : 1;
+            for (let i = 0; i < count; i++) {
+                let a = (dir > 0 ? 0.5 : -0.5) * Math.PI + (Math.random() - 0.5) * Math.PI * 0.6;
+                let speed = 0.3 + Math.random() * intensity * 0.5;
+                particles.push({
+                    x: cx + (Math.random() - 0.5) * 16 * sizeMul,
+                    y: py + dir * 2,
+                    vx: Math.cos(a) * speed + ball.vx * 0.1,
+                    vy: Math.sin(a) * speed,
+                    life: (300 + Math.random() * 300) * lifeMul,
+                    maxLife: (300 + Math.random() * 300) * lifeMul,
+                    size: (3 + Math.random() * 5) * sizeMul,
+                    color: '#999', rot: 0, dust: true
+                });
             }
         }
     }
@@ -2258,6 +2321,38 @@
         let cp = chargePct();
         let cursorR = CFG.CURSOR_R * (1 + cp * 0.4);  // Cursor-Trefferfläche wächst mit Charge
         let min = radius + cursorR;
+        let spd = Math.sqrt(cursor.vx * cursor.vx + cursor.vy * cursor.vy);
+
+        // Quecksilber-Effekt: Ball sinkt in ruhenden Cursor ein
+        let nearFloor = b === ball && cursor.y > (window.innerHeight - CFG.BOTTOM_M) - CFG.CURSOR_R * 3;
+        let ballNear = b === ball && Math.abs(b.x - cursor.x) < cursorR * 2.5;
+
+        if (dist < min && spd < 1.5 && b === ball) {
+            cursorSink = Math.min(cursorSink + 0.018, 1);
+        } else if (nearFloor && ballNear && spd < 2) {
+            // Am Boden: Sink-Fortschritt halten statt zerfallen (Ball hüpft kurz hoch)
+            cursorSink = Math.min(cursorSink + 0.006, 1);
+        } else if (spd > 3) {
+            cursorSink *= 0.85;  // Cursor bewegt sich → schnell zurücksetzen
+        } else {
+            cursorSink *= 0.97;  // Langsam zerfallen
+        }
+
+        if (dist < min && cursorSink > 0.15 && b === ball && spd < 2) {
+            // Ball driftet langsam nach unten durch den Cursor
+            let sinkForce = cursorSink * 0.4;
+            b.vy += sinkForce;
+            b.vx *= 0.97;
+            // Nur teilweise rausschieben — Ball sinkt ein
+            let pushOut = (1 - cursorSink) * (min - dist);
+            if (pushOut > 0.5 && dist > 0.1) {
+                let nx = dx / dist, ny = dy / dist;
+                b.x += nx * pushOut;
+                b.y += ny * pushOut;
+            }
+            return false;
+        }
+
         if (dist >= min || dist < 0.1) return false;
 
         let nx = dx / dist, ny = dy / dist;
@@ -2274,7 +2369,6 @@
         let tSpeed = cursor.vx * tx + cursor.vy * nx;
         b.wz += tSpeed * 0.004;
 
-        let spd = Math.sqrt(cursor.vx * cursor.vx + cursor.vy * cursor.vy);
         let kickMult = 1 + cp * 1.5;  // bis 2.5x Kick-Stärke bei voller Charge
         let push = Math.min((spd * 0.08 + spd * spd * 0.005) * kickMult, 18);
         if (push > 0.05) {
@@ -2292,6 +2386,8 @@
         if (spd) {
             if (spd > 14 && !ghostMode) activateGhost();
             cursorFlash = 1;
+            cursorVis = 1;
+            lastKickTime = performance.now();
             stats.kicks++;
             if (soundEnabled) playKick(Math.min(spd / 25, 1));
         }
@@ -2303,6 +2399,8 @@
             if (sbSpd) {
                 sb.lastKick = performance.now();
                 cursorFlash = 1;
+                cursorVis = 1;
+                lastKickTime = performance.now();
                 if (soundEnabled) playKick(Math.min(sbSpd / 25, 1));
             }
         }
@@ -2340,6 +2438,30 @@
         if (ball.x - r < 0) { ball.x = r; ball.vx = Math.abs(ball.vx) * CFG.BOUNCE; if (soundEnabled && spd > 2) playWallHit(); }
         if (ball.x + r > w) { ball.x = w - r; ball.vx = -Math.abs(ball.vx) * CFG.BOUNCE; if (soundEnabled && spd > 2) playWallHit(); }
         if (ball.y + r > h) {
+            // Quecksilber-Cursor drückt Ball durch den Boden → Wrap nach oben
+            if (cursorSink > 0.3 && cursor.y > h - CFG.CURSOR_R * 3) {
+                // Staub-Puff an der Durchbruchstelle
+                let bx = ball.x;
+                for (let dp = 0; dp < 18; dp++) {
+                    let a = Math.PI + (Math.random() - 0.5) * Math.PI;  // Halbkreis nach oben
+                    let speed = 0.5 + Math.random() * 1.5;
+                    particles.push({
+                        x: bx + (Math.random() - 0.5) * r * 3,
+                        y: h,
+                        vx: Math.cos(a) * speed,
+                        vy: Math.sin(a) * speed - 0.3,
+                        life: 600 + Math.random() * 500,
+                        maxLife: 600 + Math.random() * 500,
+                        size: 4 + Math.random() * 8,
+                        color: '#a0917a',
+                        rot: 0, dust: true
+                    });
+                }
+                ball.y = -r * 2;
+                ball.vy = Math.abs(ball.vy) * 0.3 + 1;  // sanfter Fall von oben
+                cursorSink = -3;  // Cooldown: muss erst von -3 auf 0.3 steigen
+                return;
+            }
             ball.y = h - r;
             ball.vy = -Math.abs(ball.vy) * CFG.BOUNCE;
             ball.vx *= 0.95;
@@ -2363,6 +2485,9 @@
         ball.y += ball.vy;
         ball.vx *= CFG.FRICTION;
         ball.vy *= CFG.FRICTION;
+
+        // NaN-Guard: Ball-Position kaputt → respawnen
+        if (isNaN(ball.x) || isNaN(ball.y)) { spawnBall(); return; }
 
         // Kollisionen (setzen ggf. ball.onGround = true)
         ball.onGround = false;
@@ -2464,58 +2589,112 @@
     }
 
     function drawCursorRing(dt) {
-        if (cursorFlash <= 0 && charge <= 0) return;
+        // Sichtbarkeit: nach 10s ohne Kick langsam verblassen
+        if (lastKickTime > 0) {
+            let idle = performance.now() - lastKickTime;
+            if (idle > 10000) {
+                cursorVis = Math.max(0, cursorVis - dt * 0.0004);  // ~2.5s Fade-out
+            }
+        }
+        if (cursorVis <= 0 && cursorFlash <= 0 && chargePct() <= 0) return;
+
         let cp = chargePct();
         let r = CFG.CURSOR_R;
         let expand = cursorFlash > 0 ? (1 - cursorFlash) * 8 : 0;
         let cr = r + expand + cp * 12;
 
-        ctx.save();
-        let baseAlpha = cursorFlash > 0 ? cursorFlash * 0.4 : 0;
-        let chargeAlpha = cp * 0.6;
-        ctx.globalAlpha = Math.max(baseAlpha, chargeAlpha);
+        // Geschwindigkeit → Ellipsen-Stauchung in Bewegungsrichtung
+        let spd = Math.sqrt(cursor.vx * cursor.vx + cursor.vy * cursor.vy);
+        let squish = Math.min(spd / 35, 0.75);           // 0 = Kreis, 0.75 = sehr flach
+        let angle = spd > 1 ? Math.atan2(cursor.vy, cursor.vx) : 0;
+        let rMove = cr * (1 - squish);                    // Radius in Bewegungsrichtung (schrumpft)
+        let rPerp = cr * (1 + squish * 0.25);             // Radius quer (wächst leicht)
 
-        if (cp > 0.05) {
-            // Elektrifizierter Ring: gezackter Kreis mit Glow
-            let segments = 24 + Math.floor(cp * 20);
-            let jitter = 2 + cp * 10;
-            ctx.shadowColor = 'hsl(' + (200 + cp * 60) + ', 90%, 70%)';
-            ctx.shadowBlur = 4 + cp * 16;
-            ctx.strokeStyle = 'hsl(' + (200 + cp * 60) + ', 85%, ' + (60 + cp * 20) + '%)';
-            ctx.lineWidth = 1.5 + cp * 2;
-            ctx.beginPath();
-            for (let i = 0; i <= segments; i++) {
-                let a = (i / segments) * Math.PI * 2;
-                let j = (Math.random() - 0.5) * jitter;
-                let px = cursor.x + Math.cos(a) * (cr + j);
-                let py = cursor.y + Math.sin(a) * (cr + j);
-                i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
-            }
-            ctx.closePath();
-            ctx.stroke();
-
-            // Zusätzliche Mini-Blitze vom Ring
-            let arcCount = Math.floor(cp * 5);
-            for (let a = 0; a < arcCount; a++) {
-                let angle = Math.random() * Math.PI * 2;
-                let startR = cr + (Math.random() - 0.5) * 4;
-                let len = 8 + Math.random() * cp * 25;
-                drawLightningBolt(
-                    cursor.x + Math.cos(angle) * startR,
-                    cursor.y + Math.sin(angle) * startR,
-                    cursor.x + Math.cos(angle) * (startR + len),
-                    cursor.y + Math.sin(angle) * (startR + len),
-                    3 + cp * 4, cp * 0.7
-                );
-            }
-        } else {
-            ctx.strokeStyle = ghostMode ? '#ff8800' : '#4a7c59';
-            ctx.lineWidth = 2 * cursorFlash;
-            ctx.beginPath();
-            ctx.arc(cursor.x, cursor.y, cr, 0, Math.PI * 2);
-            ctx.stroke();
+        // Quecksilber-Einsinken: Ellipse wird breiter/flacher
+        if (cursorSink > 0.1) {
+            let s = cursorSink;
+            rPerp *= (1 + s * 0.5);  // breiter
+            rMove *= (1 - s * 0.3);  // flacher
         }
-        ctx.restore();
+
+        // Cursor-Ellipse (nur nach erstem Schuss sichtbar)
+        if (cursorVis > 0) {
+            ctx.save();
+            let baseAlphaFill = (0.08 + cp * 0.3) * cursorVis;
+            if (cursorSink > 0.1) baseAlphaFill += cursorSink * 0.12 * cursorVis;
+            ctx.globalAlpha = baseAlphaFill;
+            if (cursorSink > 0.2) {
+                // Quecksilber-Glanz: metallischer Gradient
+                let grad = ctx.createRadialGradient(
+                    cursor.x - rPerp * 0.3, cursor.y - rMove * 0.3, 0,
+                    cursor.x, cursor.y, rPerp
+                );
+                grad.addColorStop(0, '#c0c8d0');
+                grad.addColorStop(0.6, '#7a8a96');
+                grad.addColorStop(1, '#4a5560');
+                ctx.fillStyle = grad;
+            } else {
+                ctx.fillStyle = ghostMode ? '#ff8800' : '#4a7c59';
+            }
+            ctx.beginPath();
+            ctx.ellipse(cursor.x, cursor.y, rPerp, rMove, angle + Math.PI / 2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+
+        // Flash/Charge-Effekte
+        if (cursorFlash > 0 || cp > 0) {
+            ctx.save();
+            let baseAlpha = cursorFlash > 0 ? cursorFlash * 0.4 : 0;
+            let chargeAlpha = cp * 0.6;
+            ctx.globalAlpha = Math.max(baseAlpha, chargeAlpha);
+
+            if (cp > 0.05) {
+                // Elektrifizierter Ring: gezackter Ellipsen-Umriss mit Glow
+                let segments = 24 + Math.floor(cp * 20);
+                let jitter = 2 + cp * 10;
+                ctx.shadowColor = 'hsl(' + (200 + cp * 60) + ', 90%, 70%)';
+                ctx.shadowBlur = 4 + cp * 16;
+                ctx.strokeStyle = 'hsl(' + (200 + cp * 60) + ', 85%, ' + (60 + cp * 20) + '%)';
+                ctx.lineWidth = 1.5 + cp * 2;
+                ctx.beginPath();
+                for (let i = 0; i <= segments; i++) {
+                    let a = (i / segments) * Math.PI * 2;
+                    let j = (Math.random() - 0.5) * jitter;
+                    let ex = Math.cos(a) * (rPerp + j);
+                    let ey = Math.sin(a) * (rMove + j);
+                    // Rotation auf Bewegungsrichtung
+                    let rot = angle + Math.PI / 2;
+                    let px = cursor.x + ex * Math.cos(rot) - ey * Math.sin(rot);
+                    let py = cursor.y + ex * Math.sin(rot) + ey * Math.cos(rot);
+                    i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+                }
+                ctx.closePath();
+                ctx.stroke();
+
+                // Zusätzliche Mini-Blitze vom Ring
+                let arcCount = Math.floor(cp * 5);
+                for (let ac = 0; ac < arcCount; ac++) {
+                    let la = Math.random() * Math.PI * 2;
+                    let startR = cr + (Math.random() - 0.5) * 4;
+                    let len = 8 + Math.random() * cp * 25;
+                    drawLightningBolt(
+                        cursor.x + Math.cos(la) * startR,
+                        cursor.y + Math.sin(la) * startR,
+                        cursor.x + Math.cos(la) * (startR + len),
+                        cursor.y + Math.sin(la) * (startR + len),
+                        3 + cp * 4, cp * 0.7
+                    );
+                }
+            } else {
+                ctx.strokeStyle = ghostMode ? '#ff8800' : '#4a7c59';
+                ctx.lineWidth = 2 * cursorFlash;
+                ctx.beginPath();
+                ctx.ellipse(cursor.x, cursor.y, rPerp, rMove, angle + Math.PI / 2, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
 
         if (cursorFlash > 0) {
             cursorFlash -= dt * 0.003;
@@ -2633,22 +2812,42 @@
 
             p.x += p.vx;
             p.y += p.vy;
-            p.vy += 0.04;           // leichte Schwerkraft
+            p.vy += p.dust ? -0.02 : p.spark ? 0.08 : 0.04;  // Staub steigt, Funken fallen schnell
             p.vx *= 0.98;
             p.vy *= 0.98;
             p.rot += 0.1;
 
-            let t = 1 - p.life / p.maxLife;
+            let t = Math.min(1 - p.life / p.maxLife, 1);
             let alpha = t < 0.5 ? 1 : 1 - (t - 0.5) / 0.5;
-            let size = p.size * (1 - t * 0.6);
+            let size = Math.max(p.size * (1 - t * 0.6), 0.5);
 
             ctx.save();
             ctx.globalAlpha = alpha;
             ctx.translate(p.x, p.y);
             ctx.rotate(p.rot);
             ctx.fillStyle = p.color;
-            // Kleine Rechteck-Fragmente (Rahmenstücke)
-            ctx.fillRect(-size, -size * 0.4, size * 2, size * 0.8);
+            if (p.spark) {
+                // Elektrischer Funke: heller Kern + Glow
+                ctx.shadowColor = p.color;
+                ctx.shadowBlur = 6;
+                ctx.beginPath();
+                ctx.arc(0, 0, size * (1 - t * 0.8), 0, Math.PI * 2);
+                ctx.fill();
+            } else if (p.dust) {
+                // Weiche runde Staubwolke
+                let dr = Math.max(size * (1 + t * 1.5), 1);
+                let grad = ctx.createRadialGradient(0, 0, dr * 0.15, 0, 0, dr);
+                grad.addColorStop(0, 'rgba(160,145,120,0.5)');
+                grad.addColorStop(0.5, 'rgba(160,145,120,0.2)');
+                grad.addColorStop(1, 'rgba(160,145,120,0)');
+                ctx.fillStyle = grad;
+                ctx.beginPath();
+                ctx.arc(0, 0, dr, 0, Math.PI * 2);
+                ctx.fill();
+            } else {
+                // Kleine Rechteck-Fragmente (Rahmenstücke)
+                ctx.fillRect(-size, -size * 0.4, size * 2, size * 0.8);
+            }
             ctx.restore();
         }
     }
@@ -2729,7 +2928,8 @@
             data: { game: 'breakout', trid: trid, md: md },
             dataType: 'json',
             success: function(res) {
-                if (!scorePanel || !res || !res.ok) return;
+                if (!scorePanel) return;
+                if (!res || !res.ok) { removeScorePanel(); return; }
                 let myName = shortName(getFullName());
 
                 let alltime = injectCurrentScore(/** @type {Array} */(res['scores']) || [], myName, score);
@@ -2740,7 +2940,8 @@
                 html += renderScoreTable('All-Time', alltime);
 
                 scorePanel.innerHTML = html;
-            }
+            },
+            error: function() { removeScorePanel(); }
         });
     }
 
@@ -3104,6 +3305,7 @@
         lastT = ts;
         if (dt > 50) dt = 16;
 
+        try {
         pushBall();
         step();
         stepSplitBalls(dt);
@@ -3126,6 +3328,7 @@
         drawBall();
         drawCursorRing(dt);
         drawFloatingTexts(dt);
+        } catch (e) { console.error('ball-loop:', e); }
 
         animFrame = requestAnimationFrame(loop);
     }

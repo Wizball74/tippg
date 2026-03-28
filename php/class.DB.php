@@ -117,6 +117,13 @@
 			return $stmt->execute();
 		}
 
+		function tableExists($table)
+		{
+			$db = $this->getConnection();
+			$result = $db->query("SHOW TABLES LIKE '" . $db->real_escape_string($table) . "'");
+			return $result && $result->num_rows > 0;
+		}
+
 	}
 
 ?>
