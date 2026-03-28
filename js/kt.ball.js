@@ -2987,7 +2987,8 @@
             url: 'php/SaveGameScore.php',
             method: 'POST',
             data: { game: 'breakout', score: score, trid: trid, md: md,
-                    kicks: stats.kicks, clones: stats.splits.length },
+                    kicks: stats.kicks, clones: stats.splits.length,
+                    l1: stats.l1, l2: stats.l2, l3: stats.l3, l4: stats.l4 },
             dataType: 'json'
         });
         register();
@@ -3348,74 +3349,178 @@
 
     function breakoutPage() {
         let trid = kt.trid || 0;
-
-        // Beide Ranglisten parallel vom Server laden
         let breakoutDone = false, huntDone = false;
         let breakoutRows = [], huntRows = [];
+        let sortKey = 'total', sortDir = 'desc';
+
+        let MEDAL = ['\uD83E\uDD47', '\uD83E\uDD48', '\uD83E\uDD49']; // gold, silver, bronze emoji
+        let MEDAL_BG = ['rgba(255,215,0,0.1)', 'rgba(192,192,192,0.08)', 'rgba(205,127,50,0.07)'];
+
+        let cols = [
+            { key: 'name',         label: 'Spieler',        align: 'left',  type: 'string' },
+            { key: 'total',        label: 'Gesamt',         align: 'right', type: 'number', bold: true },
+            { key: 'total_l1',     label: 'Breakout',       align: 'right', type: 'number', cls: 'lvl1' },
+            { key: 'total_l2',     label: 'Fly',            align: 'right', type: 'number', cls: 'lvl2' },
+            { key: 'total_l3',     label: 'Trap',           align: 'right', type: 'number', cls: 'lvl3' },
+            { key: 'total_l4',     label: 'Gravity',        align: 'right', type: 'number', cls: 'lvl4' },
+            { key: 'matchdays',    label: 'Tage',           align: 'right', type: 'number' },
+            { key: 'best',         label: 'Bester',         align: 'right', type: 'number' },
+            { key: 'total_kicks',  label: 'Sch\u00fcsse',   align: 'right', type: 'number' },
+            { key: 'total_clones', label: 'Klone',          align: 'right', type: 'number' }
+        ];
+
+        // Top-3 pro Spalte ermitteln
+        function computeTop3(rows) {
+            let top3 = {};
+            cols.forEach(function(c) {
+                if (c.type !== 'number') return;
+                let sorted = rows.slice().sort(function(a, b) {
+                    return (parseInt(b[c.key]) || 0) - (parseInt(a[c.key]) || 0);
+                });
+                top3[c.key] = [];
+                for (let m = 0; m < 3 && m < sorted.length; m++) {
+                    let v = parseInt(sorted[m][c.key]) || 0;
+                    if (v > 0) top3[c.key].push(rows.indexOf(sorted[m]));
+                }
+            });
+            return top3;
+        }
+
+        function sortRows(rows) {
+            rows.sort(function(a, b) {
+                let av = a[sortKey], bv = b[sortKey];
+                if (cols.find(function(c) { return c.key === sortKey; }).type === 'number') {
+                    av = parseInt(av) || 0; bv = parseInt(bv) || 0;
+                } else {
+                    av = (av || '').toLowerCase(); bv = (bv || '').toLowerCase();
+                }
+                if (av < bv) return sortDir === 'asc' ? -1 : 1;
+                if (av > bv) return sortDir === 'asc' ? 1 : -1;
+                return 0;
+            });
+        }
+
+        function renderBreakout() {
+            sortRows(breakoutRows);
+            let top3 = computeTop3(breakoutRows);
+            let html = '';
+
+            // Header
+            html += '<tr>';
+            html += '<th class="rk-th" style="width:36px;text-align:center">#</th>';
+            cols.forEach(function(c) {
+                let arrow = sortKey === c.key ? (sortDir === 'asc' ? ' \u25B2' : ' \u25BC') : '';
+                let active = sortKey === c.key ? ' rk-sort-active' : '';
+                html += '<th class="rk-th rk-sortable' + active + '" data-sort="' + c.key + '" style="text-align:' + c.align + '">'
+                    + c.label + '<span class="rk-arrow">' + arrow + '</span></th>';
+            });
+            html += '</tr>';
+            $j('#rkBreakoutHead').html(html);
+
+            // Body
+            html = '';
+            for (let i = 0; i < breakoutRows.length; i++) {
+                let r = breakoutRows[i];
+                let rowMedal = i < 3 ? ' style="background:' + MEDAL_BG[i] + '"' : '';
+                html += '<tr' + rowMedal + '>';
+                html += '<td class="rk-td" style="text-align:center;font-weight:bold">' + (i < 3 ? MEDAL[i] : (i + 1)) + '</td>';
+
+                cols.forEach(function(c) {
+                    let val = c.type === 'number' ? (parseInt(r[c.key]) || 0) : (r[c.key] || '');
+                    let style = 'text-align:' + c.align;
+                    if (c.bold) style += ';font-weight:bold';
+                    let cellCls = 'rk-td';
+                    if (c.cls) cellCls += ' rk-' + c.cls;
+
+                    // Top-3 Dot pro Spalte
+                    let dot = '';
+                    if (top3[c.key]) {
+                        let rank = top3[c.key].indexOf(i);
+                        if (rank >= 0) dot = '<span class="rk-dot rk-dot-' + rank + '"></span>';
+                    }
+
+                    html += '<td class="' + cellCls + '" style="' + style + '">' + dot + val + '</td>';
+                });
+                html += '</tr>';
+            }
+            $j('#rkBreakoutBody').html(html);
+        }
 
         function render() {
             if (!breakoutDone || !huntDone) return;
 
-            let html = '<div style="padding:16px 24px;max-width:600px">';
-            html += '<h4 style="margin-bottom:12px">Breakout-Rangliste</h4>';
+            let html = '<div class="rk-wrap">';
+            html += '<style>' +
+                '.rk-wrap { padding:16px 24px; max-width:720px; }' +
+                '.rk-title { font-size:18px; font-weight:700; margin:0 0 14px; }' +
+                '.rk-table { width:100%; border-collapse:collapse; font-size:13px; }' +
+                '.rk-th { padding:7px 6px; border-bottom:2px solid #444; color:#888; font-weight:600; font-size:11px; text-transform:uppercase; letter-spacing:0.5px; white-space:nowrap; }' +
+                '.rk-sortable { cursor:pointer; user-select:none; }' +
+                '.rk-sortable:hover { color:#ccc; }' +
+                '.rk-sort-active { color:#d0d0d0; }' +
+                '.rk-arrow { font-size:9px; margin-left:2px; opacity:0.6; }' +
+                '.rk-td { padding:6px; border-bottom:1px solid #2e2e2e; }' +
+                '.rk-table tr:hover td { background:rgba(255,255,255,0.03); }' +
+                '.rk-lvl1 { color:#e8a020; }' +
+                '.rk-lvl2 { color:#FF4136; }' +
+                '.rk-lvl3 { color:#2ECC40; }' +
+                '.rk-lvl4 { color:#FF851B; }' +
+                '.rk-dot { display:inline-block; width:6px; height:6px; border-radius:50%; margin-right:4px; vertical-align:middle; }' +
+                '.rk-dot-0 { background:#FFD700; }' +
+                '.rk-dot-1 { background:#A0A0A0; }' +
+                '.rk-dot-2 { background:#CD7F32; }' +
+                '.rk-section { margin-top:28px; }' +
+                '</style>';
+
+            html += '<h4 class="rk-title">Breakout-Rangliste</h4>';
 
             if (breakoutRows.length === 0) {
                 html += '<p style="opacity:0.6">Noch keine Breakout-Punkte erzielt. ' +
                     'Stupse den Fussball auf der Tipp-Uebersicht in die Punkte-Zellen!</p>';
             } else {
-                html += '<table class="table table-striped" style="width:100%">';
-                html += '<thead><tr>' +
-                    '<th style="width:40px">#</th>' +
-                    '<th>Spieler</th>' +
-                    '<th style="text-align:right">Gesamt</th>' +
-                    '<th style="text-align:right">Spieltage</th>' +
-                    '<th style="text-align:right">Bester</th>' +
-                    '<th style="text-align:right">Sch\u00fcsse</th>' +
-                    '<th style="text-align:right">Klone</th>' +
-                    '</tr></thead><tbody>';
-
-                for (let i = 0; i < breakoutRows.length; i++) {
-                    let r = breakoutRows[i];
-                    let medal = i === 0 ? ' style="font-weight:bold;color:#8b6914"' :
-                                i === 1 ? ' style="color:#606060"' :
-                                i === 2 ? ' style="color:#7a4a2a"' : '';
-                    html += '<tr' + medal + '>' +
-                        '<td>' + (i + 1) + '</td>' +
-                        '<td>' + r.name + '</td>' +
-                        '<td style="text-align:right;font-weight:bold">' + r['total'] + '</td>' +
-                        '<td style="text-align:right">' + r['matchdays'] + '</td>' +
-                        '<td style="text-align:right">' + r['best'] + '</td>' +
-                        '<td style="text-align:right">' + (r['total_kicks'] || 0) + '</td>' +
-                        '<td style="text-align:right">' + (r['total_clones'] || 0) + '</td>' +
-                        '</tr>';
-                }
-                html += '</tbody></table>';
+                html += '<table class="rk-table" id="rkBreakout">' +
+                    '<thead id="rkBreakoutHead"></thead>' +
+                    '<tbody id="rkBreakoutBody"></tbody></table>';
             }
 
+            // Hunt
             if (huntRows.length > 0) {
-                html += '<h4 style="margin:24px 0 12px">Zahlen-Jagd</h4>';
-                html += '<table class="table table-striped" style="width:100%">';
-                html += '<thead><tr>' +
-                    '<th style="width:40px">#</th>' +
-                    '<th>Spieler</th>' +
-                    '<th style="text-align:right">Beste Runde</th>' +
+                html += '<div class="rk-section"><h4 class="rk-title">Zahlen-Jagd</h4>';
+                html += '<table class="rk-table"><thead><tr>' +
+                    '<th class="rk-th" style="width:36px;text-align:center">#</th>' +
+                    '<th class="rk-th" style="text-align:left">Spieler</th>' +
+                    '<th class="rk-th" style="text-align:right">Beste Runde</th>' +
                     '</tr></thead><tbody>';
                 for (let h = 0; h < huntRows.length; h++) {
                     let hr = huntRows[h];
-                    let hmedal = h === 0 ? ' style="font-weight:bold;color:#8b6914"' :
-                                 h === 1 ? ' style="color:#606060"' :
-                                 h === 2 ? ' style="color:#7a4a2a"' : '';
-                    html += '<tr' + hmedal + '>' +
-                        '<td>' + (h + 1) + '</td>' +
-                        '<td>' + hr.name + '</td>' +
-                        '<td style="text-align:right;font-weight:bold">' + hr['best_round'] + '</td>' +
+                    let rowBg = h < 3 ? ' style="background:' + MEDAL_BG[h] + '"' : '';
+                    html += '<tr' + rowBg + '>' +
+                        '<td class="rk-td" style="text-align:center;font-weight:bold">' + (h < 3 ? MEDAL[h] : (h + 1)) + '</td>' +
+                        '<td class="rk-td">' + hr.name + '</td>' +
+                        '<td class="rk-td" style="text-align:right;font-weight:bold">' + hr['best_round'] + '</td>' +
                         '</tr>';
                 }
-                html += '</tbody></table>';
+                html += '</tbody></table></div>';
             }
 
             html += '</div>';
             setContent(html);
+
+            if (breakoutRows.length > 0) {
+                renderBreakout();
+
+                // Sort click handler
+                $j('#rkBreakout').on('click', 'th[data-sort]', function() {
+                    let key = this.getAttribute('data-sort');
+                    if (sortKey === key) {
+                        sortDir = sortDir === 'asc' ? 'desc' : 'asc';
+                    } else {
+                        sortKey = key;
+                        sortDir = 'desc';
+                    }
+                    renderBreakout();
+                });
+            }
         }
 
         $j.ajax({
@@ -3438,7 +3543,6 @@
             error: function() { huntDone = true; render(); }
         });
 
-        // Sofort "Lade..." anzeigen
         setContent('<div style="padding:16px 24px"><p style="opacity:0.6">Lade Rangliste...</p></div>');
     }
 

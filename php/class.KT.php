@@ -3212,6 +3212,10 @@ class KT
 		$md    = intval($_POST['md'] ?? 0);
 		$kicks  = intval($_POST['kicks'] ?? 0);
 		$clones = intval($_POST['clones'] ?? 0);
+		$l1 = intval($_POST['l1'] ?? 0);
+		$l2 = intval($_POST['l2'] ?? 0);
+		$l3 = intval($_POST['l3'] ?? 0);
+		$l4 = intval($_POST['l4'] ?? 0);
 
 		if (!in_array($game, ['breakout', 'hunt'])) {
 			$this->jsonResult2(false, Status::Error, 'Ungültiges Spiel.'); return;
@@ -3234,25 +3238,22 @@ class KT
 		);
 
 		if (empty($existing)) {
-			// Neuer Eintrag
 			try {
 				$this->db->prepareExecute(
-					"INSERT INTO $table (tnid, game, trid, md, score, kicks, clones) VALUES (?, ?, ?, ?, ?, ?, ?)",
-					'isiiii' . 'i', [$tnid, $game, $trid, $md, $score, $kicks, $clones]
+					"INSERT INTO $table (tnid, game, trid, md, score, kicks, clones, l1, l2, l3, l4) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+					'isiiiiiiiii', [$tnid, $game, $trid, $md, $score, $kicks, $clones, $l1, $l2, $l3, $l4]
 				);
 			} catch (\Exception $e) {
-				// Fallback ohne neue Spalten
 				$this->db->prepareExecute(
 					"INSERT INTO $table (tnid, game, trid, md, score) VALUES (?, ?, ?, ?, ?)",
 					'isiii', [$tnid, $game, $trid, $md, $score]
 				);
 			}
 		} elseif ($score > intval($existing[0]['score'])) {
-			// Nur updaten wenn neuer Score höher
 			try {
 				$this->db->prepareExecute(
-					"UPDATE $table SET score = ?, kicks = ?, clones = ? WHERE tnid = ? AND game = ? AND trid = ? AND md = ?",
-					'iiiisii', [$score, $kicks, $clones, $tnid, $game, $trid, $md]
+					"UPDATE $table SET score = ?, kicks = ?, clones = ?, l1 = ?, l2 = ?, l3 = ?, l4 = ? WHERE tnid = ? AND game = ? AND trid = ? AND md = ?",
+					'iiiiiiisii', [$score, $kicks, $clones, $l1, $l2, $l3, $l4, $tnid, $game, $trid, $md]
 				);
 			} catch (\Exception $e) {
 				$this->db->prepareExecute(
@@ -3279,16 +3280,28 @@ class KT
 		}
 
 		if ($game === 'breakout') {
-			// All-Time: Gesamtscore über alle Spieltage
-			$sql = "SELECT t.name, SUM(g.score) AS total, COUNT(g.score) AS matchdays, MAX(g.score) AS best,
-			               SUM(g.kicks) AS total_kicks, SUM(g.clones) AS total_clones
-			        FROM $table g
-			        JOIN $tnTable t ON t.tnid = g.tnid
-			        WHERE g.game = 'breakout' AND g.trid = ? AND g.md > 0
-			        GROUP BY g.tnid, t.name
-			        ORDER BY total DESC
-			        LIMIT 10";
-			$alltime = $this->db->prepareGetData($sql, 'i', [$trid]);
+			try {
+				$sql = "SELECT t.name, SUM(g.score) AS total, COUNT(g.score) AS matchdays, MAX(g.score) AS best,
+				               SUM(g.kicks) AS total_kicks, SUM(g.clones) AS total_clones,
+				               SUM(g.l1) AS total_l1, SUM(g.l2) AS total_l2, SUM(g.l3) AS total_l3, SUM(g.l4) AS total_l4
+				        FROM $table g
+				        JOIN $tnTable t ON t.tnid = g.tnid
+				        WHERE g.game = 'breakout' AND g.trid = ? AND g.md > 0
+				        GROUP BY g.tnid, t.name
+				        ORDER BY total DESC
+				        LIMIT 20";
+				$alltime = $this->db->prepareGetData($sql, 'i', [$trid]);
+			} catch (\Exception $e) {
+				$sql = "SELECT t.name, SUM(g.score) AS total, COUNT(g.score) AS matchdays, MAX(g.score) AS best,
+				               SUM(g.kicks) AS total_kicks, SUM(g.clones) AS total_clones
+				        FROM $table g
+				        JOIN $tnTable t ON t.tnid = g.tnid
+				        WHERE g.game = 'breakout' AND g.trid = ? AND g.md > 0
+				        GROUP BY g.tnid, t.name
+				        ORDER BY total DESC
+				        LIMIT 20";
+				$alltime = $this->db->prepareGetData($sql, 'i', [$trid]);
+			}
 	
 
 			// Spieltag: Nur aktueller Spieltag
