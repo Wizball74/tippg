@@ -3330,7 +3330,7 @@ class KT
 	function GetPinnwand()
 	{
 		$sql = sprintf("SELECT p.id, p.tnid, p.nick, p.`text`, p.image, p.sticky,
-				p.pos_x, p.pos_y, p.rotation, p.color, p.card_style,
+				p.card_style,
 				DATE_FORMAT(p.created, '%%d.%%m.%%Y %%H:%%i') AS created_fmt
 				FROM %s p
 				ORDER BY p.sticky DESC, p.created DESC

@@ -1,5 +1,6 @@
 -- Zusätzliche Tabellen und Spalten, die manuell angelegt werden müssen
 -- (sind nicht im Hauptdump tippgde_db1.sql enthalten)
+-- Alle Statements sind idempotent (IF NOT EXISTS / IF NOT EXISTS).
 
 -- Gamescores-Tabelle (Breakout, Hunt)
 CREATE TABLE IF NOT EXISTS kt3_gamescores (
@@ -14,7 +15,11 @@ CREATE TABLE IF NOT EXISTS kt3_gamescores (
     PRIMARY KEY (tnid, game, trid, md)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Pinnwand-Tabelle (Social-Feed mit Posts, Bildern, Positionierung)
+-- Falls kt3_gamescores schon existiert aber kicks/clones fehlen
+ALTER TABLE kt3_gamescores ADD COLUMN IF NOT EXISTS kicks INT(10) UNSIGNED NOT NULL DEFAULT 0;
+ALTER TABLE kt3_gamescores ADD COLUMN IF NOT EXISTS clones INT(10) UNSIGNED NOT NULL DEFAULT 0;
+
+-- Pinnwand-Tabelle (Social-Feed)
 CREATE TABLE IF NOT EXISTS kt3_pinnwand (
     id INT(10) UNSIGNED NOT NULL AUTO_INCREMENT,
     tnid INT(10) UNSIGNED NOT NULL,
@@ -31,6 +36,9 @@ CREATE TABLE IF NOT EXISTS kt3_pinnwand (
     PRIMARY KEY (id),
     KEY idx_sticky_created (sticky, created)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Falls kt3_pinnwand schon existiert aber card_style fehlt
+ALTER TABLE kt3_pinnwand ADD COLUMN IF NOT EXISTS card_style VARCHAR(20) DEFAULT '';
 
 -- remember_token fuer sichere "Angemeldet bleiben"-Funktion
 ALTER TABLE kt3_teilnehmer ADD COLUMN IF NOT EXISTS remember_token VARCHAR(64) DEFAULT NULL;
