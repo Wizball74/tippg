@@ -509,11 +509,31 @@ class KT
 			if (!$c['hidden']) $w += $c['width'];
 		}
 
-		// Auf Mobile: Name-Spalte verkleinern
+		// Auf Mobile: Spalten anpassen
 		if ($vw < 768) {
 			foreach ($colModel as $i => $c) {
-				if (isset($c['classes']) && $c['classes'] == 'Name' && $c['width'] > 128)
+				$cls = isset($c['classes']) ? $c['classes'] : '';
+				if ($cls == 'Name' && $c['width'] > 128)
 					$colModel[$i]['width'] = 128;
+				// DateTime auf Mobile ausblenden (Deadline steht unter der Tabelle)
+				if ($cls == 'DateTime')
+					$colModel[$i]['hidden'] = true;
+			}
+			// Team-Spalten auf verfuegbare Breite verteilen
+			$fixedW = 0;
+			$teamCount = 0;
+			foreach ($colModel as $c) {
+				$cls = isset($c['classes']) ? $c['classes'] : '';
+				if (!empty($c['hidden'])) continue;
+				if ($cls == 'Team') { $teamCount++; continue; }
+				$fixedW += $c['width'];
+			}
+			if ($teamCount > 0) {
+				$teamW = max(80, intval(($vw - $fixedW - 10) / $teamCount));
+				foreach ($colModel as $i => $c) {
+					if (isset($c['classes']) && $c['classes'] == 'Team')
+						$colModel[$i]['width'] = min($c['width'], $teamW);
+				}
 			}
 		}
 		// Auf Tablet/Desktop verkleinern wenn noetig

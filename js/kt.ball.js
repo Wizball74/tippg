@@ -71,8 +71,10 @@
     const CHARGE_HOLD = 1500;      // ms bevor Abbau startet
     const CHARGE_DECAY = 3;        // Abbau pro Sekunde
     const CHARGE_MAX = 40;         // Deckel → dann Split!
+    const CHARGE_MAX_FIRST = 35;   // erster Split wenn Ball alleine ist
 
-    function chargePct() { return Math.min(charge / CHARGE_MAX, 1); }
+    function chargeMax()  { return splitBalls.length === 0 ? CHARGE_MAX_FIRST : CHARGE_MAX; }
+    function chargePct()  { return Math.min(charge / chargeMax(), 1); }
     function chargeR()   { return CFG.R * (1 + chargePct() * 0.5); }        // bis 50% größer (10→15)
     function chargeBounce() { return CFG.BOUNCE * (1 + chargePct() * 0.4); } // bis 40% mehr Bounce
     function chargeGravity() {
@@ -107,11 +109,12 @@
     ];
 
     function addCharge(pts, sourceBall) {
-        charge = Math.min(charge + pts, CHARGE_MAX);
+        let cap = chargeMax();
+        charge = Math.min(charge + pts, cap);
         chargeLastHit = performance.now();
 
         // Charge voll → SPLIT! (mit Cooldown)
-        if (charge >= CHARGE_MAX && performance.now() - lastSplitTime > SPLIT_COOLDOWN) {
+        if (charge >= cap && performance.now() - lastSplitTime > SPLIT_COOLDOWN) {
             let src = sourceBall || ball;
             if (src) {
                 splitBall(src);

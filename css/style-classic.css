@@ -769,7 +769,7 @@ body { overflow-x: hidden; }
         z-index: 10;
     }
 
-    .ui-jqgrid td.Team { font-size: 0.85em;}
+    .ui-jqgrid td.Team { font-size: 0.85em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .ui-jqgrid td.Name { font-size: 0.85em;}
     .ui-jqgrid td.Date { font-size: 0.8em;}
     .ui-jqgrid td.Time { font-size: 0.8em;}
