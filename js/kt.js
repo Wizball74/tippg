@@ -547,10 +547,13 @@
         if (!data || data.type == Status.NoMsg || !data.message) return;
 
         var cls = 'kt-toast';
-        switch(data.type) {
+        var type = data.type;
+        if (!type && data.ok) type = Status.OK;
+        switch(type) {
             case Status.OK: cls += ' kt-toast-ok'; break;
             case Status.Warning: cls += ' kt-toast-warn'; break;
             case Status.Error: cls += ' kt-toast-error'; break;
+            default: cls += ' kt-toast-ok'; break;
         }
 
         var toast = $j('<div/>').addClass(cls).text(data.message);

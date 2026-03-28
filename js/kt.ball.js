@@ -2405,8 +2405,8 @@
             }
         }
 
-        // Zahlen-Jagd: Berührungen zählen (nur wenn kein Level aktiv)
-        if (!hunt.active && !hunt.ready && !revealed && !level2.active && !level3.active) {
+        // Zahlen-Jagd: Berührungen zählen (nur bei echtem Kick, nicht bei jedem Frame)
+        if (spd && !hunt.active && !hunt.ready && !revealed && !level2.active && !level3.active) {
             if (hunt.touchCount === 0) hunt.firstTouchTime = performance.now();
             hunt.touchCount++;
             huntCheck();
