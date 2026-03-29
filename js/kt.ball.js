@@ -446,7 +446,9 @@
         timer: 60,
         timerEl: null,
         targets: [],           // [{ el, num }]
-        intervalId: null
+        intervalId: null,
+        startTime: 0,          // performance.now() bei Spielstart (fuer Gesamtzeit)
+        cooldownUntil: 0       // performance.now() Zeitpunkt bis wann kein neuer Hunt startet
     };
 
     // "Pfubb"-Sound: kurzer gedämpfter Tiefton, Lautstärke proportional zur Schuss-Stärke
@@ -809,12 +811,14 @@
         charge = 0;
         revealed = false;
         huntCleanup();
+        hunt.cooldownUntil = 0; // Cooldown bei Seitenwechsel aufheben
         level2Cleanup();
         level3Cleanup();
         level4Cleanup();
         currentLevel = 1;
         glowLines = [];
         splitBalls = [];
+        floatingTexts = [];
         removeScorePanel();
         document.body.classList.remove('kt-ball-game');
         // Ausgeblendete Zellen wiederherstellen
@@ -3043,6 +3047,7 @@
 
     function huntCheck() {
         if (hunt.active || hunt.ready || revealed || level2.active || level3.active) return;
+        if (hunt.cooldownUntil && performance.now() < hunt.cooldownUntil) return;
         if (!isOverviewEmpty()) return;
         let elapsed = performance.now() - hunt.firstTouchTime;
         if (hunt.touchCount >= 5 && elapsed >= 7500) {
@@ -3055,6 +3060,7 @@
         hunt.active = true;
         hunt.round = 1;
         hunt.timer = 60;
+        hunt.startTime = performance.now();
         huntCreateTimer();
         huntPlaceNumbers();
     }
@@ -3107,13 +3113,22 @@
         hunt.timerEl.innerHTML =
             '<div style="font-size:48px;font-weight:900;font-family:monospace;color:' + timerColor + ';text-shadow:' + timerShadow + ';line-height:1">' + hunt.timer + '</div>' +
             '<div style="font-size:13px;color:#888;margin-top:6px;font-weight:600">Runde ' + hunt.round + '</div>' +
-            (best > 0 ? '<div style="font-size:11px;color:#aaa;margin-top:2px">Rekord: ' + best + '</div>' : '');
+            (best > 0 ? '<div style="font-size:11px;color:#aaa;margin-top:2px">Rekord: ' + best + (_huntBestTimeCache ? ' (' + huntFormatTime(_huntBestTimeCache) + ')' : '') + '</div>' : '');
     }
 
     let _huntBestCache = 0;
+    let _huntBestTimeCache = 0; // ms des Rekordhalters (0 = unbekannt)
 
     function huntGetBest() {
         return _huntBestCache;
+    }
+
+    function huntFormatTime(ms) {
+        if (!ms) return '';
+        let s = Math.floor(ms / 1000);
+        let m = Math.floor(s / 60);
+        s = s % 60;
+        return m + ':' + (s < 10 ? '0' : '') + s;
     }
 
     function huntLoadBest() {
@@ -3124,13 +3139,12 @@
             dataType: 'json',
             success: function(res) {
                 if (res && res.ok && res['scores']) {
-                    let max = 0;
                     let rows = /** @type {Array} */(res['scores']);
-                    for (let i = 0; i < rows.length; i++) {
-                        let r = parseInt(rows[i]['best_round'] || 0);
-                        if (r > max) max = r;
+                    // Erste Zeile = bester Spieler (serverseitig sortiert)
+                    if (rows.length > 0) {
+                        _huntBestCache = parseInt(rows[0]['best_round'] || 0);
+                        _huntBestTimeCache = parseInt(rows[0]['elapsed_ms'] || 0);
                     }
-                    _huntBestCache = max;
                 }
             }
         });
@@ -3138,11 +3152,15 @@
 
     function huntSaveScore() {
         if (hunt.round < 1) return;
-        if (hunt.round > _huntBestCache) _huntBestCache = hunt.round;
+        let elapsed = Math.round(performance.now() - hunt.startTime);
+        if (hunt.round > _huntBestCache || (hunt.round === _huntBestCache && (_huntBestTimeCache === 0 || elapsed < _huntBestTimeCache))) {
+            _huntBestCache = hunt.round;
+            _huntBestTimeCache = elapsed;
+        }
         $j.ajax({
             url: 'php/SaveGameScore.php',
             method: 'POST',
-            data: { game: 'hunt', score: hunt.round, trid: 0, md: 0 },
+            data: { game: 'hunt', score: hunt.round, trid: 0, md: 0, elapsed_ms: elapsed },
             dataType: 'json'
         });
     }
@@ -3265,10 +3283,12 @@
 
     function huntGameOver() {
         let finalRound = hunt.round;
+        let elapsed = Math.round(performance.now() - hunt.startTime);
         huntSaveScore();
         let best = huntGetBest();
-        let msg = 'Zeit abgelaufen! Runde ' + finalRound;
-        if (finalRound >= best && finalRound > 1) msg = 'Neuer Rekord! Runde ' + finalRound;
+        let timeStr = huntFormatTime(elapsed);
+        let msg = 'Zeit abgelaufen! Runde ' + finalRound + (timeStr ? ' (' + timeStr + ')' : '');
+        if (finalRound >= best && finalRound > 1) msg = 'Neuer Rekord! Runde ' + finalRound + (timeStr ? ' (' + timeStr + ')' : '');
         floatingTexts.push({
             x: window.innerWidth / 2, y: window.innerHeight / 2,
             text: msg,
@@ -3277,6 +3297,7 @@
             stroke: finalRound >= best && finalRound > 1 ? '#7A5B00' : '#7b1f1f',
             big: true
         });
+        hunt.cooldownUntil = performance.now() + 30000; // 30s Pause vor neuem Hunt
         huntCleanup();
     }
 
@@ -3285,6 +3306,8 @@
         hunt.ready = false;
         hunt.touchCount = 0;
         hunt.firstTouchTime = 0;
+        hunt.timer = 60;
+        hunt.startTime = 0;
         if (hunt.intervalId) { clearInterval(hunt.intervalId); hunt.intervalId = null; }
         // Targets aus Zellen entfernen
         for (let i = 0; i < hunt.targets.length; i++) {

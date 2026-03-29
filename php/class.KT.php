@@ -3236,6 +3236,7 @@ class KT
 		$l2 = intval($_POST['l2'] ?? 0);
 		$l3 = intval($_POST['l3'] ?? 0);
 		$l4 = intval($_POST['l4'] ?? 0);
+		$elapsed_ms = isset($_POST['elapsed_ms']) && $_POST['elapsed_ms'] !== '' ? intval($_POST['elapsed_ms']) : null;
 
 		if (!in_array($game, ['breakout', 'hunt'])) {
 			$this->jsonResult2(false, Status::Error, 'Ungültiges Spiel.'); return;
@@ -3253,15 +3254,15 @@ class KT
 
 		// Bestehenden Score laden
 		$existing = $this->db->prepareGetData(
-			"SELECT score FROM $table WHERE tnid = ? AND game = ? AND trid = ? AND md = ?",
+			"SELECT score, elapsed_ms FROM $table WHERE tnid = ? AND game = ? AND trid = ? AND md = ?",
 			'isii', [$tnid, $game, $trid, $md]
 		);
 
 		if (empty($existing)) {
 			try {
 				$this->db->prepareExecute(
-					"INSERT INTO $table (tnid, game, trid, md, score, kicks, clones, l1, l2, l3, l4) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-					'isiiiiiiiii', [$tnid, $game, $trid, $md, $score, $kicks, $clones, $l1, $l2, $l3, $l4]
+					"INSERT INTO $table (tnid, game, trid, md, score, kicks, clones, l1, l2, l3, l4, elapsed_ms) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+					'isiiiiiiiiii', [$tnid, $game, $trid, $md, $score, $kicks, $clones, $l1, $l2, $l3, $l4, $elapsed_ms]
 				);
 			} catch (\Exception $e) {
 				$this->db->prepareExecute(
@@ -3272,14 +3273,27 @@ class KT
 		} elseif ($score > intval($existing[0]['score'])) {
 			try {
 				$this->db->prepareExecute(
-					"UPDATE $table SET score = ?, kicks = ?, clones = ?, l1 = ?, l2 = ?, l3 = ?, l4 = ? WHERE tnid = ? AND game = ? AND trid = ? AND md = ?",
-					'iiiiiiisii', [$score, $kicks, $clones, $l1, $l2, $l3, $l4, $tnid, $game, $trid, $md]
+					"UPDATE $table SET score = ?, kicks = ?, clones = ?, l1 = ?, l2 = ?, l3 = ?, l4 = ?, elapsed_ms = ? WHERE tnid = ? AND game = ? AND trid = ? AND md = ?",
+					'iiiiiiiisiii', [$score, $kicks, $clones, $l1, $l2, $l3, $l4, $elapsed_ms, $tnid, $game, $trid, $md]
 				);
 			} catch (\Exception $e) {
 				$this->db->prepareExecute(
 					"UPDATE $table SET score = ? WHERE tnid = ? AND game = ? AND trid = ? AND md = ?",
 					'iisii', [$score, $tnid, $game, $trid, $md]
 				);
+			}
+		} elseif ($score == intval($existing[0]['score']) && $elapsed_ms !== null) {
+			// Gleiche Runde: Zeit updaten wenn besser oder wenn bisher keine Zeit gespeichert
+			$existingTime = $existing[0]['elapsed_ms'];
+			if ($existingTime === null || $elapsed_ms < intval($existingTime)) {
+				try {
+					$this->db->prepareExecute(
+						"UPDATE $table SET elapsed_ms = ? WHERE tnid = ? AND game = ? AND trid = ? AND md = ?",
+						'iisii', [$elapsed_ms, $tnid, $game, $trid, $md]
+					);
+				} catch (\Exception $e) {
+					// elapsed_ms Spalte fehlt noch - ignorieren
+				}
 			}
 		}
 
@@ -3341,11 +3355,12 @@ class KT
 			return;
 		} elseif ($game === 'hunt') {
 			// Zahlen-Jagd: globale Bestleistung pro Spieler (trid=0, md=0)
-			$sql = "SELECT t.name, g.score AS best_round
+			// Bei gleicher Runde: Spieler MIT Zeit vor Spielern OHNE Zeit, dann schnellste Zeit zuerst
+			$sql = "SELECT t.name, g.score AS best_round, g.elapsed_ms
 			        FROM $table g
 			        JOIN $tnTable t ON t.tnid = g.tnid
 			        WHERE g.game = 'hunt'
-			        ORDER BY g.score DESC
+			        ORDER BY g.score DESC, CASE WHEN g.elapsed_ms IS NULL THEN 1 ELSE 0 END, g.elapsed_ms ASC
 			        LIMIT 20";
 			$rows = $this->db->getData($sql);
 		} else {

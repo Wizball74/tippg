@@ -158,8 +158,14 @@
             if (c.name && c.name.match(/^s\d+$/)) mdCols.push(c.name);
         });
 
-        // Pro Spieltag den Sieger ermitteln
+        // Alle Teilnehmer mit 0 initialisieren
         var wins = {};
+        $j.each(rows, function(ri, r) {
+            var clean = (r.Name || '').replace(/^\uD83D\uDC51\s*/, '');
+            if (clean && !(clean in wins)) wins[clean] = 0;
+        });
+
+        // Pro Spieltag den Sieger ermitteln
         $j.each(mdCols, function(mi, col) {
             var maxPts = -1, winners = [];
             $j.each(rows, function(ri, r) {
@@ -168,7 +174,6 @@
                 else if (p === maxPts) winners.push(r.Name);
             });
             $j.each(winners, function(wi, name) {
-                // Krone entfernen
                 var clean = name.replace(/^\uD83D\uDC51\s*/, '');
                 wins[clean] = (wins[clean] || 0) + 1;
             });
@@ -177,8 +182,7 @@
         // Sortieren
         var sorted = [];
         for (var n in wins) sorted.push({ name: n, count: wins[n] });
-        sorted.sort(function(a,b) { return b.count - a.count; });
-        sorted = sorted.slice(0, 10);
+        sorted.sort(function(a,b) { return b.count - a.count || a.name.localeCompare(b.name); });
 
         var rawNames = [];
         $j.each(sorted, function(i, s) { rawNames.push(s.name); });
