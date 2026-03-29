@@ -45,8 +45,9 @@ CREATE TABLE IF NOT EXISTS kt3_pinnwand (
     KEY idx_sticky_created (sticky, created)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Falls kt3_pinnwand schon existiert aber card_style fehlt
+-- Falls kt3_pinnwand schon existiert aber card_style/reply_to fehlt
 ALTER TABLE kt3_pinnwand ADD COLUMN IF NOT EXISTS card_style VARCHAR(20) DEFAULT '';
+ALTER TABLE kt3_pinnwand ADD COLUMN IF NOT EXISTS reply_to INT(10) UNSIGNED DEFAULT NULL;
 
 -- remember_token fuer sichere "Angemeldet bleiben"-Funktion
 ALTER TABLE kt3_teilnehmer ADD COLUMN IF NOT EXISTS remember_token VARCHAR(64) DEFAULT NULL;

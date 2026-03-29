@@ -3363,7 +3363,7 @@ class KT
 	function GetPinnwand()
 	{
 		$sql = sprintf("SELECT p.id, p.tnid, p.nick, p.`text`, p.image, p.sticky,
-				p.card_style,
+				p.card_style, p.reply_to,
 				DATE_FORMAT(p.created, '%%d.%%m.%%Y %%H:%%i') AS created_fmt
 				FROM %s p
 				ORDER BY p.sticky DESC, p.created DESC
@@ -3393,7 +3393,7 @@ class KT
 		$this->jsonout(array('ok' => true, 'count' => $count));
 	}
 
-	function SavePinnwandPost($text, $style = '')
+	function SavePinnwandPost($text, $style = '', $replyTo = null)
 	{
 		if (empty($text)) {
 			$this->jsonout(array('ok' => false, 'message' => 'Text darf nicht leer sein.'));
@@ -3402,6 +3402,13 @@ class KT
 
 		$allowedStyles = ['','polaroid','vintage','neon','doodle','frame','dark','glass','elegant','retro','tape','shadow'];
 		if (!in_array($style, $allowedStyles)) $style = '';
+
+		// reply_to validieren (muss existierender Top-Level-Post sein)
+		if ($replyTo) {
+			$replyTo = intval($replyTo);
+			$check = $this->db->getData(sprintf("SELECT id, reply_to FROM %s WHERE id=%d", $this->TABLE['pinnwand'], $replyTo));
+			if (empty($check) || !empty($check[0]['reply_to'])) $replyTo = null; // nur auf Top-Level antworten
+		}
 
 		// Bild verarbeiten (falls in Session zwischengespeichert)
 		$image = null;
@@ -3413,9 +3420,14 @@ class KT
 		$nick = $this->user['name'];
 		$tnid = $this->user['tnid'];
 
-		$sql = sprintf("INSERT INTO %s (tnid, nick, `text`, image, card_style) VALUES (?, ?, ?, ?, ?)", $this->TABLE['pinnwand']);
 		$image = $image ?: '';
-		$this->db->prepareExecute($sql, 'issss', [$tnid, $nick, $text, $image, $style]);
+		if ($replyTo) {
+			$sql = sprintf("INSERT INTO %s (tnid, nick, `text`, image, card_style, reply_to) VALUES (?, ?, ?, ?, ?, ?)", $this->TABLE['pinnwand']);
+			$this->db->prepareExecute($sql, 'issssi', [$tnid, $nick, $text, $image, $style, intval($replyTo)]);
+		} else {
+			$sql = sprintf("INSERT INTO %s (tnid, nick, `text`, image, card_style) VALUES (?, ?, ?, ?, ?)", $this->TABLE['pinnwand']);
+			$this->db->prepareExecute($sql, 'issss', [$tnid, $nick, $text, $image, $style]);
+		}
 
 		$this->GetPinnwand();
 	}

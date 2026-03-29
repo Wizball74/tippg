@@ -53,7 +53,10 @@
 .pin-avatar-form { background: #4a7c59 !important; color: #fff !important; }
 
 /* Board */
-.pin-board { display: flex; flex-direction: column; gap: 2px; }
+.pin-board { display: flex; flex-direction: column; gap: 12px; }
+
+/* Thread */
+.pin-thread { display: flex; flex-direction: column; gap: 0; }
 
 /* Card */
 .pin-card {
@@ -62,9 +65,42 @@
     padding: 14px 16px; word-break: break-word;
     border-left: 3px solid transparent;
     transition: background 0.15s;
+    max-width: 75%; width: fit-content; min-width: 280px;
 }
 .pin-card:hover { background: #f8f9fa; }
 .pin-card-pinned { border-left-color: #b8860b; }
+
+/* Replies: rechts ausgerichtet mit Verbindungslinie */
+.pin-replies { display: flex; flex-direction: column; gap: 0; padding-left: 40px; position: relative; }
+.pin-replies::before {
+    content: ''; position: absolute; left: 18px; top: 0; bottom: 16px;
+    width: 2px; background: #d0d0d0; border-radius: 1px;
+}
+.pin-card-reply {
+    align-self: flex-start; margin-top: 6px;
+    border-left: 2px solid #d0d0d0; border-left-color: transparent;
+    max-width: 70%;
+}
+.pin-card-reply::before {
+    content: ''; position: absolute; left: -22px; top: 18px;
+    width: 20px; height: 2px; background: #d0d0d0;
+}
+
+/* Reply-Bar im Formular */
+.pin-reply-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 6px 14px; background: #e8f5e9; border-radius: 8px 8px 0 0;
+    font-size: 12px; color: #555; border-bottom: 1px solid #c8e6c9;
+}
+.pin-reply-label { flex: 1; }
+.pin-reply-cancel {
+    background: none; border: none; font-size: 18px; color: #999;
+    cursor: pointer; padding: 0 4px; line-height: 1;
+}
+.pin-reply-cancel:hover { color: #c0392b; }
+
+/* Reply-Button */
+.pin-card-reply-btn:hover { background: #e8f5e9 !important; color: #4a7c59 !important; }
 
 /* Card Header */
 .pin-card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
@@ -231,6 +267,18 @@
     background: rgba(200,180,100,0.15); border-radius: 0 0 2px 2px; pointer-events: none;
 }
 
+/* Form-Preview: Textarea-Kontrast fuer Styles mit dunklem BG */
+.pin-form.pin-style-neon textarea { color: #e0e0ff; }
+.pin-form.pin-style-neon textarea::placeholder { color: rgba(0,255,255,0.4); }
+.pin-form.pin-style-neon .pin-style-dot { color: #e0e0ff; }
+.pin-form.pin-style-retro textarea { color: #33ff33; font-family: 'Courier New', monospace; }
+.pin-form.pin-style-retro textarea::placeholder { color: rgba(51,255,51,0.4); }
+.pin-form.pin-style-retro .pin-style-dot { color: #33ff33; }
+.pin-form.pin-style-dark textarea { color: rgba(255,255,255,0.9); font-family: 'Comic Sans MS', cursive; }
+.pin-form.pin-style-dark textarea::placeholder { color: rgba(255,255,255,0.35); }
+.pin-form.pin-style-dark .pin-style-dot { color: rgba(255,255,255,0.7); }
+.pin-form.pin-style-elegant textarea { color: #4a3f2f; font-family: Georgia, serif; font-style: italic; }
+
 /* Schatten */
 .pin-style-shadow {
     box-shadow:
@@ -264,6 +312,11 @@
     .pin-form-actions { flex-wrap: wrap; }
     .pin-send { width: 100%; text-align: center; padding: 10px; border-radius: 8px; }
     .pin-card-actions { opacity: 1; }
+    .pin-card { max-width: 92%; min-width: 0; }
+    .pin-card-reply { max-width: 85%; }
+    .pin-replies { padding-left: 28px; }
+    .pin-replies::before { left: 12px; }
+    .pin-card-reply::before { left: -16px; width: 14px; }
 }
 
 /* Pinnwand Badge */

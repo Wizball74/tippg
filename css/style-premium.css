@@ -55,8 +55,11 @@
 
 /* Board */
 .pin-board {
-    display: flex; flex-direction: column; gap: 2px;
+    display: flex; flex-direction: column; gap: 12px;
 }
+
+/* Thread */
+.pin-thread { display: flex; flex-direction: column; gap: 0; }
 
 /* Card */
 .pin-card {
@@ -65,9 +68,36 @@
     padding: 14px 16px; word-break: break-word;
     border-left: 3px solid transparent;
     transition: background 0.15s;
+    max-width: 75%; width: fit-content; min-width: 280px;
 }
 .pin-card:hover { background: #2e2e2e; }
 .pin-card-pinned { border-left-color: #d4a017; }
+
+/* Replies */
+.pin-replies { display: flex; flex-direction: column; gap: 0; padding-left: 40px; position: relative; }
+.pin-replies::before {
+    content: ''; position: absolute; left: 18px; top: 0; bottom: 16px;
+    width: 2px; background: #444; border-radius: 1px;
+}
+.pin-card-reply { align-self: flex-start; margin-top: 6px; max-width: 70%; }
+.pin-card-reply::before {
+    content: ''; position: absolute; left: -22px; top: 18px;
+    width: 20px; height: 2px; background: #444;
+}
+
+/* Reply-Bar */
+.pin-reply-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 6px 14px; background: #1a3a1a; border-radius: 8px 8px 0 0;
+    font-size: 12px; color: #aaa; border-bottom: 1px solid #2a4a2a;
+}
+.pin-reply-label { flex: 1; }
+.pin-reply-cancel {
+    background: none; border: none; font-size: 18px; color: #666;
+    cursor: pointer; padding: 0 4px; line-height: 1;
+}
+.pin-reply-cancel:hover { color: #e74c3c; }
+.pin-card-reply-btn:hover { background: #1a3a1a !important; color: #6a9c69 !important; }
 
 /* Card Header */
 .pin-card-header {
@@ -196,7 +226,11 @@
     box-shadow: 0 4px 16px rgba(0,0,0,0.1), inset 0 1px 0 rgba(255,255,255,0.1) !important;
 }
 .pin-style-glass .pin-card-message { color: rgba(255,255,255,0.9); }
+.pin-style-glass .pin-card-author { color: rgba(255,255,255,0.8); }
+.pin-style-glass .pin-card-date { color: rgba(255,255,255,0.4); }
 .pin-style-glass .pin-avatar { background: rgba(255,255,255,0.15) !important; color: #fff !important; backdrop-filter: blur(4px); }
+.pin-form.pin-style-glass textarea { color: rgba(255,255,255,0.9); }
+.pin-form.pin-style-glass textarea::placeholder { color: rgba(255,255,255,0.4); }
 
 /* Doodle */
 .pin-style-doodle {
@@ -220,6 +254,14 @@
 .pin-style-polaroid .pin-card-date { color: #999; }
 .pin-style-polaroid .pin-card-image { border-radius: 0 !important; }
 .pin-style-polaroid .pin-avatar { background: #e0ddd5 !important; color: #666 !important; }
+
+/* Form-Preview: Styles mit hellem BG brauchen dunkle Textarea-Schrift */
+.pin-form.pin-style-polaroid textarea,
+.pin-form.pin-style-polaroid .pin-form-body { color: #333; }
+.pin-form.pin-style-polaroid textarea::placeholder { color: #999; }
+.pin-form.pin-style-polaroid .pin-style-picker .pin-style-dot { color: #555; }
+.pin-form.pin-style-polaroid .pin-filename { color: #666; }
+.pin-form.pin-style-polaroid .pin-upload-btn { color: #666; }
 
 /* Vintage */
 .pin-style-vintage {
@@ -256,6 +298,20 @@
     background: rgba(255,255,200,0.12); border-radius: 0 0 2px 2px; pointer-events: none;
 }
 
+/* Form-Preview: Textarea-Kontrast fuer alle Styles sicherstellen */
+.pin-form.pin-style-neon textarea { color: #e0e0ff; }
+.pin-form.pin-style-neon textarea::placeholder { color: rgba(0,255,255,0.4); }
+.pin-form.pin-style-retro textarea { color: #33ff33; font-family: 'Courier New', monospace; }
+.pin-form.pin-style-retro textarea::placeholder { color: rgba(51,255,51,0.4); }
+.pin-form.pin-style-dark textarea { color: rgba(255,255,255,0.9); font-family: 'Comic Sans MS', cursive; }
+.pin-form.pin-style-dark textarea::placeholder { color: rgba(255,255,255,0.35); }
+.pin-form.pin-style-elegant textarea { color: #e8dcc8; font-family: Georgia, serif; font-style: italic; }
+.pin-form.pin-style-elegant textarea::placeholder { color: rgba(197,165,90,0.5); }
+.pin-form.pin-style-vintage textarea { color: #d4c4a0; }
+.pin-form.pin-style-vintage textarea::placeholder { color: rgba(197,165,90,0.5); }
+.pin-form.pin-style-doodle textarea { color: #ccc; font-family: 'Comic Sans MS', cursive; }
+.pin-form.pin-style-doodle textarea::placeholder { color: #888; }
+
 /* Schatten */
 .pin-style-shadow {
     background: #2a2a2a !important;
@@ -291,6 +347,11 @@
     .pin-form-actions { flex-wrap: wrap; }
     .pin-send { width: 100%; text-align: center; padding: 10px; border-radius: 8px; }
     .pin-card-actions { opacity: 1; }
+    .pin-card { max-width: 92%; min-width: 0; }
+    .pin-card-reply { max-width: 85%; }
+    .pin-replies { padding-left: 28px; }
+    .pin-replies::before { left: 12px; }
+    .pin-card-reply::before { left: -16px; width: 14px; }
 }
 
 /* Pinnwand Badge */

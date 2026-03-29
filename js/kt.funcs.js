@@ -1271,11 +1271,12 @@
     }
 
     /**********************************************************************************************
-    * Pinnwand (Social Feed)
+    * Pinnwand (Social Feed / Threaded)
     */
     kt.Pinnwand = kt.Pinnwand || {};
     $j.extend(kt.Pinnwand, {
         _uploadedImage: null,
+        _replyTo: null,          // ID des Posts auf den geantwortet wird
         _styles: [
             { key: '',         icon: '\u2709', title: 'Standard' },
             { key: 'elegant',  icon: '\uD83D\uDC51', title: 'Edel' },
@@ -1309,6 +1310,10 @@
             styleHtml += '</div>';
 
             var html = '<div class="pin-form">'
+                + '<div id="pwReplyBar" class="pin-reply-bar" style="display:none">'
+                + '<span class="pin-reply-label">Antwort auf <b id="pwReplyName"></b></span>'
+                + '<button type="button" id="pwReplyCancel" class="pin-reply-cancel">&times;</button>'
+                + '</div>'
                 + '<div class="pin-form-inner">'
                 + '<div class="pin-avatar pin-avatar-form">' + esc(P._initials(nick)) + '</div>'
                 + '<div class="pin-form-body">'
@@ -1375,13 +1380,22 @@
                 });
             });
 
+            // Reply abbrechen
+            $j('#pwReplyCancel').on('click', function () {
+                P._replyTo = null;
+                $j('#pwReplyBar').hide();
+                $j('#pwText').attr('placeholder', 'Was gibt\'s Neues?');
+            });
+
             // Posten
             $j('#pwSend').on('click', function () {
                 var text = $j('#pwText').val().trim();
                 if (!text) { showError('Bitte Text eingeben.', 3); return; }
                 $j(this).prop('disabled', true);
                 var style = $j('#pwStyle').val() || '';
-                $j.ajax({ url: 'php/Pinnwand.php', type: 'POST', data: { action: 'save', text: text, style: style },
+                var postData = { action: 'save', text: text, style: style };
+                if (P._replyTo) postData.reply_to = P._replyTo;
+                $j.ajax({ url: 'php/Pinnwand.php', type: 'POST', data: postData,
                     success: function (data) {
                         var res = data.d || data;
                         $j('#pwSend').prop('disabled', false);
@@ -1390,6 +1404,8 @@
                             $j('#pwPreview').hide().empty(); P._uploadedImage = null;
                             $j('#pwStyle').val(''); $j('.pin-style-dot').removeClass('active').first().addClass('active');
                             $j('.pin-form').removeClass(P._allStyleClasses);
+                            P._replyTo = null; $j('#pwReplyBar').hide();
+                            $j('#pwText').attr('placeholder', 'Was gibt\'s Neues?');
                             P._render(res);
                         } else { showError(res.message, 5); }
                     }
@@ -1414,6 +1430,58 @@
             });
         },
 
+        _renderCard: function (post, myTnid, isAdmin, isReply) {
+            var P = kt.Pinnwand,
+                isMine = (post.tnid == myTnid),
+                nick = P._esc(post.nick),
+                styleClass = post.card_style ? ' pin-style-' + post.card_style : '',
+                ownClass = isMine ? ' pin-card-own' : '',
+                stickyClass = (!isReply && post.sticky == 1) ? ' pin-card-pinned' : '',
+                replyClass = isReply ? ' pin-card-reply' : '',
+                html = '';
+
+            html += '<div class="pin-card' + ownClass + stickyClass + styleClass + replyClass + '" data-id="' + post.id + '" data-owner="' + post.tnid + '">';
+
+            // Header: Avatar + Name + Date + Actions
+            html += '<div class="pin-card-header">';
+            html += '<div class="pin-avatar">' + P._esc(P._initials(nick)) + '</div>';
+            html += '<div class="pin-card-meta">';
+            html += '<span class="pin-card-author">' + nick + '</span>';
+            html += '<span class="pin-card-date">' + (post.created_fmt || '') + '</span>';
+            html += '</div>';
+
+            // Actions (hover-only)
+            html += '<div class="pin-card-actions">';
+            if (!isReply) {
+                html += '<button type="button" class="pin-action-btn pin-card-reply-btn" title="Antworten">&#8617;</button>';
+            }
+            if (isAdmin) {
+                html += '<button type="button" class="pin-action-btn pin-card-sticky-btn" title="' + (post.sticky == 1 ? 'Loesen' : 'Anpinnen') + '">'
+                    + (post.sticky == 1 ? '&#128204;' : '&#128392;') + '</button>';
+            }
+            if (isMine || isAdmin) {
+                html += '<button type="button" class="pin-action-btn pin-card-delete" title="Loeschen">&times;</button>';
+            }
+            html += '</div>';
+            html += '</div>';
+
+            // Sticky indicator
+            if (!isReply && post.sticky == 1) {
+                html += '<div class="pin-sticky-badge">&#128204; Angepinnt</div>';
+            }
+
+            // Message
+            html += '<div class="pin-card-message">' + P._formatText(post.text) + '</div>';
+
+            // Bild
+            if (post.image) {
+                html += '<img src="' + P._esc(post.image) + '" alt="Bild" class="pin-card-image" loading="lazy">';
+            }
+
+            html += '</div>';
+            return html;
+        },
+
         _render: function (res) {
             var posts = res.posts || [],
                 isAdmin = res.isAdmin,
@@ -1426,48 +1494,48 @@
                     + '<p>Noch keine Beitraege.</p><p class="pin-empty-sub">Schreib den ersten!</p></div>';
             }
 
+            // Threads aufbauen: Top-Level-Posts mit ihren Replies gruppieren
+            var threads = [], threadMap = {}, orphanReplies = [];
             $j.each(posts, function (i, post) {
-                var isMine = (post.tnid == myTnid),
-                    nick = P._esc(post.nick),
-                    styleClass = post.card_style ? ' pin-style-' + post.card_style : '',
-                    ownClass = isMine ? ' pin-card-own' : '',
-                    stickyClass = post.sticky == 1 ? ' pin-card-pinned' : '';
-
-                html += '<div class="pin-card' + ownClass + stickyClass + styleClass + '" data-id="' + post.id + '" data-owner="' + post.tnid + '">';
-
-                // Header: Avatar + Name + Date + Actions
-                html += '<div class="pin-card-header">';
-                html += '<div class="pin-avatar">' + P._esc(P._initials(nick)) + '</div>';
-                html += '<div class="pin-card-meta">';
-                html += '<span class="pin-card-author">' + nick + '</span>';
-                html += '<span class="pin-card-date">' + (post.created_fmt || '') + '</span>';
-                html += '</div>';
-
-                // Actions (hover-only)
-                if (isMine || isAdmin) {
-                    html += '<div class="pin-card-actions">';
-                    if (isAdmin) {
-                        html += '<button type="button" class="pin-action-btn pin-card-sticky-btn" title="' + (post.sticky == 1 ? 'Loesen' : 'Anpinnen') + '">'
-                            + (post.sticky == 1 ? '&#128204;' : '&#128392;') + '</button>';
+                if (!post.reply_to) {
+                    threadMap[post.id] = { root: post, replies: [] };
+                    threads.push(threadMap[post.id]);
+                }
+            });
+            $j.each(posts, function (i, post) {
+                if (post.reply_to) {
+                    if (threadMap[post.reply_to]) {
+                        threadMap[post.reply_to].replies.push(post);
+                    } else {
+                        orphanReplies.push(post);
                     }
-                    html += '<button type="button" class="pin-action-btn pin-card-delete" title="Loeschen">&times;</button>';
+                }
+            });
+
+            // Threads rendern
+            $j.each(threads, function (i, thread) {
+                html += '<div class="pin-thread">';
+
+                // Startbeitrag (links)
+                html += P._renderCard(thread.root, myTnid, isAdmin, false);
+
+                // Replies (rechts) — chronologisch
+                if (thread.replies.length) {
+                    thread.replies.sort(function (a, b) { return a.id - b.id; });
+                    html += '<div class="pin-replies">';
+                    $j.each(thread.replies, function (j, reply) {
+                        html += P._renderCard(reply, myTnid, isAdmin, true);
+                    });
                     html += '</div>';
                 }
+
                 html += '</div>';
+            });
 
-                // Sticky indicator
-                if (post.sticky == 1) {
-                    html += '<div class="pin-sticky-badge">&#128204; Angepinnt</div>';
-                }
-
-                // Message
-                html += '<div class="pin-card-message">' + P._formatText(post.text) + '</div>';
-
-                // Bild
-                if (post.image) {
-                    html += '<img src="' + P._esc(post.image) + '" alt="Bild" class="pin-card-image" loading="lazy">';
-                }
-
+            // Verwaiste Replies als Top-Level anzeigen (Fallback)
+            $j.each(orphanReplies, function (i, post) {
+                html += '<div class="pin-thread">';
+                html += P._renderCard(post, myTnid, isAdmin, false);
                 html += '</div>';
             });
 
@@ -1481,6 +1549,18 @@
             if (!board) return;
 
             $j(board).off('.pinboard');
+
+            // Reply
+            $j(board).on('click.pinboard', '.pin-card-reply-btn', function () {
+                var card = $j(this).closest('.pin-card'),
+                    id = card.data('id'),
+                    author = card.find('.pin-card-author').text();
+                P._replyTo = id;
+                $j('#pwReplyName').text(author);
+                $j('#pwReplyBar').show();
+                $j('#pwText').attr('placeholder', 'Antwort schreiben...').focus();
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
 
             // Delete
             $j(board).on('click.pinboard', '.pin-card-delete', function () {

@@ -24,7 +24,8 @@ switch ($action) {
 	case 'save':
 		$text = isset($_POST['text']) ? trim($_POST['text']) : '';
 		$style = isset($_POST['style']) ? trim($_POST['style']) : '';
-		$kt->SavePinnwandPost($text, $style);
+		$replyTo = isset($_POST['reply_to']) ? intval($_POST['reply_to']) : null;
+		$kt->SavePinnwandPost($text, $style, $replyTo);
 		break;
 	case 'savePosition':
 		$id = isset($_POST['id']) ? intval($_POST['id']) : 0;

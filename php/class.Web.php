@@ -157,6 +157,7 @@ class Web
 		 */
 	function findSched($sptag, $t1, $t2, $sched)
 	{
+		if (!isset($sched[$sptag])) return null;
 		unset($result);
 		foreach ($sched[$sptag] as $s) {
 			if ((intval($s['T1']) == intval($t1)) && (intval($s['T2']) == intval($t2))) $result = $s;
