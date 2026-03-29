@@ -2867,7 +2867,7 @@
 
         let s = scorePanel.style;
         s.cssText = 'position:fixed;bottom:20px;right:20px;z-index:10000;' +
-            'background:rgba(0,0,0,0.75);backdrop-filter:blur(8px);' +
+            'background:rgba(0,0,0,0.7);' +
             'color:#fff;font:13px/1.6 sans-serif;padding:10px 14px;' +
             'border-radius:10px;min-width:140px;pointer-events:none;' +
             'opacity:0;transform:translateY(20px);' +
