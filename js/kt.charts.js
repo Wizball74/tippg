@@ -82,7 +82,7 @@
     kt.Stat.Dashboard = function() {
         var html = '<div class="row" style="padding:8px 16px">'
             + '<div class="col-lg-5 col-md-6 col-xs-12"><h4>Tipphaeufigkeit</h4><div style="max-height:350px;position:relative"><canvas id="chartDonut"></canvas></div></div>'
-            + '<div class="col-lg-7 col-md-6 col-xs-12"><h4>Spieltagssieger</h4><canvas id="chartSieger"></canvas></div>'
+            + '<div class="col-lg-7 col-md-6 col-xs-12"><h4>Spieltagssieger</h4><div id="chartSiegerWrap" style="position:relative"><canvas id="chartSieger"></canvas></div></div>'
             + '</div>';
         setContent(html);
 
@@ -207,13 +207,13 @@
             bgColors.push(colorAlpha(colors[i % colors.length], 0.7));
         });
 
-        // Mindesthöhe: 28px pro Spieler, damit alle sichtbar bleiben
-        var canvas = document.getElementById('chartSieger');
-        var minH = sorted.length * 28;
-        if (canvas && canvas.parentElement) canvas.parentElement.style.minHeight = minH + 'px';
+        // Feste Höhe auf Wrapper setzen, damit Chart.js keinen Resize-Loop auslöst
+        var wrap = document.getElementById('chartSiegerWrap');
+        var h = Math.max(sorted.length * 28, 200);
+        if (wrap) wrap.style.height = h + 'px';
 
         destroyChart('chartSieger');
-        charts['chartSieger'] = new Chart(canvas, {
+        charts['chartSieger'] = new Chart(document.getElementById('chartSieger'), {
             type: 'bar',
             data: {
                 labels: labels,
