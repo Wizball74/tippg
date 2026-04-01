@@ -60,6 +60,20 @@
         if (charts[id]) { charts[id].destroy(); delete charts[id]; }
     }
 
+    // Mindestbreite für Balken-Charts setzen, damit alle Spieler sichtbar bleiben
+    function ensureMinWidth(canvasId, count, pxPerItem) {
+        var canvas = document.getElementById(canvasId);
+        if (!canvas) return;
+        var parent = canvas.parentElement;
+        var minW = count * (pxPerItem || 40);
+        if (parent.clientWidth < minW) {
+            parent.style.overflowX = 'auto';
+            parent.style.webkitOverflowScrolling = 'touch';
+            canvas.style.minWidth = minW + 'px';
+            canvas.style.width = minW + 'px';
+        }
+    }
+
     // ==================================================================================
     // 1. DASHBOARD: Tipphaeufigkeit Donut + Spieltagssieger Bar
     // ==================================================================================
@@ -193,8 +207,13 @@
             bgColors.push(colorAlpha(colors[i % colors.length], 0.7));
         });
 
+        // Mindesthöhe: 28px pro Spieler, damit alle sichtbar bleiben
+        var canvas = document.getElementById('chartSieger');
+        var minH = sorted.length * 28;
+        if (canvas) canvas.style.minHeight = minH + 'px';
+
         destroyChart('chartSieger');
-        charts['chartSieger'] = new Chart(document.getElementById('chartSieger'), {
+        charts['chartSieger'] = new Chart(canvas, {
             type: 'bar',
             data: {
                 labels: labels,
@@ -202,10 +221,11 @@
             },
             options: {
                 responsive: true,
+                maintainAspectRatio: false,
                 indexAxis: 'y',
                 scales: {
                     x: { ticks: { color: def.color, stepSize: 1 }, grid: { color: def.gridColor } },
-                    y: { ticks: { color: def.color } }
+                    y: { ticks: { color: def.color, autoSkip: false, font: { size: 11 } } }
                 },
                 plugins: { legend: { display: false } }
             }
@@ -392,6 +412,7 @@
             exact.push(e); tend.push(t); miss.push(m);
         });
 
+        ensureMinWidth('chartTreffer', labels.length, 40);
         destroyChart('chartTreffer');
         charts['chartTreffer'] = new Chart(document.getElementById('chartTreffer'), {
             type: 'bar',
@@ -406,7 +427,7 @@
             options: {
                 responsive: true,
                 scales: {
-                    x: { stacked: true, ticks: { color: def.color, maxRotation: 45 }, grid: { display: false } },
+                    x: { stacked: true, ticks: { color: def.color, maxRotation: 90, autoSkip: false, font: { size: 10 } }, grid: { display: false } },
                     y: { stacked: true, ticks: { color: def.color, stepSize: 1 }, grid: { color: def.gridColor } }
                 },
                 plugins: { legend: { labels: { color: def.color } } }
@@ -487,6 +508,7 @@
     }
 
     function renderTrefferGesamt(def, labels, exact, tend, miss) {
+        ensureMinWidth('chartTrefferGesamt', labels.length, 40);
         destroyChart('chartTrefferGesamt');
         charts['chartTrefferGesamt'] = new Chart(document.getElementById('chartTrefferGesamt'), {
             type: 'bar',
@@ -501,7 +523,7 @@
             options: {
                 responsive: true,
                 scales: {
-                    x: { stacked: true, ticks: { color: def.color, maxRotation: 45 }, grid: { display: false } },
+                    x: { stacked: true, ticks: { color: def.color, maxRotation: 90, autoSkip: false, font: { size: 10 } }, grid: { display: false } },
                     y: { stacked: true, ticks: { color: def.color, stepSize: 1 }, grid: { color: def.gridColor } }
                 },
                 plugins: { legend: { labels: { color: def.color } } }
