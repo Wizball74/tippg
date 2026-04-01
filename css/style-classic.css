@@ -854,7 +854,7 @@ body { overflow-x: hidden; }
 @media (max-width: 480px) {
     .ui-jqgrid th { font-size: 0.75em; }
     .ui-jqgrid td { font-size: 0.8em; }
-    .ui-jqgrid td.Bonus, .ui-jqgrid th.Bonus { display: none; }
+    .ui-jqgrid td.Bonus, .ui-jqgrid th.Bonus { font-size: 0.7em; }
 }
 
 @media (max-width: 1023px) {
@@ -862,6 +862,11 @@ body { overflow-x: hidden; }
     width: 100%;
     padding: 0 4px;
   }
+  #content { overflow-x: visible; }
+  .ktgrid { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .ui-jqgrid { overflow: visible !important; }
+  .ui-jqgrid .ui-jqgrid-bdiv { overflow: visible !important; height: auto !important; }
+  .ui-jqgrid .ui-jqgrid-hdiv { overflow: visible !important; }
 }
 
 @media (min-width: 1024px) {
