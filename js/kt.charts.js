@@ -210,7 +210,7 @@
         // Mindesthöhe: 28px pro Spieler, damit alle sichtbar bleiben
         var canvas = document.getElementById('chartSieger');
         var minH = sorted.length * 28;
-        if (canvas) canvas.style.minHeight = minH + 'px';
+        if (canvas && canvas.parentElement) canvas.parentElement.style.minHeight = minH + 'px';
 
         destroyChart('chartSieger');
         charts['chartSieger'] = new Chart(canvas, {
