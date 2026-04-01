@@ -272,7 +272,7 @@
             labels.push(c.replace('s', ''));
         });
 
-        // Alle Spieler – Top 8 + eigener User sichtbar, Rest per Legende zuschaltbar
+        // Alle Spieler sichtbar
         var datasets = [];
 
         $j.each(rows, function(ri, r) {
@@ -289,7 +289,6 @@
             });
             var name = r.Name.replace(/^\uD83D\uDC51\s*/, '');
             var isUser = r.cls === 'rowUser';
-            var visible = ri < 8 || isUser;
             datasets.push({
                 label: name,
                 data: cumData,
@@ -298,7 +297,7 @@
                 borderWidth: isUser ? 3 : 1.5,
                 pointRadius: 0,
                 tension: 0.3,
-                hidden: !visible
+                hidden: false
             });
         });
 
