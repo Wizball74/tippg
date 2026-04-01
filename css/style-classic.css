@@ -867,6 +867,8 @@ body { overflow-x: hidden; }
   .ui-jqgrid { overflow: visible !important; }
   .ui-jqgrid .ui-jqgrid-bdiv { overflow: visible !important; height: auto !important; }
   .ui-jqgrid .ui-jqgrid-hdiv { overflow: visible !important; }
+  .ui-jqgrid td.Name { position: sticky; left: 0; z-index: 2; box-shadow: 2px 0 4px rgba(0,0,0,0.15); }
+  .ui-jqgrid th.frozen-col { position: sticky; left: 0; z-index: 5; box-shadow: 2px 0 4px rgba(0,0,0,0.15); }
 }
 
 @media (min-width: 1024px) {
