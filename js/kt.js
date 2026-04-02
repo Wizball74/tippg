@@ -557,7 +557,8 @@
         }
 
         var toast = $j('<div/>').addClass(cls).text(data.message);
-        $j('body').append(toast);
+        var wrap = $j('#kt-toast-wrap');
+        (wrap.length ? wrap : $j('body')).append(toast);
 
         // einblenden
         setTimeout(function() { toast.addClass('kt-toast-show'); }, 10);

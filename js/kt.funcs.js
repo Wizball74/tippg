@@ -77,7 +77,7 @@
     $j.extend(kt.Tipps, {
         Uebersicht: function () {
             var id = 'TippsUebersicht',
-            //gridid = "#grid" + id,
+                gridid = "#grid" + id,
                 table, events;
 
             table = makeTable(id);
@@ -94,6 +94,41 @@
 
                         el.css('border-color', 'transparent').css('overflow', 'visible');
                         elhdr.width(w + wn + 2); //.css('overflow', 'visible');
+                    });
+                },
+                afterLoadComplete: function (data) {
+                    var ud = $j(gridid).jqGrid('getGridParam', 'userData');
+                    if (!ud || !ud.ownTips) return;
+
+                    // User-Zeile finden
+                    var $userRow = $j(gridid + ' tr.rowUser');
+                    if (!$userRow.length) return;
+                    var userRowId = $userRow.attr('id');
+
+                    // Augen-Icon in Name-Zelle (nur einmal)
+                    var nameCell = $userRow.find('td.Name');
+                    if (nameCell.find('.tipRevealBtn').length) return;
+
+                    var btn = $j('<span class="tipRevealBtn glyphicon glyphicon-eye-open" title="Eigene Tipps anzeigen"></span>');
+                    nameCell.append(btn);
+
+                    btn.on('click', function (e) {
+                        e.stopPropagation();
+                        var $b = $j(this), revealed = $b.data('revealed');
+
+                        if (!revealed) {
+                            $j.each(ud.ownTips, function (col, tip) {
+                                $j(gridid).jqGrid('setCell', userRowId, col, tip);
+                            });
+                            $b.removeClass('glyphicon-eye-open').addClass('glyphicon-eye-close')
+                              .attr('title', 'Eigene Tipps verbergen').data('revealed', true);
+                        } else {
+                            $j.each(ud.ownTips, function (col) {
+                                $j(gridid).jqGrid('setCell', userRowId, col, '-:-');
+                            });
+                            $b.removeClass('glyphicon-eye-close').addClass('glyphicon-eye-open')
+                              .attr('title', 'Eigene Tipps anzeigen').data('revealed', false);
+                        }
                     });
                 }
             };
@@ -240,11 +275,13 @@
 
                             // Auto-Weiter: nach Eingabe in Heim -> Auswaerts
                             inH.on('input', function () {
+                                this.value = this.value.replace(/[^0-9]/g, '');
                                 syncOrig();
                                 if (this.value.length >= 1) inA.focus().select();
                             });
                             // Nach Auswaerts-Eingabe -> naechste Zeile Heim
                             inA.on('input', function () {
+                                this.value = this.value.replace(/[^0-9]/g, '');
                                 syncOrig();
                                 if (this.value.length >= 1) nextModernInput(this, gridid);
                             });
@@ -259,8 +296,21 @@
                                 $j(this).select();
                             });
 
+                            // Backspace bei leerem Feld: zurueckspringen
                             // Cursor hoch/runter
                             inH.add(inA).on('keydown', function (e) {
+                                if (e.keyCode === 8 && !this.value) {
+                                    e.preventDefault();
+                                    var $el = $j(this);
+                                    if ($el.hasClass('tip-away')) {
+                                        $el.closest('.tip-split').find('.tip-home').focus().select();
+                                    } else {
+                                        var allSplits = $j(gridid + ' .tip-split');
+                                        var idx = allSplits.index($el.closest('.tip-split'));
+                                        if (idx > 0) allSplits.eq(idx - 1).find('.tip-away').focus().select();
+                                    }
+                                    return false;
+                                }
                                 if (e.keyCode === 38) { nextModernInput(this, gridid, -1); return false; }
                                 if (e.keyCode === 40) { nextModernInput(this, gridid, 1); return false; }
                             });
@@ -396,8 +446,8 @@
                 }
                 inH.on('keypress', filterKeys);
                 inA.on('keypress', filterKeys);
-                inH.on('input', function () { syncOrig(); if (this.value.length >= 1) inA.focus().select(); });
-                inA.on('input', function () { syncOrig(); if (this.value.length >= 1) nextModernInput(this, gridid); });
+                inH.on('input', function () { this.value = this.value.replace(/[^0-9]/g, ''); syncOrig(); if (this.value.length >= 1) inA.focus().select(); });
+                inA.on('input', function () { this.value = this.value.replace(/[^0-9]/g, ''); syncOrig(); if (this.value.length >= 1) nextModernInput(this, gridid); });
                 inH.on('change', syncOrig);
                 inA.on('change', syncOrig);
                 inH.add(inA).on('focus', function () {
@@ -405,6 +455,18 @@
                     $j(this).select();
                 });
                 inH.add(inA).on('keydown', function (e) {
+                    if (e.keyCode === 8 && !this.value) {
+                        e.preventDefault();
+                        var $el = $j(this);
+                        if ($el.hasClass('tip-away')) {
+                            $el.closest('.tip-split').find('.tip-home').focus().select();
+                        } else {
+                            var allSplits = $j(gridid + ' .tip-split');
+                            var idx = allSplits.index($el.closest('.tip-split'));
+                            if (idx > 0) allSplits.eq(idx - 1).find('.tip-away').focus().select();
+                        }
+                        return false;
+                    }
                     if (e.keyCode === 38) { nextModernInput(this, gridid, -1); return false; }
                     if (e.keyCode === 40) { nextModernInput(this, gridid, 1); return false; }
                 });

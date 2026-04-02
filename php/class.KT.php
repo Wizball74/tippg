@@ -835,6 +835,26 @@ class KT
 				$bonus = $this->getBonus($rnd, '-1', $pts);
 			}
 
+			// Eigene Tipps fuer Augen-Toggle bereitstellen (vor Deadline)
+			$ud = null;
+			$userTnid = $this->user['tnid'];
+			if (is_array($tips) && isset($tips[$userTnid]['DL'])) {
+				$sqlOwn = sprintf(
+					"SELECT t.sid, t.Tipp FROM %s t, %s sp WHERE t.tnid=%d AND t.sid=sp.sid AND sp.trid=%d AND sp.sptag=%d",
+					$this->TABLE['tipps'], $this->TABLE['spielplan'], $userTnid, $trid, $md
+				);
+				$ownResult = $this->db->Query($sqlOwn);
+				$ownTips = array();
+				while ($ownRow = $ownResult->fetch_assoc()) {
+					if ($ownRow['Tipp'] && $ownRow['Tipp'] !== '-:-') {
+						$ownTips['t' . $ownRow['sid']] = $ownRow['Tipp'];
+					}
+				}
+				if (count($ownTips)) {
+					$ud = array('ownTips' => $ownTips);
+				}
+			}
+
 			foreach ($member[$rnd] as $m) {
 				$data[$idx] = array(
 					'Name' => $m['name'],
@@ -892,7 +912,7 @@ class KT
 			}
 		}
 
-		$this->jsonoutGrid($colModel, $data, 'Pts', 'desc');
+		$this->jsonoutGrid($colModel, $data, 'Pts', 'desc', $ud);
 	}
 
 	function GetTippsTippabgabeData()

@@ -272,14 +272,28 @@
 }
 
 /* Toast */
+#kt-toast-wrap {
+    position: fixed; top: 20px; left: 0; right: 0;
+    z-index: 99999; pointer-events: none;
+    display: flex; justify-content: center;
+    -webkit-backface-visibility: hidden; backface-visibility: hidden;
+}
 .kt-toast {
-    position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-80px);
     padding: 12px 28px; border-radius: 8px; font-size: 14px; font-weight: 500;
-    z-index: 99999; opacity: 0; transition: transform 0.35s ease, opacity 0.35s ease;
+    opacity: 0; transform: translateY(-80px);
+    transition: transform 0.35s ease, opacity 0.35s ease;
     box-shadow: 0 4px 16px rgba(0,0,0,0.15); pointer-events: none;
 }
-.kt-toast-show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.kt-toast-show { opacity: 1; transform: translateY(0); }
 .kt-toast-ok { background: #27ae60; color: #fff; }
+
+/* Tip Reveal Button */
+.rowUser td.Name { overflow: visible !important; }
+.tipRevealBtn { cursor: pointer; margin-left: 4px; font-size: 14px; opacity: 0.7; padding: 4px; }
+.tipRevealBtn:hover { opacity: 1; }
+@media (max-width: 767px) {
+    .tipRevealBtn { font-size: 16px; padding: 8px; margin-left: 2px; }
+}
 .kt-toast-warn { background: #f39c12; color: #fff; }
 .kt-toast-error { background: #c0392b; color: #fff; }
 
@@ -590,7 +604,7 @@ div.ui-jqgrid tr.ui-state-hover { background: 0 none; }
 	
 .btnGrid img { height: 12px; }
 .ui-jqgrid .btnGrid span { display: block; margin: 1px 6px 1px 2px; float:left;}
-.ui-jqgrid-toolbar .btnGrid  { padding: 1px 4px; }
+.ui-jqgrid-toolbar .btnGrid  { padding: 1px 4px; margin-right: 6px; }
 
 .btnGridImg {
 	color: #FFFFFF;

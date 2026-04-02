@@ -363,14 +363,28 @@
 }
 
 /* Toast */
+#kt-toast-wrap {
+    position: fixed; top: 20px; left: 0; right: 0;
+    z-index: 99999; pointer-events: none;
+    display: flex; justify-content: center;
+    -webkit-backface-visibility: hidden; backface-visibility: hidden;
+}
 .kt-toast {
-    position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-80px);
     padding: 12px 28px; border-radius: 8px; font-size: 14px; font-weight: 500;
-    z-index: 99999; opacity: 0; transition: transform 0.35s ease, opacity 0.35s ease;
+    opacity: 0; transform: translateY(-80px);
+    transition: transform 0.35s ease, opacity 0.35s ease;
     box-shadow: 0 6px 20px rgba(0,0,0,0.4); pointer-events: none;
 }
-.kt-toast-show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.kt-toast-show { opacity: 1; transform: translateY(0); }
 .kt-toast-ok { background: #2ecc71; color: #1e1e1e; }
+
+/* Tip Reveal Button */
+.rowUser td.Name { overflow: visible !important; }
+.tipRevealBtn { cursor: pointer; margin-left: 4px; font-size: 14px; opacity: 0.7; padding: 4px; }
+.tipRevealBtn:hover { opacity: 1; }
+@media (max-width: 767px) {
+    .tipRevealBtn { font-size: 16px; padding: 8px; margin-left: 2px; }
+}
 .kt-toast-warn { background: #f39c12; color: #1e1e1e; }
 .kt-toast-error { background: #e74c3c; color: #fff; }
 
@@ -903,7 +917,7 @@ a.navbar-brand {
 
 .btnGrid img { height: 14px; vertical-align: middle; margin-right: 4px; }
 .ui-jqgrid .btnGrid span { display: block; margin: 1px 6px 1px 2px; float: left; }
-.ui-jqgrid-toolbar .btnGrid { padding: 4px 10px; }
+.ui-jqgrid-toolbar .btnGrid { padding: 4px 10px; margin-right: 6px; }
 
 .btnGridImg {
     color: #d0d0d0;
@@ -924,8 +938,8 @@ a.navbar-brand {
 /* ===== TIPINFO TABLE ===== */
 .kttable,
 .kttable .rounded { border: 0 none; }
-.kttable th { font-weight: 500; padding: 6px 4px; font-size: 0.9em; }
-.kttable td { font-weight: normal; padding: 4px; font-size: 0.9em; }
+.kttable th { font-weight: 500; padding: 6px 4px; font-size: 1em; }
+.kttable td { font-weight: normal; padding: 4px; font-size: 1em; }
 
 .kttable td.Date { width: 60px; }
 .kttable td.Team { }
