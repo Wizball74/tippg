@@ -49,6 +49,9 @@
     let floatingTexts = [];
     let particles = [];
     let scorePanel = null;
+    let dimTimer = null;
+    let DIM_DELAY = 8000;   // ms bis Panel gedimmt wird
+    let DIM_OPACITY = 0.15;
     let huntPanel = null;
     let audioCtx = null;
     let soundEnabled = localStorage.getItem('kt_sound') !== 'off';
@@ -820,7 +823,7 @@
         glowLines = [];
         splitBalls = [];
         floatingTexts = [];
-        removeScorePanel();
+        if (scorePanel) updateScorePanel(); else showPersistentPanel();
         document.body.classList.remove('kt-ball-game');
         // Ausgeblendete Zellen wiederherstellen
         let faded = document.querySelectorAll('td.Tipps, td.Name, th.Tipps, th.Name, .ui-jqgrid-titlebar');
@@ -845,7 +848,7 @@
         };
         score = 0;
         revealed = false;
-        removeScorePanel();
+        updateScorePanel();
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -2184,7 +2187,6 @@
                 score = 0;
                 revealed = false;
                 charge = 0;
-                removeScorePanel();
                 splitBalls = [];
                 hunt.touchCount = 0;
                 hunt.firstTouchTime = 0;
@@ -2874,13 +2876,17 @@
         s.cssText = 'position:fixed;bottom:20px;right:20px;z-index:10000;' +
             'background:rgba(0,0,0,0.7);' +
             'color:#fff;font:13px/1.6 sans-serif;padding:10px 14px;' +
-            'border-radius:10px;min-width:140px;pointer-events:none;' +
+            'border-radius:10px;min-width:140px;pointer-events:auto;cursor:default;' +
             'opacity:0;transform:translateY(20px);' +
             'transition:opacity 0.5s,transform 0.5s';
 
         if (document.body.classList.contains('dark-mode')) {
             s.background = 'rgba(255,255,255,0.1)';
         }
+
+        scorePanel.addEventListener('mouseenter', wakeScorePanel);
+        scorePanel.addEventListener('click', wakeScorePanel);
+        scorePanel.addEventListener('touchstart', wakeScorePanel);
 
         var sp = scorePanel;
         requestAnimationFrame(function () {
@@ -2892,6 +2898,25 @@
         });
 
         updateScorePanel();
+    }
+
+    // Beim Laden prüfen ob der Spieler schon gespielt hat → Panel sofort zeigen
+    function showPersistentPanel() {
+        let trid = kt.trid || 0, md = kt.md || 0;
+        $j.ajax({
+            url: 'php/GetGameScores.php',
+            method: 'POST',
+            data: { game: 'breakout', trid: trid, md: md },
+            dataType: 'json',
+            success: function(res) {
+                if (!active || scorePanel) return;
+                if (!res || !res.ok) return;
+                let myName = shortName(getFullName());
+                let alltime = res['scores'] || [];
+                let hasPlayed = alltime.some(function(r) { return shortName(r.name) === myName; });
+                if (hasPlayed) { showScorePanel(); startDimTimer(); }
+            }
+        });
     }
 
     function renderScoreTable(title, rows) {
@@ -2940,7 +2965,7 @@
             dataType: 'json',
             success: function(res) {
                 if (!scorePanel) return;
-                if (!res || !res.ok) { removeScorePanel(); return; }
+                if (!res || !res.ok) return;
                 let myName = shortName(getFullName());
 
                 let alltime = injectCurrentScore(/** @type {Array} */(res['scores']) || [], myName, score);
@@ -2952,12 +2977,13 @@
 
                 scorePanel.innerHTML = html;
             },
-            error: function() { removeScorePanel(); }
+            error: function() { /* Panel bleibt bestehen */ }
         });
     }
 
     function pulseScorePanel() {
         if (!scorePanel) return;
+        wakeScorePanel();
         var sp = scorePanel;
         sp.style.transition = 'none';
         sp.style.transform = 'translateY(0) scale(1.12)';
@@ -2972,8 +2998,25 @@
         });
     }
 
+    function startDimTimer() {
+        clearTimeout(dimTimer);
+        dimTimer = setTimeout(function() {
+            if (!scorePanel) return;
+            scorePanel.style.transition = 'opacity 1.5s';
+            scorePanel.style.opacity = String(DIM_OPACITY);
+        }, DIM_DELAY);
+    }
+
+    function wakeScorePanel() {
+        if (!scorePanel) return;
+        scorePanel.style.transition = 'opacity 0.3s';
+        scorePanel.style.opacity = '1';
+        startDimTimer();
+    }
+
     function removeScorePanel() {
         if (!scorePanel) return;
+        clearTimeout(dimTimer);
         scorePanel.style.opacity = '0';
         scorePanel.style.transform = 'translateY(20px)';
         let p = scorePanel;
@@ -3517,7 +3560,7 @@
         let trid = kt.trid || 0;
         let breakoutDone = false, huntDone = false;
         let breakoutRows = [], huntRows = [];
-        let sortKey = 'total', sortDir = 'desc';
+        let sortKey = 'best', sortDir = 'desc';
 
         let MEDAL = ['\uD83E\uDD47', '\uD83E\uDD48', '\uD83E\uDD49']; // gold, silver, bronze emoji
         let MEDAL_BG = ['rgba(255,215,0,0.1)', 'rgba(192,192,192,0.08)', 'rgba(205,127,50,0.07)'];
@@ -3553,6 +3596,7 @@
         }
 
         function sortRows(rows) {
+            let secondary = sortKey === 'best' ? 'total' : 'best';
             rows.sort(function(a, b) {
                 let av = a[sortKey], bv = b[sortKey];
                 if (cols.find(function(c) { return c.key === sortKey; }).type === 'number') {
@@ -3562,6 +3606,10 @@
                 }
                 if (av < bv) return sortDir === 'asc' ? -1 : 1;
                 if (av > bv) return sortDir === 'asc' ? 1 : -1;
+                // Tiebreaker
+                let a2 = parseInt(a[secondary]) || 0, b2 = parseInt(b[secondary]) || 0;
+                if (a2 < b2) return 1;
+                if (a2 > b2) return -1;
                 return 0;
             });
         }
