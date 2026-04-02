@@ -2024,7 +2024,32 @@ class KT
 			}
 		}
 
-		$this->jsonoutGrid($colModel, $data);
+		// Eigene Tipps
+		$ud = null;
+		if (isset($trid)) {
+			$ownTnid = $this->user['tnid'];
+			$sqlOwn = sprintf(
+				"SELECT t.Tipp FROM %s t INNER JOIN %s s ON t.sid = s.sid WHERE s.trid=%d AND s.Datum<='%s' AND t.tnid=%d",
+				$this->TABLE['tipps'], $this->TABLE['spielplan'], $trid, date("Y-m-d"), $ownTnid
+			);
+			$ownData = $this->db->getData($sqlOwn);
+			$ownAnz = count($ownData);
+			$ownTipps = array();
+			foreach ($ownData as $row) {
+				if (!isset($ownTipps[$row['Tipp']])) $ownTipps[$row['Tipp']] = 0;
+				$ownTipps[$row['Tipp']]++;
+			}
+			if (count($ownTipps)) {
+				arsort($ownTipps);
+				$ownRows = array();
+				foreach ($ownTipps as $t => $a) {
+					$ownRows[] = array('Tipp' => $t, 'Anzahl' => (int)$a, 'Prozent' => sprintf("%.2f", 100 * $a / $ownAnz));
+				}
+				$ud = array('ownTips' => $ownRows);
+			}
+		}
+
+		$this->jsonoutGrid($colModel, $data, null, null, $ud);
 	}
 
 	function GetStatPlace()
@@ -3337,7 +3362,8 @@ class KT
 			try {
 				$sql = "SELECT t.name, SUM(g.score) AS total, COUNT(g.score) AS matchdays, MAX(g.score) AS best,
 				               SUM(g.kicks) AS total_kicks, SUM(g.clones) AS total_clones,
-				               SUM(g.l1) AS total_l1, SUM(g.l2) AS total_l2, SUM(g.l3) AS total_l3, SUM(g.l4) AS total_l4
+				               SUM(CASE WHEN g.l1 IS NULL AND g.l2 IS NULL AND g.l3 IS NULL AND g.l4 IS NULL THEN g.score ELSE COALESCE(g.l1,0) END) AS total_l1,
+				               SUM(COALESCE(g.l2,0)) AS total_l2, SUM(COALESCE(g.l3,0)) AS total_l3, SUM(COALESCE(g.l4,0)) AS total_l4
 				        FROM $table g
 				        JOIN $tnTable t ON t.tnid = g.tnid
 				        WHERE g.game = 'breakout' AND g.trid = ? AND g.md > 0

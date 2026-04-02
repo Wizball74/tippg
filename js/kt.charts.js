@@ -54,6 +54,27 @@
         }
     };
 
+    // Mobile: Tooltip bei Tap außerhalb schließen
+    Chart.register({
+        id: 'touchDismiss',
+        afterInit: function(chart) {
+            chart.canvas.addEventListener('touchstart', function(e) {
+                var tooltip = chart.tooltip;
+                if (tooltip && tooltip.opacity > 0) {
+                    var rect = chart.canvas.getBoundingClientRect();
+                    var x = e.touches[0].clientX - rect.left;
+                    var y = e.touches[0].clientY - rect.top;
+                    var elements = chart.getElementsAtEventForMode(e, 'nearest', { intersect: true }, false);
+                    if (!elements.length) {
+                        tooltip.setActiveElements([], { x: 0, y: 0 });
+                        chart.setActiveElements([]);
+                        chart.update('none');
+                    }
+                }
+            });
+        }
+    });
+
     // Bestehende Chart-Instanzen verwalten
     var charts = {};
     function destroyChart(id) {
@@ -80,8 +101,14 @@
     kt.Stat = kt.Stat || {};
 
     kt.Stat.Dashboard = function() {
+        var trName = $j('#cbtrid option:selected').text().trim();
         var html = '<div class="row" style="padding:8px 16px">'
-            + '<div class="col-lg-5 col-md-6 col-xs-12"><h4>Tipphaeufigkeit</h4><div style="max-height:350px;position:relative"><canvas id="chartDonut"></canvas></div></div>'
+            + '<div class="col-lg-5 col-md-6 col-xs-12">'
+            + '<h4>Tipph\u00e4ufigkeit <small>' + (trName ? '— ' + trName : '') + '</small></h4>'
+            + '<div class="row">'
+            + '<div class="col-xs-6"><h5 style="text-align:center">Alle</h5><div style="position:relative"><canvas id="chartDonut"></canvas></div></div>'
+            + '<div class="col-xs-6"><h5 style="text-align:center">Meine</h5><div style="position:relative"><canvas id="chartDonutOwn"></canvas></div></div>'
+            + '</div></div>'
             + '<div class="col-lg-7 col-md-6 col-xs-12"><h4>Spieltagssieger</h4><div id="chartSiegerWrap" style="position:relative"><canvas id="chartSieger"></canvas></div></div>'
             + '</div>';
         setContent(html);
@@ -93,7 +120,8 @@
             contentType: 'application/x-www-form-urlencoded',
             success: function(result) {
                 var res = result.d || result;
-                if (res && res.data && res.data.Rows) buildDonut(res.data.Rows);
+                if (res && res.data && res.data.Rows) buildDonut(res.data.Rows, 'chartDonut');
+                if (res && res.userdata && res.userdata.ownTips) buildDonut(res.userdata.ownTips, 'chartDonutOwn');
             }
         });
 
@@ -108,7 +136,8 @@
         });
     };
 
-    function buildDonut(rows) {
+    function buildDonut(rows, canvasId) {
+        canvasId = canvasId || 'chartDonut';
         var def = chartDefaults();
         // Top 12 Tipps
         var top = rows.slice(0, 12);
@@ -121,7 +150,7 @@
 
         // Inline-Labels Plugin
         var datalabelPlugin = {
-            id: 'donutLabels',
+            id: 'donutLabels_' + canvasId,
             afterDraw: function(chart) {
                 var ctx = chart.ctx;
                 var meta = chart.getDatasetMeta(0);
@@ -129,24 +158,24 @@
                 data.forEach(function(v) { total += v; });
                 meta.data.forEach(function(arc, i) {
                     var pct = data[i] / total * 100;
-                    if (pct < 3) return; // zu klein fuer Label
+                    if (pct < 5) return;
                     var pos = arc.tooltipPosition();
                     ctx.save();
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
-                    ctx.font = 'bold 14px sans-serif';
+                    ctx.font = 'bold 12px sans-serif';
                     ctx.fillStyle = '#fff';
-                    ctx.fillText(labels[i], pos.x, pos.y - 8);
-                    ctx.font = '12px sans-serif';
+                    ctx.fillText(labels[i], pos.x, pos.y - 7);
+                    ctx.font = '11px sans-serif';
                     ctx.fillStyle = 'rgba(255,255,255,0.85)';
-                    ctx.fillText(Math.round(pct) + '%', pos.x, pos.y + 9);
+                    ctx.fillText(Math.round(pct) + '%', pos.x, pos.y + 8);
                     ctx.restore();
                 });
             }
         };
 
-        destroyChart('chartDonut');
-        charts['chartDonut'] = new Chart(document.getElementById('chartDonut'), {
+        destroyChart(canvasId);
+        charts[canvasId] = new Chart(document.getElementById(canvasId), {
             type: 'doughnut',
             data: {
                 labels: labels,
@@ -313,6 +342,9 @@
                     y: { title: { display: true, text: 'Punkte (kumuliert)', color: def.color }, ticks: { color: def.color }, grid: { color: def.gridColor } }
                 },
                 plugins: {
+                    tooltip: {
+                        itemSort: function(a, b) { return (b.parsed.y || 0) - (a.parsed.y || 0); }
+                    },
                     legend: { labels: { color: def.color, font: { size: 11 } } }
                 }
             }
@@ -411,7 +443,7 @@
             exact.push(e); tend.push(t); miss.push(m);
         });
 
-        ensureMinWidth('chartTreffer', labels.length, 40);
+        ensureMinWidth('chartTreffer', labels.length, 55);
         destroyChart('chartTreffer');
         charts['chartTreffer'] = new Chart(document.getElementById('chartTreffer'), {
             type: 'bar',
@@ -426,7 +458,7 @@
             options: {
                 responsive: true,
                 scales: {
-                    x: { stacked: true, ticks: { color: def.color, maxRotation: 90, autoSkip: false, font: { size: 10 } }, grid: { display: false } },
+                    x: { stacked: true, ticks: { color: def.color, maxRotation: 45, autoSkip: false, font: { size: 10 } }, grid: { display: false } },
                     y: { stacked: true, ticks: { color: def.color, stepSize: 1 }, grid: { color: def.gridColor } }
                 },
                 plugins: { legend: { labels: { color: def.color } } }
@@ -507,7 +539,7 @@
     }
 
     function renderTrefferGesamt(def, labels, exact, tend, miss) {
-        ensureMinWidth('chartTrefferGesamt', labels.length, 40);
+        ensureMinWidth('chartTrefferGesamt', labels.length, 55);
         destroyChart('chartTrefferGesamt');
         charts['chartTrefferGesamt'] = new Chart(document.getElementById('chartTrefferGesamt'), {
             type: 'bar',
@@ -522,7 +554,7 @@
             options: {
                 responsive: true,
                 scales: {
-                    x: { stacked: true, ticks: { color: def.color, maxRotation: 90, autoSkip: false, font: { size: 10 } }, grid: { display: false } },
+                    x: { stacked: true, ticks: { color: def.color, maxRotation: 45, autoSkip: false, font: { size: 10 } }, grid: { display: false } },
                     y: { stacked: true, ticks: { color: def.color, stepSize: 1 }, grid: { color: def.gridColor } }
                 },
                 plugins: { legend: { labels: { color: def.color } } }

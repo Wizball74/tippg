@@ -49,6 +49,7 @@
     let floatingTexts = [];
     let particles = [];
     let scorePanel = null;
+    let huntPanel = null;
     let audioCtx = null;
     let soundEnabled = localStorage.getItem('kt_sound') !== 'off';
     let currentLevel = 1;  // 1 = Breakout, 2 = fliegende 5er, 3 = 2er/3er + Fallen
@@ -2132,10 +2133,10 @@
         html += '<div style="font-size:14px;color:#aaa;margin-bottom:25px">PUNKTE</div>';
 
         html += '<table style="margin:0 auto;text-align:left;color:#ccc;font-size:14px;border-collapse:collapse">';
-        html += '<tr><td style="padding:4px 15px 4px 0;color:#888">Breakout</td><td style="color:#e8a020">' + stats.l1 + '</td></tr>';
+        html += '<tr><td style="padding:4px 15px 4px 0;color:#888">Level 1</td><td style="color:#e8a020">' + stats.l1 + '</td></tr>';
         html += '<tr><td style="padding:4px 15px 4px 0;color:#888">Level 2</td><td style="color:#FF4136">' + stats.l2 + '</td></tr>';
         html += '<tr><td style="padding:4px 15px 4px 0;color:#888">Level 3</td><td style="color:#2ECC40">' + stats.l3 + '</td></tr>';
-        html += '<tr><td style="padding:4px 15px 4px 0;color:#888">Level 4 (Gravity)</td><td style="color:#FF851B">' + stats.l4 + '</td></tr>';
+        html += '<tr><td style="padding:4px 15px 4px 0;color:#888">Level 4</td><td style="color:#FF851B">' + stats.l4 + '</td></tr>';
         html += '<tr><td colspan="2" style="border-top:1px solid #444;padding-top:8px"></td></tr>';
         html += '<tr><td style="padding:4px 15px 4px 0;color:#888">Spielzeit</td><td>' + timeStr + '</td></tr>';
         html += '<tr><td style="padding:4px 15px 4px 0;color:#888">Kicks</td><td>' + stats.kicks + '</td></tr>';
@@ -3063,6 +3064,7 @@
         hunt.startTime = performance.now();
         huntCreateTimer();
         huntPlaceNumbers();
+        showHuntPanel();
     }
 
     function huntCreateTimer() {
@@ -3253,6 +3255,16 @@
                 setTimeout(function(el) { el.style.background = ''; }, 600, t.el);
                 hunt.targets.splice(i, 1);
 
+                // +5 Bonussekunden pro Treffer
+                hunt.timer += 5;
+                huntUpdateTimerDisplay();
+                floatingTexts.push({
+                    x: cx, y: cy - 20,
+                    text: '+5s',
+                    life: 1200, maxLife: 1200,
+                    color: '#2ecc71', stroke: '#196f3d'
+                });
+
                 // Alle Zahlen dieser Runde getroffen?
                 if (hunt.targets.length === 0) {
                     huntNextRound();
@@ -3284,21 +3296,55 @@
     function huntGameOver() {
         let finalRound = hunt.round;
         let elapsed = Math.round(performance.now() - hunt.startTime);
+        let prevBest = huntGetBest();
+        let isHS = finalRound > prevBest || (finalRound === prevBest && finalRound > 1 && (_huntBestTimeCache === 0 || elapsed < _huntBestTimeCache));
         huntSaveScore();
         let best = huntGetBest();
         let timeStr = huntFormatTime(elapsed);
-        let msg = 'Zeit abgelaufen! Runde ' + finalRound + (timeStr ? ' (' + timeStr + ')' : '');
-        if (finalRound >= best && finalRound > 1) msg = 'Neuer Rekord! Runde ' + finalRound + (timeStr ? ' (' + timeStr + ')' : '');
-        floatingTexts.push({
-            x: window.innerWidth / 2, y: window.innerHeight / 2,
-            text: msg,
-            life: 3500, maxLife: 3500,
-            color: finalRound >= best && finalRound > 1 ? '#FFD700' : '#e74c3c',
-            stroke: finalRound >= best && finalRound > 1 ? '#7A5B00' : '#7b1f1f',
-            big: true
+
+        // Overlay erstellen
+        let overlay = document.createElement('div');
+        overlay.id = 'kt-hunt-gameover';
+        overlay.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:10002;' +
+            'display:flex;align-items:center;justify-content:center;' +
+            'background:rgba(0,0,0,0.85);opacity:0;transition:opacity 0.6s;cursor:pointer';
+
+        let html = '<div style="text-align:center;color:#fff;font-family:Arial,sans-serif;max-width:400px;padding:30px">';
+        html += '<div style="font-size:16px;color:#e74c3c;margin-bottom:15px">Zeit abgelaufen!</div>';
+        html += '<div style="font-size:56px;font-weight:900;color:#FFD700;text-shadow:0 0 20px rgba(255,215,0,0.5);margin-bottom:5px">Runde ' + finalRound + '</div>';
+        if (timeStr) html += '<div style="font-size:14px;color:#aaa;margin-bottom:20px">' + timeStr + '</div>';
+
+        if (isHS && finalRound > 1) {
+            html += '<div style="font-size:22px;color:#FFD700;text-shadow:0 0 12px rgba(255,215,0,0.4);margin:15px 0">NEUER HIGHSCORE!</div>';
+        }
+        if (best > 0) {
+            html += '<div style="font-size:14px;color:#888;margin-top:10px">Rekord: Runde ' + best;
+            if (_huntBestTimeCache) html += ' (' + huntFormatTime(_huntBestTimeCache) + ')';
+            html += '</div>';
+        }
+
+        html += '<div style="margin-top:30px;font-size:12px;color:#555">Klick zum Schlie\u00dfen</div>';
+        html += '</div>';
+
+        overlay.innerHTML = html;
+        document.body.appendChild(overlay);
+
+        requestAnimationFrame(function() {
+            requestAnimationFrame(function() { overlay.style.opacity = '1'; });
         });
-        hunt.cooldownUntil = performance.now() + 30000; // 30s Pause vor neuem Hunt
+
+        overlay.addEventListener('click', function() {
+            overlay.style.opacity = '0';
+            setTimeout(function() {
+                if (overlay.parentNode) overlay.parentNode.removeChild(overlay);
+            }, 600);
+        });
+
+        hunt.cooldownUntil = performance.now() + 30000;
         huntCleanup();
+        updateHuntPanel();
+        // Panel nach Cooldown entfernen
+        setTimeout(function() { removeHuntPanel(); }, 30000);
     }
 
     function huntCleanup() {
@@ -3324,6 +3370,99 @@
             setTimeout(function() { if (te.parentNode) te.parentNode.removeChild(te); }, 500);
             hunt.timerEl = null;
         }
+    }
+
+    // ═══════════════════════════════════════════════════════════════
+    //  Zahlen-Jagd: Highscore-Panel (unten rechts, wie Ball-Spiel)
+    // ═══════════════════════════════════════════════════════════════
+    function showHuntPanel() {
+        if (huntPanel) return;
+        huntPanel = document.createElement('div');
+        huntPanel.id = 'kt-hunt-score';
+        document.body.appendChild(huntPanel);
+
+        let s = huntPanel.style;
+        s.cssText = 'position:fixed;bottom:20px;right:20px;z-index:10000;' +
+            'background:rgba(0,0,0,0.7);' +
+            'color:#fff;font:13px/1.6 sans-serif;padding:10px 14px;' +
+            'border-radius:10px;min-width:140px;pointer-events:none;' +
+            'opacity:0;transform:translateY(20px);' +
+            'transition:opacity 0.5s,transform 0.5s';
+
+        let hp = huntPanel;
+        requestAnimationFrame(function() {
+            requestAnimationFrame(function() {
+                if (!hp) return;
+                hp.style.opacity = '1';
+                hp.style.transform = 'translateY(0)';
+            });
+        });
+
+        updateHuntPanel();
+    }
+
+    function updateHuntPanel() {
+        if (!huntPanel) return;
+        $j.ajax({
+            url: 'php/GetGameScores.php',
+            method: 'POST',
+            data: { game: 'hunt' },
+            dataType: 'json',
+            success: function(res) {
+                if (!huntPanel) return;
+                if (!res || !res.ok) return;
+                let rows = res['scores'] || [];
+                let myName = shortName(getFullName());
+
+                // Eigene Runde einfügen/aktualisieren
+                if (hunt.round > 0) {
+                    let found = false;
+                    for (let i = 0; i < rows.length; i++) {
+                        if (shortName(rows[i].name) === myName) {
+                            found = true;
+                            rows[i]._current = true;
+                            if (hunt.round > parseInt(rows[i].best_round || 0)) rows[i].best_round = hunt.round;
+                            break;
+                        }
+                    }
+                    if (!found) {
+                        rows.push({ name: myName, best_round: hunt.round, _current: true });
+                    }
+                    rows.sort(function(a, b) { return parseInt(b.best_round) - parseInt(a.best_round); });
+                    rows = rows.slice(0, 10);
+                } else {
+                    for (let i = 0; i < rows.length; i++) {
+                        if (shortName(rows[i].name) === myName) { rows[i]._current = true; break; }
+                    }
+                }
+
+                let html = '<div style="font-size:11px;font-weight:bold;margin-bottom:2px;opacity:0.7;text-transform:uppercase;letter-spacing:1px">Zahlen-Jagd</div>';
+                if (rows.length === 0) {
+                    html += '<div style="opacity:0.5;font-size:12px">Noch keine Scores</div>';
+                } else {
+                    for (let i = 0; i < Math.min(rows.length, 10); i++) {
+                        let e = rows[i];
+                        let style = 'white-space:nowrap';
+                        if (e._current) style += ';color:#FFD700';
+                        let timeInfo = e.elapsed_ms ? ' <span style="font-size:10px;color:#888">(' + huntFormatTime(parseInt(e.elapsed_ms)) + ')</span>' : '';
+                        html += '<div style="' + style + '">' +
+                            '<span style="display:inline-block;min-width:28px;text-align:right;font-weight:bold;margin-right:6px">' +
+                            'R' + (e.best_round || 0) + '</span>' + (e._current ? shortName(getFullName()) : shortName(e.name)) +
+                            timeInfo + (e._current ? ' \u25C0' : '') + '</div>';
+                    }
+                }
+                huntPanel.innerHTML = html;
+            }
+        });
+    }
+
+    function removeHuntPanel() {
+        if (!huntPanel) return;
+        huntPanel.style.opacity = '0';
+        huntPanel.style.transform = 'translateY(20px)';
+        let p = huntPanel;
+        setTimeout(function() { if (p.parentNode) p.parentNode.removeChild(p); }, 500);
+        huntPanel = null;
     }
 
     // ═══════════════════════════════════════════════════════════════
@@ -3386,10 +3525,10 @@
         let cols = [
             { key: 'name',         label: 'Spieler',        align: 'left',  type: 'string' },
             { key: 'total',        label: 'Gesamt',         align: 'right', type: 'number', bold: true },
-            { key: 'total_l1',     label: 'Breakout',       align: 'right', type: 'number', cls: 'lvl1' },
-            { key: 'total_l2',     label: 'Fly',            align: 'right', type: 'number', cls: 'lvl2' },
-            { key: 'total_l3',     label: 'Trap',           align: 'right', type: 'number', cls: 'lvl3' },
-            { key: 'total_l4',     label: 'Gravity',        align: 'right', type: 'number', cls: 'lvl4' },
+            { key: 'total_l1',     label: 'Level 1',        align: 'right', type: 'number', cls: 'lvl1', tip: 'Breakout \u2013 Punkte-Zellen im Grid zerst\u00f6ren' },
+            { key: 'total_l2',     label: 'Level 2',        align: 'right', type: 'number', cls: 'lvl2', tip: 'Fly \u2013 Fliegende Zahlen (5\u21921), schnell treffen!' },
+            { key: 'total_l3',     label: 'Level 3',        align: 'right', type: 'number', cls: 'lvl3', tip: 'Trap \u2013 2er/3er fangen, Totenk\u00f6pfe meiden' },
+            { key: 'total_l4',     label: 'Level 4',        align: 'right', type: 'number', cls: 'lvl4', tip: 'Gravity \u2013 10er/25er fallen mit steigender Schwerkraft' },
             { key: 'matchdays',    label: 'Tage',           align: 'right', type: 'number' },
             { key: 'best',         label: 'Bester',         align: 'right', type: 'number' },
             { key: 'total_kicks',  label: 'Sch\u00fcsse',   align: 'right', type: 'number' },
@@ -3438,7 +3577,7 @@
             cols.forEach(function(c) {
                 let arrow = sortKey === c.key ? (sortDir === 'asc' ? ' \u25B2' : ' \u25BC') : '';
                 let active = sortKey === c.key ? ' rk-sort-active' : '';
-                html += '<th class="rk-th rk-sortable' + active + '" data-sort="' + c.key + '" style="text-align:' + c.align + '">'
+                html += '<th class="rk-th rk-sortable' + active + '" data-sort="' + c.key + '" style="text-align:' + c.align + '"' + (c.tip ? ' title="' + c.tip + '"' : '') + '>'
                     + c.label + '<span class="rk-arrow">' + arrow + '</span></th>';
             });
             html += '</tr>';
