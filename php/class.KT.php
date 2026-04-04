@@ -295,7 +295,9 @@ class KT
 					$row = $result->fetch_assoc();
 					$_SESSION['username'] = $row['user'];
 				}
-			} catch (\Exception $e) { /* Spalte existiert evtl. noch nicht */ }
+			} catch (\Exception $e) {
+				error_log("Remember-Token Check fehlgeschlagen: " . $e->getMessage());
+			}
 		}
 
 		/* Username has been set in session */
@@ -355,8 +357,13 @@ class KT
 		$token = bin2hex(random_bytes(32));
 		try {
 			$sql = sprintf("UPDATE %s SET remember_token = ? WHERE tnid = ?", $this->TABLE['teilnehmer']);
-			$this->db->prepareExecute($sql, 'si', [$token, $tnid]);
-		} catch (\Exception $e) { /* Spalte existiert evtl. noch nicht */ }
+			$ok = $this->db->prepareExecute($sql, 'si', [$token, $tnid]);
+			if (!$ok) {
+				error_log("Remember-Token speichern fehlgeschlagen fuer tnid=$tnid");
+			}
+		} catch (\Exception $e) {
+			error_log("Remember-Token speichern fehlgeschlagen: " . $e->getMessage());
+		}
 		return $token;
 	}
 
@@ -367,10 +374,12 @@ class KT
 			try {
 				$sql = sprintf("UPDATE %s SET remember_token = NULL WHERE tnid = ?", $this->TABLE['teilnehmer']);
 				$this->db->prepareExecute($sql, 'i', [$this->user['tnid']]);
-			} catch (\Exception $e) { /* Spalte existiert evtl. noch nicht */ }
+			} catch (\Exception $e) {
+				error_log("Remember-Token loeschen fehlgeschlagen: " . $e->getMessage());
+			}
 		}
 
-		$cookieOptions = ['expires' => time() - 3600, 'path' => '/', 'httponly' => true, 'samesite' => 'Strict'];
+		$cookieOptions = ['expires' => time() - 3600, 'path' => '/', 'secure' => !empty($_SERVER['HTTPS']), 'httponly' => true, 'samesite' => 'Lax'];
 		if (isset($_COOKIE['remember_token'])) setcookie("remember_token", "", $cookieOptions);
 		if (isset($_COOKIE['cookname']))        setcookie("cookname", "", $cookieOptions);
 		if (isset($_COOKIE['cookpass']))        setcookie("cookpass", "", $cookieOptions);

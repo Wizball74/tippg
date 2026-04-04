@@ -39,9 +39,9 @@
 				$cookieOptions = [
 					'expires'  => time() + 60 * 60 * 24 * 30,
 					'path'     => '/',
-					'secure'   => true,
+					'secure'   => !empty($_SERVER['HTTPS']),
 					'httponly'  => true,
-					'samesite' => 'Strict',
+					'samesite' => 'Lax',
 				];
 				setcookie("remember_token", $token, $cookieOptions);
 			}
