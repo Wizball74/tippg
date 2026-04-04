@@ -53,6 +53,7 @@
     let DIM_DELAY = 8000;   // ms bis Panel gedimmt wird
     let DIM_OPACITY = 0.15;
     let huntPanel = null;
+    let PANEL_MOBILE_BP = 768; // px Breakpoint für Badge-Modus
     let audioCtx = null;
     let soundEnabled = localStorage.getItem('kt_sound') !== 'off';
     let currentLevel = 1;  // 1 = Breakout, 2 = fliegende 5er, 3 = 2er/3er + Fallen
@@ -2872,32 +2873,101 @@
         scorePanel.id = 'kt-ball-score';
         document.body.appendChild(scorePanel);
 
+        let mobile = window.innerWidth < PANEL_MOBILE_BP;
         let s = scorePanel.style;
-        s.cssText = 'position:fixed;bottom:20px;right:20px;z-index:10000;' +
-            'background:rgba(0,0,0,0.7);' +
-            'color:#fff;font:13px/1.6 sans-serif;padding:10px 14px;' +
-            'border-radius:10px;min-width:140px;pointer-events:auto;cursor:default;' +
-            'opacity:0;transform:translateY(20px);' +
-            'transition:opacity 0.5s,transform 0.5s';
 
-        if (document.body.classList.contains('dark-mode')) {
-            s.background = 'rgba(255,255,255,0.1)';
+        if (mobile) {
+            // Badge-Modus: kleines Icon
+            s.cssText = 'position:fixed;bottom:12px;right:12px;z-index:10000;' +
+                'width:38px;height:38px;border-radius:50%;' +
+                'background:rgba(0,0,0,0.7);color:#FFD700;' +
+                'display:flex;align-items:center;justify-content:center;' +
+                'font-size:18px;cursor:pointer;pointer-events:auto;' +
+                'opacity:0;transform:scale(0.5);' +
+                'transition:opacity 0.3s,transform 0.3s;' +
+                'box-shadow:0 2px 8px rgba(0,0,0,0.3)';
+            if (document.body.classList.contains('dark-mode')) {
+                s.background = 'rgba(255,255,255,0.15)';
+            }
+            scorePanel.innerHTML = '\u{1F3C6}';
+            scorePanel._collapsed = true;
+            scorePanel.addEventListener('click', toggleScorePanel);
+        } else {
+            // Desktop: volle Anzeige
+            s.cssText = 'position:fixed;bottom:20px;right:20px;z-index:10000;' +
+                'background:rgba(0,0,0,0.7);' +
+                'color:#fff;font:13px/1.6 sans-serif;padding:10px 14px;' +
+                'border-radius:10px;min-width:140px;pointer-events:auto;cursor:default;' +
+                'opacity:0;transform:translateY(20px);' +
+                'transition:opacity 0.5s,transform 0.5s';
+            if (document.body.classList.contains('dark-mode')) {
+                s.background = 'rgba(255,255,255,0.1)';
+            }
+            scorePanel.addEventListener('mouseenter', wakeScorePanel);
+            scorePanel.addEventListener('click', wakeScorePanel);
+            scorePanel.addEventListener('touchstart', wakeScorePanel);
+            updateScorePanel();
         }
-
-        scorePanel.addEventListener('mouseenter', wakeScorePanel);
-        scorePanel.addEventListener('click', wakeScorePanel);
-        scorePanel.addEventListener('touchstart', wakeScorePanel);
 
         var sp = scorePanel;
         requestAnimationFrame(function () {
             requestAnimationFrame(function () {
                 if (!sp) return;
                 sp.style.opacity = '1';
-                sp.style.transform = 'translateY(0)';
+                sp.style.transform = mobile ? 'scale(1)' : 'translateY(0)';
             });
         });
+    }
 
-        updateScorePanel();
+    function toggleScorePanel() {
+        if (!scorePanel) return;
+        if (scorePanel._collapsed) {
+            // Aufklappen
+            let s = scorePanel.style;
+            s.cssText = 'position:fixed;bottom:12px;right:12px;z-index:10000;' +
+                'background:rgba(0,0,0,0.85);' +
+                'color:#fff;font:13px/1.6 sans-serif;padding:10px 14px;' +
+                'border-radius:10px;min-width:140px;max-width:calc(100vw - 24px);' +
+                'pointer-events:auto;cursor:default;' +
+                'opacity:1;transform:translateY(0);' +
+                'transition:opacity 0.3s,transform 0.3s;' +
+                'box-shadow:0 2px 12px rgba(0,0,0,0.4)';
+            if (document.body.classList.contains('dark-mode')) {
+                s.background = 'rgba(40,40,40,0.95)';
+            }
+            scorePanel._collapsed = false;
+            updateScorePanel();
+            // Schliessen-Button im Content einfügen (via updateScorePanel-Callback)
+            let close = document.createElement('div');
+            close.style.cssText = 'position:absolute;top:4px;right:8px;cursor:pointer;font-size:16px;opacity:0.6;line-height:1';
+            close.textContent = '\u00D7';
+            close.addEventListener('click', function(e) {
+                e.stopPropagation();
+                collapseScorePanel();
+            });
+            scorePanel.style.position = 'fixed';
+            scorePanel.appendChild(close);
+        } else {
+            collapseScorePanel();
+        }
+    }
+
+    function collapseScorePanel() {
+        if (!scorePanel) return;
+        let s = scorePanel.style;
+        s.cssText = 'position:fixed;bottom:12px;right:12px;z-index:10000;' +
+            'width:38px;height:38px;border-radius:50%;' +
+            'background:rgba(0,0,0,0.7);color:#FFD700;' +
+            'display:flex;align-items:center;justify-content:center;' +
+            'font-size:18px;cursor:pointer;pointer-events:auto;' +
+            'opacity:1;transform:scale(1);' +
+            'transition:opacity 0.3s,transform 0.3s;' +
+            'box-shadow:0 2px 8px rgba(0,0,0,0.3)';
+        if (document.body.classList.contains('dark-mode')) {
+            s.background = 'rgba(255,255,255,0.15)';
+        }
+        scorePanel.innerHTML = '\u{1F3C6}';
+        scorePanel._collapsed = true;
     }
 
     // Beim Laden prüfen ob der Spieler schon gespielt hat → Panel sofort zeigen
@@ -2957,6 +3027,7 @@
 
     function updateScorePanel() {
         if (!scorePanel) return;
+        if (scorePanel._collapsed) return; // Badge-Modus: kein Update nötig
         let trid = kt.trid || 0, md = kt.md || 0;
         $j.ajax({
             url: 'php/GetGameScores.php',
@@ -2964,7 +3035,7 @@
             data: { game: 'breakout', trid: trid, md: md },
             dataType: 'json',
             success: function(res) {
-                if (!scorePanel) return;
+                if (!scorePanel || scorePanel._collapsed) return;
                 if (!res || !res.ok) return;
                 let myName = shortName(getFullName());
 
@@ -2976,6 +3047,19 @@
                 html += renderScoreTable('All-Time', alltime);
 
                 scorePanel.innerHTML = html;
+
+                // Mobile: Schliessen-Button einfügen
+                if (window.innerWidth < PANEL_MOBILE_BP) {
+                    let close = document.createElement('div');
+                    close.style.cssText = 'position:absolute;top:4px;right:8px;cursor:pointer;font-size:16px;opacity:0.6;line-height:1';
+                    close.textContent = '\u00D7';
+                    close.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        collapseScorePanel();
+                    });
+                    scorePanel.style.position = 'fixed';
+                    scorePanel.appendChild(close);
+                }
             },
             error: function() { /* Panel bleibt bestehen */ }
         });
@@ -2983,6 +3067,22 @@
 
     function pulseScorePanel() {
         if (!scorePanel) return;
+        if (scorePanel._collapsed) {
+            // Badge-Modus: Badge kurz aufblinken
+            var sp = scorePanel;
+            sp.style.transition = 'none';
+            sp.style.transform = 'scale(1.3)';
+            sp.style.boxShadow = '0 0 16px rgba(255,180,50,0.6)';
+            requestAnimationFrame(function () {
+                requestAnimationFrame(function () {
+                    if (!sp) return;
+                    sp.style.transition = 'transform 0.4s ease-out, box-shadow 0.6s ease-out';
+                    sp.style.transform = 'scale(1)';
+                    sp.style.boxShadow = '0 2px 8px rgba(0,0,0,0.3)';
+                });
+            });
+            return;
+        }
         wakeScorePanel();
         var sp = scorePanel;
         sp.style.transition = 'none';
@@ -3424,35 +3524,104 @@
         huntPanel.id = 'kt-hunt-score';
         document.body.appendChild(huntPanel);
 
+        let mobile = window.innerWidth < PANEL_MOBILE_BP;
         let s = huntPanel.style;
-        s.cssText = 'position:fixed;bottom:20px;right:20px;z-index:10000;' +
-            'background:rgba(0,0,0,0.7);' +
-            'color:#fff;font:13px/1.6 sans-serif;padding:10px 14px;' +
-            'border-radius:10px;min-width:140px;pointer-events:none;' +
-            'opacity:0;transform:translateY(20px);' +
-            'transition:opacity 0.5s,transform 0.5s';
+
+        if (mobile) {
+            // Badge-Modus
+            s.cssText = 'position:fixed;bottom:12px;right:12px;z-index:10000;' +
+                'width:38px;height:38px;border-radius:50%;' +
+                'background:rgba(0,0,0,0.7);color:#FFD700;' +
+                'display:flex;align-items:center;justify-content:center;' +
+                'font-size:18px;cursor:pointer;pointer-events:auto;' +
+                'opacity:0;transform:scale(0.5);' +
+                'transition:opacity 0.3s,transform 0.3s;' +
+                'box-shadow:0 2px 8px rgba(0,0,0,0.3)';
+            if (document.body.classList.contains('dark-mode')) {
+                s.background = 'rgba(255,255,255,0.15)';
+            }
+            huntPanel.innerHTML = '\u{1F3AF}';
+            huntPanel._collapsed = true;
+            huntPanel.addEventListener('click', toggleHuntPanel);
+        } else {
+            // Desktop
+            s.cssText = 'position:fixed;bottom:20px;right:20px;z-index:10000;' +
+                'background:rgba(0,0,0,0.7);' +
+                'color:#fff;font:13px/1.6 sans-serif;padding:10px 14px;' +
+                'border-radius:10px;min-width:140px;pointer-events:none;' +
+                'opacity:0;transform:translateY(20px);' +
+                'transition:opacity 0.5s,transform 0.5s';
+            updateHuntPanel();
+        }
 
         let hp = huntPanel;
         requestAnimationFrame(function() {
             requestAnimationFrame(function() {
                 if (!hp) return;
                 hp.style.opacity = '1';
-                hp.style.transform = 'translateY(0)';
+                hp.style.transform = mobile ? 'scale(1)' : 'translateY(0)';
             });
         });
+    }
 
-        updateHuntPanel();
+    function toggleHuntPanel() {
+        if (!huntPanel) return;
+        if (huntPanel._collapsed) {
+            let s = huntPanel.style;
+            s.cssText = 'position:fixed;bottom:12px;right:12px;z-index:10000;' +
+                'background:rgba(0,0,0,0.85);' +
+                'color:#fff;font:13px/1.6 sans-serif;padding:10px 14px;' +
+                'border-radius:10px;min-width:140px;max-width:calc(100vw - 24px);' +
+                'pointer-events:auto;cursor:default;' +
+                'opacity:1;transform:translateY(0);' +
+                'transition:opacity 0.3s,transform 0.3s;' +
+                'box-shadow:0 2px 12px rgba(0,0,0,0.4)';
+            if (document.body.classList.contains('dark-mode')) {
+                s.background = 'rgba(40,40,40,0.95)';
+            }
+            huntPanel._collapsed = false;
+            updateHuntPanel();
+            let close = document.createElement('div');
+            close.style.cssText = 'position:absolute;top:4px;right:8px;cursor:pointer;font-size:16px;opacity:0.6;line-height:1';
+            close.textContent = '\u00D7';
+            close.addEventListener('click', function(e) {
+                e.stopPropagation();
+                collapseHuntPanel();
+            });
+            huntPanel.appendChild(close);
+        } else {
+            collapseHuntPanel();
+        }
+    }
+
+    function collapseHuntPanel() {
+        if (!huntPanel) return;
+        let s = huntPanel.style;
+        s.cssText = 'position:fixed;bottom:12px;right:12px;z-index:10000;' +
+            'width:38px;height:38px;border-radius:50%;' +
+            'background:rgba(0,0,0,0.7);color:#FFD700;' +
+            'display:flex;align-items:center;justify-content:center;' +
+            'font-size:18px;cursor:pointer;pointer-events:auto;' +
+            'opacity:1;transform:scale(1);' +
+            'transition:opacity 0.3s,transform 0.3s;' +
+            'box-shadow:0 2px 8px rgba(0,0,0,0.3)';
+        if (document.body.classList.contains('dark-mode')) {
+            s.background = 'rgba(255,255,255,0.15)';
+        }
+        huntPanel.innerHTML = '\u{1F3AF}';
+        huntPanel._collapsed = true;
     }
 
     function updateHuntPanel() {
         if (!huntPanel) return;
+        if (huntPanel._collapsed) return; // Badge-Modus: kein Update nötig
         $j.ajax({
             url: 'php/GetGameScores.php',
             method: 'POST',
             data: { game: 'hunt' },
             dataType: 'json',
             success: function(res) {
-                if (!huntPanel) return;
+                if (!huntPanel || huntPanel._collapsed) return;
                 if (!res || !res.ok) return;
                 let rows = res['scores'] || [];
                 let myName = shortName(getFullName());
@@ -3495,6 +3664,18 @@
                     }
                 }
                 huntPanel.innerHTML = html;
+
+                // Mobile: Schliessen-Button einfügen
+                if (window.innerWidth < PANEL_MOBILE_BP) {
+                    let close = document.createElement('div');
+                    close.style.cssText = 'position:absolute;top:4px;right:8px;cursor:pointer;font-size:16px;opacity:0.6;line-height:1';
+                    close.textContent = '\u00D7';
+                    close.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        collapseHuntPanel();
+                    });
+                    huntPanel.appendChild(close);
+                }
             }
         });
     }

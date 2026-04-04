@@ -39,6 +39,11 @@ switch ($action) {
 		$style = isset($_POST['style']) ? trim($_POST['style']) : '';
 		$kt->SavePinnwandStyle($id, $style);
 		break;
+	case 'edit':
+		$id = isset($_POST['id']) ? intval($_POST['id']) : 0;
+		$text = isset($_POST['text']) ? trim($_POST['text']) : '';
+		$kt->EditPinnwandPost($id, $text);
+		break;
 	case 'delete':
 		$id = isset($_POST['id']) ? intval($_POST['id']) : 0;
 		$kt->DeletePinnwandPost($id);

@@ -1521,6 +1521,9 @@
                 html += '<button type="button" class="pin-action-btn pin-card-sticky-btn" title="' + (post.sticky == 1 ? 'Loesen' : 'Anpinnen') + '">'
                     + (post.sticky == 1 ? '&#128204;' : '&#128392;') + '</button>';
             }
+            if (isMine) {
+                html += '<button type="button" class="pin-action-btn pin-card-edit" title="Bearbeiten">&#9998;</button>';
+            }
             if (isMine || isAdmin) {
                 html += '<button type="button" class="pin-action-btn pin-card-delete" title="Loeschen">&times;</button>';
             }
@@ -1622,6 +1625,57 @@
                 $j('#pwReplyBar').show();
                 $j('#pwText').attr('placeholder', 'Antwort schreiben...').focus();
                 window.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+
+            // Edit (inline)
+            $j(board).on('click.pinboard', '.pin-card-edit', function () {
+                var card = $j(this).closest('.pin-card'),
+                    id = card.data('id'),
+                    msgEl = card.find('.pin-card-message');
+
+                // Schon im Edit-Modus?
+                if (card.hasClass('pin-editing')) return;
+                card.addClass('pin-editing');
+
+                // Aktuellen Text aus dem HTML rekonstruieren (br → \n, HTML-Entities zurück)
+                var raw = msgEl.html().replace(/<br\s*\/?>/gi, '\n');
+                var tmp = document.createElement('textarea');
+                tmp.innerHTML = raw;
+                var text = tmp.value;
+
+                var ta = $j('<textarea class="pin-edit-textarea" maxlength="2000"></textarea>').val(text);
+                var actions = $j('<div class="pin-edit-actions"></div>');
+                var btnSave = $j('<button class="pin-edit-save">Speichern</button>');
+                var btnCancel = $j('<button class="pin-edit-cancel">Abbrechen</button>');
+                actions.append(btnSave).append(btnCancel);
+
+                msgEl.empty().append(ta).append(actions);
+                ta.focus();
+                ta[0].style.height = Math.min(ta[0].scrollHeight, 200) + 'px';
+
+                // Ctrl+Enter = Speichern
+                ta.on('keydown', function (e) { if (e.ctrlKey && e.keyCode === 13) btnSave.click(); });
+                // Escape = Abbrechen
+                ta.on('keydown', function (e) { if (e.key === 'Escape') btnCancel.click(); });
+
+                btnCancel.on('click', function () {
+                    msgEl.html(P._formatText(text));
+                    card.removeClass('pin-editing');
+                });
+
+                btnSave.on('click', function () {
+                    var newText = ta.val().trim();
+                    if (!newText) { showError('Text darf nicht leer sein.', 3); return; }
+                    btnSave.prop('disabled', true);
+                    $j.ajax({ url: 'php/Pinnwand.php', type: 'POST',
+                        data: { action: 'edit', id: id, text: newText },
+                        success: function (data) {
+                            var res = data.d || data;
+                            if (res.ok) P._render(res);
+                            else { showError(res.message, 5); btnSave.prop('disabled', false); }
+                        }
+                    });
+                });
             });
 
             // Delete

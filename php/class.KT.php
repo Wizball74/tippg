@@ -3502,6 +3502,39 @@ class KT
 		$this->GetPinnwand();
 	}
 
+	function EditPinnwandPost($id, $text)
+	{
+		if ($id <= 0) {
+			$this->jsonout(array('ok' => false, 'message' => 'Ungültige ID.'));
+			return;
+		}
+
+		if (empty($text)) {
+			$this->jsonout(array('ok' => false, 'message' => 'Text darf nicht leer sein.'));
+			return;
+		}
+
+		// Nur eigene Posts
+		$sql = sprintf("SELECT tnid FROM %s WHERE id = ?", $this->TABLE['pinnwand']);
+		$result = $this->db->prepare($sql, 'i', [$id]);
+		$row = $result ? $result->fetch_assoc() : null;
+
+		if (!$row) {
+			$this->jsonout(array('ok' => false, 'message' => 'Post nicht gefunden.'));
+			return;
+		}
+
+		if ($row['tnid'] != $this->user['tnid']) {
+			$this->jsonout(array('ok' => false, 'message' => 'Nur eigene Beitraege bearbeiten.'));
+			return;
+		}
+
+		$sql = sprintf("UPDATE %s SET `text` = ? WHERE id = ?", $this->TABLE['pinnwand']);
+		$this->db->prepareExecute($sql, 'si', [$text, $id]);
+
+		$this->GetPinnwand();
+	}
+
 	function DeletePinnwandPost($id)
 	{
 		if ($id <= 0) {
