@@ -17,7 +17,7 @@
         FRICTION:   0.997,    // Luftwiderstand (multipliziert pro Frame)
         CURSOR_R:   28,       // Cursor-Kollisionsradius (Schuh-Trefferfläche)
         MAX_V:      15,       // Maximalgeschwindigkeit
-        MIN_VP:     992,      // Minimum-Viewport-Breite
+        MIN_VP:     780,//992,      // Minimum-Viewport-Breite
         GHOST_MS:   2500,     // Max Ghost-Mode-Dauer
         BOTTOM_M:   90,       // Abstand zum unteren Fensterrand (Taskleiste)
         BLOCK_SEL: 'td.Pts1',
