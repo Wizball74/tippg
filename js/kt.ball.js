@@ -17,7 +17,7 @@
         FRICTION:   0.997,    // Luftwiderstand (multipliziert pro Frame)
         CURSOR_R:   28,       // Cursor-Kollisionsradius (Schuh-Trefferfläche)
         MAX_V:      15,       // Maximalgeschwindigkeit
-        MIN_VP:     780,//992,      // Minimum-Viewport-Breite
+        MIN_VP:     992,      // Minimum-Viewport-Breite
         GHOST_MS:   2500,     // Max Ghost-Mode-Dauer
         BOTTOM_M:   90,       // Abstand zum unteren Fensterrand (Taskleiste)
         BLOCK_SEL: 'td.Pts1',
@@ -3153,28 +3153,16 @@
     function bindEvents() {
         // AudioContext bei erster Interaktion initialisieren (Browser-Policy)
         document.addEventListener('click', function () { if (soundEnabled) initAudio(); }, { once: true });
-        document.addEventListener('touchstart', function () { if (soundEnabled) initAudio(); }, { once: true });
-        function trackPointer(x, y) {
+        document.addEventListener('mousemove', function (e) {
             let now = performance.now(), dt = now - cursor.lt;
             if (dt > 0) {
-                cursor.vx = (x - cursor.lx) / dt * 16;
-                cursor.vy = (y - cursor.ly) / dt * 16;
+                cursor.vx = (e.clientX - cursor.lx) / dt * 16;
+                cursor.vy = (e.clientY - cursor.ly) / dt * 16;
             }
-            cursor.x = cursor.lx = x;
-            cursor.y = cursor.ly = y;
+            cursor.x = cursor.lx = e.clientX;
+            cursor.y = cursor.ly = e.clientY;
             cursor.lt = now;
-        }
-        document.addEventListener('mousemove', function (e) {
-            trackPointer(e.clientX, e.clientY);
         });
-        document.addEventListener('touchstart', function (e) {
-            let t = e.touches[0];
-            trackPointer(t.clientX, t.clientY);
-        }, { passive: true });
-        document.addEventListener('touchmove', function (e) {
-            let t = e.touches[0];
-            trackPointer(t.clientX, t.clientY);
-        }, { passive: true });
         window.addEventListener('resize', function () {
             if (window.innerWidth < CFG.MIN_VP) {
                 if (active) kt.destroyBall();
