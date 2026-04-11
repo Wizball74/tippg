@@ -3153,16 +3153,28 @@
     function bindEvents() {
         // AudioContext bei erster Interaktion initialisieren (Browser-Policy)
         document.addEventListener('click', function () { if (soundEnabled) initAudio(); }, { once: true });
-        document.addEventListener('mousemove', function (e) {
+        document.addEventListener('touchstart', function () { if (soundEnabled) initAudio(); }, { once: true });
+        function trackPointer(x, y) {
             let now = performance.now(), dt = now - cursor.lt;
             if (dt > 0) {
-                cursor.vx = (e.clientX - cursor.lx) / dt * 16;
-                cursor.vy = (e.clientY - cursor.ly) / dt * 16;
+                cursor.vx = (x - cursor.lx) / dt * 16;
+                cursor.vy = (y - cursor.ly) / dt * 16;
             }
-            cursor.x = cursor.lx = e.clientX;
-            cursor.y = cursor.ly = e.clientY;
+            cursor.x = cursor.lx = x;
+            cursor.y = cursor.ly = y;
             cursor.lt = now;
+        }
+        document.addEventListener('mousemove', function (e) {
+            trackPointer(e.clientX, e.clientY);
         });
+        document.addEventListener('touchstart', function (e) {
+            let t = e.touches[0];
+            trackPointer(t.clientX, t.clientY);
+        }, { passive: true });
+        document.addEventListener('touchmove', function (e) {
+            let t = e.touches[0];
+            trackPointer(t.clientX, t.clientY);
+        }, { passive: true });
         window.addEventListener('resize', function () {
             if (window.innerWidth < CFG.MIN_VP) {
                 if (active) kt.destroyBall();
