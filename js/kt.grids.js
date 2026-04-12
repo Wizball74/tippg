@@ -599,14 +599,11 @@
 			gw = opts.size || 0,
 			pw = $j("#d" + id).parent().width();
 		if (pw > 0 && pw !== gw) {
+			var colW = jgqColWidth(gridid);
+			var newW = Math.min(Math.max(pw, opts.minwidth || 320), colW);
+			$j(gridid).jqGrid('setGridWidth', newW, false);
 			if (verge.viewportW() < 768) {
-				// Mobile: nur overflow fixen, Grid behaelt natuerliche Breite (.ktgrid scrollt)
 				fixMobileOverflow(gridid);
-			} else {
-				// Nicht breiter als Spaltensumme
-				var colW = jgqColWidth(gridid);
-				var newW = Math.min(Math.max(pw, opts.minwidth || 320), colW);
-				$j(gridid).jqGrid('setGridWidth', newW, false);
 			}
 		}
 	}
@@ -627,11 +624,10 @@
 					id = this.id.replace('grid', ''),
 					pw = $j("#d" + id).parent().width();
 				if (pw > 0) {
+					var colW = jgqColWidth(gid);
+					$j(this).jqGrid('setGridWidth', Math.min(Math.max(pw, 320), colW), false);
 					if (mobile) {
 						fixMobileOverflow(this);
-					} else {
-						var colW = jgqColWidth(gid);
-						$j(this).jqGrid('setGridWidth', Math.min(Math.max(pw, 320), colW), false);
 					}
 				}
 			});
