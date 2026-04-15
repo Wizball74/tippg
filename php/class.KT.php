@@ -285,18 +285,29 @@ class KT
 	 *****************************************************************************************************************************/
 	function checkLogin()
 	{
-		/* Check if user has been remembered via token */
-		if (isset($_COOKIE['remember_token']) && !isset($_SESSION['username'])) {
-			try {
+		/* Check if user has been remembered via cookie token */
+		if (!isset($_SESSION['username'])) {
+			$token = null;
+			// Neues Cookie-Format: cooktoken
+			if (isset($_COOKIE['cooktoken'])) {
+				$token = $_COOKIE['cooktoken'];
+			}
+			// Legacy Cookie-Format: remember_token
+			elseif (isset($_COOKIE['remember_token'])) {
 				$token = $_COOKIE['remember_token'];
-				$sql = sprintf("SELECT user FROM %s WHERE remember_token = ?", $this->TABLE['teilnehmer']);
-				$result = $this->db->prepare($sql, 's', [$token]);
-				if ($result && $result->num_rows > 0) {
-					$row = $result->fetch_assoc();
-					$_SESSION['username'] = $row['user'];
+			}
+
+			if ($token) {
+				try {
+					$sql = "SELECT t.user FROM kt3_remember_tokens rt JOIN " . $this->TABLE['teilnehmer'] . " t ON rt.tnid = t.tnid WHERE rt.token = ?";
+					$result = $this->db->prepare($sql, 's', [$token]);
+					if ($result && $result->num_rows > 0) {
+						$row = $result->fetch_assoc();
+						$_SESSION['username'] = $row['user'];
+					}
+				} catch (\Exception $e) {
+					error_log("Remember-Token Check fehlgeschlagen: " . $e->getMessage());
 				}
-			} catch (\Exception $e) {
-				error_log("Remember-Token Check fehlgeschlagen: " . $e->getMessage());
 			}
 		}
 
@@ -356,11 +367,14 @@ class KT
 	{
 		$token = bin2hex(random_bytes(32));
 		try {
-			$sql = sprintf("UPDATE %s SET remember_token = ? WHERE tnid = ?", $this->TABLE['teilnehmer']);
-			$ok = $this->db->prepareExecute($sql, 'si', [$token, $tnid]);
+			$sql = "INSERT INTO kt3_remember_tokens (tnid, token) VALUES (?, ?)";
+			$ok = $this->db->prepareExecute($sql, 'is', [$tnid, $token]);
 			if (!$ok) {
 				error_log("Remember-Token speichern fehlgeschlagen fuer tnid=$tnid");
 			}
+			// Alte Tokens aufräumen: max. 10 pro User behalten
+			$sql2 = "DELETE FROM kt3_remember_tokens WHERE tnid = ? AND id NOT IN (SELECT id FROM (SELECT id FROM kt3_remember_tokens WHERE tnid = ? ORDER BY created_at DESC LIMIT 10) AS keep)";
+			$this->db->prepareExecute($sql2, 'ii', [$tnid, $tnid]);
 		} catch (\Exception $e) {
 			error_log("Remember-Token speichern fehlgeschlagen: " . $e->getMessage());
 		}
@@ -369,11 +383,12 @@ class KT
 
 	function logout()
 	{
-		// Remember-Token loeschen
-		if ($this->user) {
+		// Remember-Token des aktuellen Geraets aus DB loeschen
+		$token = $_COOKIE['cooktoken'] ?? $_COOKIE['remember_token'] ?? null;
+		if ($token) {
 			try {
-				$sql = sprintf("UPDATE %s SET remember_token = NULL WHERE tnid = ?", $this->TABLE['teilnehmer']);
-				$this->db->prepareExecute($sql, 'i', [$this->user['tnid']]);
+				$sql = "DELETE FROM kt3_remember_tokens WHERE token = ?";
+				$this->db->prepareExecute($sql, 's', [$token]);
 			} catch (\Exception $e) {
 				error_log("Remember-Token loeschen fehlgeschlagen: " . $e->getMessage());
 			}

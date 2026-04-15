@@ -43,7 +43,8 @@
 					'httponly'  => true,
 					'samesite' => 'Lax',
 				];
-				setcookie("remember_token", $token, $cookieOptions);
+				setcookie("cookname", $user, $cookieOptions);
+				setcookie("cooktoken", $token, $cookieOptions);
 			}
 
 			$kt->jsonout(array('ok' => true, 'username' => $kt->user['name']));

@@ -97,12 +97,21 @@ class TeilnehmerGateway {
         }
     }
 
-    public function updateRememberToken($userName, $token)
+    public function insertRememberToken($userName, $token)
     {
-        $statement = "UPDATE {$this->table} SET remember_token = ? WHERE user = ?";
+        // tnid des Users holen
+        $user = $this->findByName($userName);
+        if (empty($user)) return false;
+        $tnid = $user[0]['tnid'];
+
         try {
-            $statement = $this->db->prepare($statement);
-            $statement->execute(array($token, $userName));
+            $stmt = $this->db->prepare("INSERT INTO kt3_remember_tokens (tnid, token) VALUES (?, ?)");
+            $stmt->execute(array($tnid, $token));
+
+            // Alte Tokens aufraeumen: max. 10 pro User behalten
+            $cleanup = $this->db->prepare("DELETE FROM kt3_remember_tokens WHERE tnid = ? AND id NOT IN (SELECT id FROM (SELECT id FROM kt3_remember_tokens WHERE tnid = ? ORDER BY created_at DESC LIMIT 10) AS keep)");
+            $cleanup->execute(array($tnid, $tnid));
+
             return true;
         } catch (\PDOException $e) {
             return false;
@@ -111,7 +120,7 @@ class TeilnehmerGateway {
 
     public function findByRememberToken($token)
     {
-        $statement = "SELECT * FROM {$this->table} WHERE remember_token = ?";
+        $statement = "SELECT t.* FROM kt3_remember_tokens rt JOIN {$this->table} t ON rt.tnid = t.tnid WHERE rt.token = ?";
         try {
             $statement = $this->db->prepare($statement);
             $statement->execute(array($token));
@@ -119,6 +128,17 @@ class TeilnehmerGateway {
             return $result ?: null;
         } catch (\PDOException $e) {
             return null;
+        }
+    }
+
+    public function deleteRememberToken($token)
+    {
+        try {
+            $stmt = $this->db->prepare("DELETE FROM kt3_remember_tokens WHERE token = ?");
+            $stmt->execute(array($token));
+            return true;
+        } catch (\PDOException $e) {
+            return false;
         }
     }
 }

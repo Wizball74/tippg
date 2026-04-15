@@ -126,10 +126,17 @@ class AuthController {
      */
     function logout() : bool
     {
-        $cookieOptions = ['expires' => time() - 3600, 'path' => '/', 'httponly' => true, 'samesite' => 'Strict'];
+        // Remember-Token des aktuellen Geraets aus DB loeschen
+        $token = $_COOKIE['cooktoken'] ?? $_COOKIE['remember_token'] ?? null;
+        if ($token) {
+            $this->gateway->deleteRememberToken($token);
+        }
+
+        $cookieOptions = ['expires' => time() - 3600, 'path' => '/', 'httponly' => true, 'samesite' => 'Lax'];
         if(isset($_COOKIE['cookname'])) { setcookie("cookname", "", $cookieOptions); }
         if(isset($_COOKIE['cookpass'])) { setcookie("cookpass", "", $cookieOptions); }
         if(isset($_COOKIE['cooktoken'])) { setcookie("cooktoken", "", $cookieOptions); }
+        if(isset($_COOKIE['remember_token'])) { setcookie("remember_token", "", $cookieOptions); }
 
         /* Kill session variables */
         unset($_SESSION['username']);
@@ -158,14 +165,14 @@ class AuthController {
         {
             if(isset($this->api->params['remember']))
             {
-                // Token-basiertes Remember statt Passwort im Cookie
+                // Token-basiertes Remember: eigener Token pro Geraet
                 $token = bin2hex(random_bytes(32));
-                $this->gateway->updateRememberToken($user, $token);
+                $this->gateway->insertRememberToken($user, $token);
                 $cookieOptions = [
                     'expires'  => time() + 60 * 60 * 24 * 30,
                     'path'     => '/',
                     'httponly'  => true,
-                    'samesite' => 'Strict',
+                    'samesite' => 'Lax',
                 ];
                 setcookie("cookname", $user, $cookieOptions);
                 setcookie("cooktoken", $token, $cookieOptions);
