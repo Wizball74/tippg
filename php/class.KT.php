@@ -539,8 +539,8 @@ class KT
 				$cls = isset($c['classes']) ? $c['classes'] : '';
 				if ($cls == 'Name' && $c['width'] > 128)
 					$colModel[$i]['width'] = 128;
-				// DateTime auf Mobile: schmaler darstellen
-				if ($cls == 'DateTime')
+				// DateTime auf Mobile: schmaler darstellen (nie vergrößern)
+				if ($cls == 'DateTime' && $c['width'] > 55)
 					$colModel[$i]['width'] = 55;
 			}
 			// Team-Spalten auf verfuegbare Breite verteilen
@@ -553,7 +553,7 @@ class KT
 				$fixedW += $c['width'];
 			}
 			if ($teamCount > 0) {
-				$teamW = max(80, intval(($vw - $fixedW - 10) / $teamCount));
+				$teamW = max(70, intval(($vw - $fixedW - 10) / $teamCount));
 				foreach ($colModel as $i => $c) {
 					if (isset($c['classes']) && $c['classes'] == 'Team')
 						$colModel[$i]['width'] = min($c['width'], $teamW);
@@ -944,22 +944,28 @@ class KT
 		$colModel = array();
 
 		if (isset($_POST['trid']) && isset($_POST['md'])) {
-			// Datenmodell
-			$colModel[] = array('label' => " ", 'width' => 24, 'name' => "HLogo", 'formatter' => 'logo');
+			// Datenmodell (Mobile: schmalere Spalten damit alles ins Portrait passt)
+			$mob = (isset($_POST['_w']) && intval($_POST['_w']) < 768);
+			$wLogo  = $mob ? 22 : 24;
+			$wDate  = $mob ? 48 : 70;
+			$wTip   = $mob ? 52 : 70;
+			$wErg   = $mob ? 40 : 55;
+			$wPts   = $mob ? 36 : 50;
+			$colModel[] = array('label' => " ", 'width' => $wLogo, 'name' => "HLogo", 'formatter' => 'logo');
 			$colModel[] = array('label' => "Heim", 'width' => 200, 'name' => "HTeam", 'formatter' => 'html', 'classes' => 'Team');
-			$colModel[] = array('label' => " ", 'width' => 24, 'name' => "ALogo", 'formatter' => 'logo');
+			$colModel[] = array('label' => " ", 'width' => $wLogo, 'name' => "ALogo", 'formatter' => 'logo');
 			$colModel[] = array('label' => "Ausw.", 'width' => 200, 'index' => "ATeam", 'name' => "ATeam", 'formatter' => 'html', 'classes' => 'Team');
-			$colModel[] = array('label' => "Datum", 'width' => 70, 'name' => "DateTime", 'align' => 'center', 'formatter' => 'html', 'classes' => 'DateTime');
+			$colModel[] = array('label' => "Datum", 'width' => $wDate, 'name' => "DateTime", 'align' => 'center', 'formatter' => 'html', 'classes' => 'DateTime');
 			$colModel[] = array(
-				'label' => "Tipp", 'width' => 70, 'name' => "Tip", 'align' => 'center', 'classes' => "Result",
+				'label' => "Tipp", 'width' => $wTip, 'name' => "Tip", 'align' => 'center', 'classes' => "Result",
 				'editable' => true, 'editoptions' => array('size' => 5, 'maxlength' => 5, 'class' => 'gradient')
 			);
 
 			// Nach Deadline: Ergebnis und Punkte anzeigen
 			$deadlinePassed = $this->checkDeadline($_POST['trid'], $_POST['md']);
 			if ($deadlinePassed) {
-				$colModel[] = array('label' => "Erg.", 'width' => 55, 'name' => "Result", 'align' => 'center', 'classes' => 'Result tipSep');
-				$colModel[] = array('label' => "Pkt.", 'width' => 50, 'name' => "Pts", 'align' => 'center', 'formatter' => 'html', 'classes' => 'Pts');
+				$colModel[] = array('label' => "Erg.", 'width' => $wErg, 'name' => "Result", 'align' => 'center', 'classes' => 'Result tipSep');
+				$colModel[] = array('label' => "Pkt.", 'width' => $wPts, 'name' => "Pts", 'align' => 'center', 'formatter' => 'html', 'classes' => 'Pts');
 			}
 
 			$colModel[] = array('width' => 90, 'name' => "editable", 'hidden' => true);
