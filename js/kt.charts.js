@@ -88,10 +88,15 @@
         var parent = canvas.parentElement;
         var minW = count * (pxPerItem || 40);
         if (parent.clientWidth < minW) {
+            // Wrapper-Div einfuegen, damit Chart.js responsive sich am
+            // Wrapper orientiert und nicht am scrollbaren Parent
+            var wrapper = document.createElement('div');
+            wrapper.style.minWidth = minW + 'px';
+            wrapper.style.width = minW + 'px';
             parent.style.overflowX = 'auto';
             parent.style.webkitOverflowScrolling = 'touch';
-            canvas.style.minWidth = minW + 'px';
-            canvas.style.width = minW + 'px';
+            parent.insertBefore(wrapper, canvas);
+            wrapper.appendChild(canvas);
         }
     }
 

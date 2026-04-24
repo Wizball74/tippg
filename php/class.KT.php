@@ -539,9 +539,9 @@ class KT
 				$cls = isset($c['classes']) ? $c['classes'] : '';
 				if ($cls == 'Name' && $c['width'] > 128)
 					$colModel[$i]['width'] = 128;
-				// DateTime auf Mobile ausblenden (Deadline steht unter der Tabelle)
+				// DateTime auf Mobile: schmaler darstellen
 				if ($cls == 'DateTime')
-					$colModel[$i]['hidden'] = true;
+					$colModel[$i]['width'] = 55;
 			}
 			// Team-Spalten auf verfuegbare Breite verteilen
 			$fixedW = 0;
@@ -989,6 +989,8 @@ class KT
 			$data = $this->db->getData($sql);
 			unset($tips);
 			$teams = $this->teams;
+			$isMobile = (isset($_POST['_w']) && intval($_POST['_w']) < 768);
+			$teamField = $isMobile ? 'kurz' : 'Name';
 
 			$ed = !$this->checkDeadline($trid, $md);
 			$dl = date('d.m.Y H:i', $this->getDeadline($trid, $md));
@@ -996,8 +998,8 @@ class KT
 				$tipRow = array(
 					'sid' => $row['sid'],
 					'id' => $row['sid'],
-					'HTeam' => $teams[$row['tid1']]['Name'],
-					'ATeam' => $teams[$row['tid2']]['Name'],
+					'HTeam' => $teams[$row['tid1']][$teamField],
+					'ATeam' => $teams[$row['tid2']][$teamField],
 					'HLogo' => $row['tid1'],
 					'ALogo' => $row['tid2'],
 					'DateTime' => date('d.m.', strtotime($row['Datum'])) . '<br>' . substr($row['Uhrzeit'], 0, 5),

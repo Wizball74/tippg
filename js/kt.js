@@ -1,4 +1,4 @@
-﻿(function (kt, $j, undefined) {
+(function (kt, $j, undefined) {
 
     /**********************************************************************************************
     * Seite vorbereiten
@@ -383,6 +383,12 @@
                 } else {
                     $j('.navtr').addClass('navtr-hidden');
                     $j('#mainmenu > li:not(.kt-theme-switch):not(.kt-ball-toggle):not(.kt-sound-toggle)').hide();
+                }
+
+                // Falls exec() schon gelaufen ist bevor makeMenu() fertig war,
+                // Subnav nachträglich aktualisieren (Race Condition)
+                if (kt.lastmenu) {
+                    updateSubnav(kt.lastmenu.smenu, kt.lastmenu.action);
                 }
 
                 return true;
