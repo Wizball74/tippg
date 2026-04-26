@@ -1245,11 +1245,33 @@ class KT
 			$member = $this->member;
 			$rnd = $this->trrow['STRND'][$md];
 
-			$colModel[] = array('label' => "Spieler 1", 'width' => 200, 'name' => "M1", 'classes' => 'Name');
-			$colModel[] = array('label' => "Spieler 2", 'width' => 200, 'name' => "M2", 'classes' => 'Name');
-			$colModel[] = array('label' => "Ergebnis", 'width' => 90, 'name' => "Result", 'align' => 'center', 'classes' => 'Result');
+			$colModel[] = array('label' => "Spieler 1", 'width' => 200, 'name' => "M1", 'classes' => 'Name', 'formatter' => 'html');
+			$colModel[] = array('label' => "Spieler 2", 'width' => 200, 'name' => "M2", 'classes' => 'Name', 'formatter' => 'html');
+			$colModel[] = array('label' => "Ergebnis", 'width' => 90, 'name' => "Result", 'align' => 'center', 'classes' => 'Result', 'formatter' => 'html');
 			$colModel[] = array('name' => "id", 'key' => true, 'hidden' => true);
 			$colModel[] = array('name' => "cls", 'hidden' => true);
+
+			// Live-Punkte aus den aktuellen Tipps berechnen (statt aus ligaergebnis.Ergebnis lesen)
+			$pts = array();
+			$deadline = $this->checkDeadline($trid, $md);
+			if ($deadline) {
+				$tips = $this->matchdaySummary($trid, $md);
+				if (is_array($tips)) {
+					foreach ($tips as $tnidT => $t) {
+						$pts[$tnidT] = isset($t['Points']) ? (int)$t['Points'] : 0;
+					}
+				}
+			}
+
+			// Spieltag-Status: noch nicht gestartet / laufend / final
+			$stRow = $this->db->Query(sprintf(
+				"SELECT COUNT(*) AS total, SUM(Ergebnis='-:-') AS pending FROM %s WHERE trid=%d AND sptag=%d",
+				$this->TABLE['spielplan'], $trid, $md
+			))->fetch_assoc();
+			$total = (int)$stRow['total'];
+			$pending = (int)$stRow['pending'];
+			$notStarted = !$deadline || $total == 0 || $pending == $total;
+			$running = !$notStarted && $pending > 0;
 
 			$sql = sprintf("SELECT * FROM %s WHERE trid=%d AND sptag=%d AND Liga=%d", $this->TABLE['ligaergebnis'], $trid, $md, $league);
 			$data = $this->db->getData($sql);
@@ -1261,13 +1283,39 @@ class KT
 
 			$id = 0;
 			foreach ($data as $row) {
+				$p1 = isset($pts[$row['tnid1']]) ? (int)$pts[$row['tnid1']] : 0;
+				$p2 = isset($pts[$row['tnid2']]) ? (int)$pts[$row['tnid2']] : 0;
+				$n1 = htmlspecialchars($member[$rnd][$row['tnid1']]['name'], ENT_QUOTES, 'UTF-8');
+				$n2 = htmlspecialchars($member[$rnd][$row['tnid2']]['name'], ENT_QUOTES, 'UTF-8');
+
+				if ($notStarted) {
+					$result = '-:-';
+					$m1 = $n1;
+					$m2 = $n2;
+				} else {
+					if ($p1 > $p2) {
+						$result = '<span class="winner">' . $p1 . '</span>:' . $p2;
+						$m1 = '<span class="winner">' . $n1 . '</span>';
+						$m2 = $n2;
+					} else if ($p1 < $p2) {
+						$result = $p1 . ':<span class="winner">' . $p2 . '</span>';
+						$m1 = $n1;
+						$m2 = '<span class="winner">' . $n2 . '</span>';
+					} else {
+						$result = '<span class="draw">' . $p1 . ':' . $p2 . '</span>';
+						$m1 = '<span class="draw">' . $n1 . '</span>';
+						$m2 = '<span class="draw">' . $n2 . '</span>';
+					}
+					if ($running) $result = '<span class="running" title="Spieltag läuft noch">' . $result . '</span>';
+				}
+
 				$schedule[] = array(
 					'trid' => $row['trid'],
 					'md' => $row['sptag'],
 					'League' => $row['Liga'],
-					'M1' => $member[$rnd][$row['tnid1']]['name'],
-					'M2' => $member[$rnd][$row['tnid2']]['name'],
-					'Result' => $row['Ergebnis'],
+					'M1' => $m1,
+					'M2' => $m2,
+					'Result' => $result,
 					'cls' => (isset($cls[$row['tnid1']]) ? $cls[$row['tnid1']] : '') . (isset($cls[$row['tnid2']]) ? $cls[$row['tnid2']] : ''),
 					'id' => $id++
 				);
@@ -1303,6 +1351,7 @@ class KT
 					$colModel[] = array('label' => "Name", 'width' => 190, 'name' => "Name", 'classes' => 'Name');
 					$colModel[] = array('label' => "Pkt", 'width' => 35, 'name' => "Pts", 'align' => 'right', 'sorttype' => 'int', 'classes' => 'Pts');
 
+					$status = array('running' => false, 'runningMd' => 0);
 					if ($l[0]['LNr'] > 0) {
 						$colModel[] = array('label' => "Tore", 'width' => 75, 'name' => "Goals", 'align' => 'right');
 						$colModel[] = array('label' => "Diff", 'width' => 40, 'name' => "Diff", 'align' => 'right', 'sorttype' => 'int');
@@ -1311,7 +1360,7 @@ class KT
 						$colModel[] = array('label' => "U", 'width' => 30, 'name' => "Draw", 'align' => 'right', 'sorttype' => 'int');
 						$colModel[] = array('label' => "N", 'width' => 30, 'name' => "Loss", 'align' => 'right', 'sorttype' => 'int');
 
-						$result[$lnr] = $this->createLeagueTable($league[$lnr], $trid, $rnd, $lnr);
+						$result[$lnr] = $this->createLeagueTable($league[$lnr], $trid, $rnd, $lnr, $status);
 					} else {
 						$result[$lnr] = $this->createSimpleTable($league[$lnr], $trid, $rnd);
 					}
@@ -1322,12 +1371,19 @@ class KT
 			}
 
 			$rows = $result[$lnr];
+			$ud = null;
+			if (!empty($status['running'])) {
+				$ud = array('title' => sprintf(
+					'Tabelle Liga %d &nbsp;<span class="liveBadge">● Spieltag %d läuft – Stand vorläufig</span>',
+					$lnr, $status['runningMd']
+				));
+			}
 		}
 
-		$this->jsonoutGrid($colModel, $rows);
+		$this->jsonoutGrid($colModel, $rows, null, null, $ud ?? null);
 	}
 
-	function createLeagueTable($league, $trid, $rnd, $leaguenr)
+	function createLeagueTable($league, $trid, $rnd, $leaguenr, &$status = null)
 	{
 		$start = $this->trrow['s'][$rnd];
 		$end = $this->trrow['e'][$rnd];
@@ -1347,36 +1403,68 @@ class KT
 		);
 		$data = $this->db->getData($sql);
 
+		// Spieltag-Status (final / laufend / nicht gestartet) live ermitteln
+		$stData = $this->db->getData(sprintf(
+			"SELECT sptag, COUNT(*) AS total, SUM(Ergebnis='-:-') AS pending FROM %s WHERE trid=%d AND sptag BETWEEN %d AND %d GROUP BY sptag",
+			$this->TABLE['spielplan'], $trid, $start, $end
+		));
+		$stByMd = array();
+		foreach ($stData as $r) $stByMd[(int)$r['sptag']] = array('total' => (int)$r['total'], 'pending' => (int)$r['pending']);
+
+		$mdPts = array();
+		$mdStatus = array();
+		for ($mdN = $start; $mdN <= $end; $mdN++) {
+			$st = isset($stByMd[$mdN]) ? $stByMd[$mdN] : array('total' => 0, 'pending' => 0);
+			$dl = $this->checkDeadline($trid, $mdN);
+			if (!$dl || $st['total'] == 0 || $st['pending'] == $st['total']) {
+				$mdStatus[$mdN] = 'notStarted';
+				continue;
+			}
+			if ($st['pending'] > 0) {
+				$mdStatus[$mdN] = 'running';
+				if (empty($status['running'])) {
+					$status = array('running' => true, 'runningMd' => $mdN);
+				}
+			} else {
+				$mdStatus[$mdN] = 'final';
+			}
+			$tips = $this->matchdaySummary($trid, $mdN);
+			if (is_array($tips)) {
+				foreach ($tips as $tnidT => $t) {
+					$mdPts[$mdN][$tnidT] = isset($t['Points']) ? (int)$t['Points'] : 0;
+				}
+			}
+		}
+
 		$_sp = array();
 		foreach ($data as $row) {
 			$t1 = $row['tnid1'];
 			$t2 = $row['tnid2'];
-			$res = preg_split('/:/', $row['Ergebnis']);
+			$mdN = (int)$row['sptag'];
 			if (!isset($_sp[$t1])) $_sp[$t1] = array('Matches'=>0,'Win'=>0,'Draw'=>0,'Loss'=>0,'gf'=>0,'ga'=>0);
 			if (!isset($_sp[$t2])) $_sp[$t2] = array('Matches'=>0,'Win'=>0,'Draw'=>0,'Loss'=>0,'gf'=>0,'ga'=>0);
-			if ($res[0] <> '-') {
+			if (isset($mdStatus[$mdN]) && $mdStatus[$mdN] !== 'notStarted') {
+				$p1 = isset($mdPts[$mdN][$t1]) ? $mdPts[$mdN][$t1] : 0;
+				$p2 = isset($mdPts[$mdN][$t2]) ? $mdPts[$mdN][$t2] : 0;
 				$_sp[$t1]['Matches']++;
-				$_sp[$t2]['Matches']++; {
-					$_sp[$t1]['gf'] += $res[0];
-					$_sp[$t1]['ga'] += $res[1];
-				} {
-					$_sp[$t2]['gf'] += $res[1];
-					$_sp[$t2]['ga'] += $res[0];
-				}
+				$_sp[$t2]['Matches']++;
+				$_sp[$t1]['gf'] += $p1;
+				$_sp[$t1]['ga'] += $p2;
+				$_sp[$t2]['gf'] += $p2;
+				$_sp[$t2]['ga'] += $p1;
 
-				if ($res[0] > $res[1]) {
+				if ($p1 > $p2) {
 					$_sp[$t1]['Win']++;
 					$_sp[$t2]['Loss']++;
-				} else
-						if ($res[0] < $res[1]) {
+				} else if ($p1 < $p2) {
 					$_sp[$t1]['Loss']++;
 					$_sp[$t2]['Win']++;
 				} else {
 					$_sp[$t1]['Draw']++;
 					$_sp[$t2]['Draw']++;
 				}
-			} // if
-		} // while
+			}
+		}
 
 		if (isset($_sp)) {
 			unset($_sort);

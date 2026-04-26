@@ -471,6 +471,28 @@ body {
 .kt-theme-desc { display: block; font-size: 12px; color: #777; margin-top: 2px; font-weight: normal; font-style: italic; }
 .kt-theme-active .kt-theme-label { color: #c0a050 !important; }
 .kt-theme-menu li + li { border-top: 1px solid #3a3a3a; }
+/* Auf Desktop nur das Sonnen-Icon zeigen */
+.kt-theme-label-toggle, .kt-theme-caret { display: none; }
+/* Auf Mobile (kollabiertes Navbar) als ordentlicher Menüpunkt */
+@media (max-width: 767px) {
+    .kt-theme-switch { margin-left: 0 !important; }
+    .kt-theme-switch > a.dropdown-toggle {
+        padding: 12px 15px !important;
+        display: flex; align-items: center; gap: 10px;
+        font-size: 16px;
+    }
+    .kt-theme-icon { font-size: 20px; opacity: 1; }
+    .kt-theme-label-toggle { display: inline; flex: 1; }
+    .kt-theme-caret { display: inline-block; }
+    .kt-theme-menu {
+        width: auto !important; left: auto !important; right: auto !important;
+        position: static !important; float: none !important;
+        background: rgba(255,255,255,0.04) !important;
+        box-shadow: none !important; border: 0 !important;
+        margin: 0 !important; padding: 4px 0 !important;
+    }
+    .kt-theme-menu a { padding: 12px 30px !important; }
+}
 
 /* ===== Tables (Bootstrap Dark-Override) ===== */
 .table { color: #d0d0d0; }
@@ -821,18 +843,19 @@ a.navbar-brand {
     background: #303030 !important;
 }
 
-/* User / Opponent highlight */
+/* User / Opponent highlight — Hintergrund identifiziert die Zeile, Textfarbe bleibt neutral
+   damit .winner-Highlights nicht mit der Zeilenfarbe verschmelzen */
 .ui-jqgrid tr.jqgrow.rowUser td,
 .ui-jqgrid tr.jqgrow.gridRowEven.rowUser td {
     background: #1e2e1e !important;
-    color: #80c080 !important;
+    color: #e8e8d8 !important;
     font-weight: 600;
 }
 
 .ui-jqgrid tr.jqgrow.rowOpponent td,
 .ui-jqgrid tr.jqgrow.gridRowEven.rowOpponent td {
     background: #2e2818 !important;
-    color: #d0a050 !important;
+    color: #e8e8d8 !important;
     font-weight: 600;
 }
 
@@ -881,6 +904,19 @@ a.navbar-brand {
 }
 .ui-jqgrid tr td.Bonus { color: #d0a050 !important; font-weight: 600; }
 .ui-jqgrid tr td.Result { font-weight: 600; color: #e0e0e0 !important; }
+.ui-jqgrid tr td span.winner { color: #58d68d !important; font-weight: 700; font-size: 1.05em; }
+.ui-jqgrid tr td span.draw { color: #8aae8a !important; }
+.ui-jqgrid tr td.Result span.running { font-style: italic; opacity: 0.85; }
+.ui-jqgrid tr td.Result span.running::before {
+    content: "● "; color: #e08080; font-style: normal; font-size: 0.7em;
+    animation: ResultLive 1.4s infinite ease-in-out;
+}
+@keyframes ResultLive { 0%,100%{opacity:1} 50%{opacity:0.3} }
+.ui-jqgrid .liveBadge {
+    color: #e08080; font-size: 0.8em; font-weight: 600; letter-spacing: 0.3px;
+    margin-left: 0.4em; vertical-align: middle;
+}
+.ui-jqgrid .liveBadge::first-letter { animation: ResultLive 1.4s infinite ease-in-out; }
 .ui-jqgrid p.hdrRes { color: #999; font-weight: 600; }
 .ui-jqgrid td.Date { font-size: 0.85em; }
 .ui-jqgrid td.Time { font-size: 0.85em; }

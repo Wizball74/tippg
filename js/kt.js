@@ -285,7 +285,7 @@
                     var cur = localStorage.getItem('kt_theme') || 'classic';
                     var li = $j('<li class="dropdown kt-theme-switch"/>');
                     var toggle = $j('<a href="#" class="dropdown-toggle" data-toggle="dropdown" role="button" aria-haspopup="true" aria-expanded="false"/>');
-                    toggle.html('<span class="kt-theme-icon">&#9788;</span>');
+                    toggle.html('<span class="kt-theme-icon">&#9788;</span><span class="kt-theme-label-toggle">Theme</span><span class="caret kt-theme-caret"></span>');
                     var ul = $j('<ul class="dropdown-menu dropdown-menu-right kt-theme-menu"/>');
                     $j.each(themes, function(i, t) {
                         var a = $j('<a href="#"/>').attr('data-theme', t.id)

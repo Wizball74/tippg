@@ -127,6 +127,19 @@ div#username { color: #1a2332; font-weight: 500; }
 .ui-jqgrid tr td.Pts1 { color: #5a6c7d !important;}
 .ui-jqgrid tr td.Bonus { color: #2c5f2d !important;}
 .ui-jqgrid tr td.Result { }
+.ui-jqgrid tr td span.winner { color: #1b5e20 !important; font-weight: 700; font-size: 1.05em; }
+.ui-jqgrid tr td span.draw { color: #558b2f !important; }
+.ui-jqgrid tr td.Result span.running { font-style: italic; opacity: 0.85; }
+.ui-jqgrid tr td.Result span.running::before {
+    content: "● "; color: #d32f2f; font-style: normal; font-size: 0.7em;
+    animation: ResultLive 1.4s infinite ease-in-out;
+}
+@keyframes ResultLive { 0%,100%{opacity:1} 50%{opacity:0.3} }
+.ui-jqgrid .liveBadge {
+    color: #d32f2f; font-size: 0.8em; font-weight: 600; letter-spacing: 0.3px;
+    margin-left: 0.4em; vertical-align: middle;
+}
+.ui-jqgrid .liveBadge::first-letter { animation: ResultLive 1.4s infinite ease-in-out; }
 .ui-jqgrid p.hdrRes { color: #5a6c7d; }
 
 /* Mobile touch */

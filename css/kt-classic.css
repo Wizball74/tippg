@@ -157,4 +157,17 @@ tbody tr.red:nth-child(even) td { background-color: rgba(255, 0, 0, 0.4); }
 .ui-jqgrid tr td.Pts1 { color: #626262 !important;}
 .ui-jqgrid tr td.Bonus { color: #6C6F8F !important;}
 .ui-jqgrid tr td.Result { }
+.ui-jqgrid tr td span.winner { color: #2e7d32 !important; font-weight: 700; font-size: 1.05em; }
+.ui-jqgrid tr td span.draw { color: #689f38 !important; }
+.ui-jqgrid tr td.Result span.running { font-style: italic; opacity: 0.85; }
+.ui-jqgrid tr td.Result span.running::before {
+    content: "● "; color: #c62828; font-style: normal; font-size: 0.7em;
+    animation: ResultLive 1.4s infinite ease-in-out;
+}
+@keyframes ResultLive { 0%,100%{opacity:1} 50%{opacity:0.3} }
+.ui-jqgrid .liveBadge {
+    color: #c62828; font-size: 0.8em; font-weight: 600; letter-spacing: 0.3px;
+    margin-left: 0.4em; vertical-align: middle;
+}
+.ui-jqgrid .liveBadge::first-letter { animation: ResultLive 1.4s infinite ease-in-out; }
 .ui-jqgrid p.hdrRes { color: #626262; }

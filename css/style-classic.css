@@ -350,6 +350,26 @@
 .kt-theme-desc { display: block; font-size: 12px; color: #888; margin-top: 2px; font-weight: normal; font-style: italic; }
 .kt-theme-active .kt-theme-label { color: #4a7c59 !important; }
 .kt-theme-menu li + li { border-top: 1px solid #eee; }
+.kt-theme-label-toggle, .kt-theme-caret { display: none; }
+@media (max-width: 767px) {
+    .kt-theme-switch { margin-left: 0 !important; }
+    .kt-theme-switch > a.dropdown-toggle {
+        padding: 12px 15px !important;
+        display: flex; align-items: center; gap: 10px;
+        font-size: 16px;
+    }
+    .kt-theme-icon { font-size: 20px; opacity: 1; }
+    .kt-theme-label-toggle { display: inline; flex: 1; }
+    .kt-theme-caret { display: inline-block; }
+    .kt-theme-menu {
+        width: auto !important; left: auto !important; right: auto !important;
+        position: static !important; float: none !important;
+        background: rgba(0,0,0,0.03) !important;
+        box-shadow: none !important; border: 0 !important;
+        margin: 0 !important; padding: 4px 0 !important;
+    }
+    .kt-theme-menu a { padding: 12px 30px !important; }
+}
 
 /* Navbar */
 .navbar-default {
